@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DART · ARCHIVE VIEWER</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=IBM+Plex+Sans+KR:wght@300;400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ─── 기본 변수 ─── */
+        :root {
+            --bg: #0a0e12;
+            --bg2: #101518;
+            --bg3: #161c22;
+            --border: #1e2d3a;
+            --border2: #2a4055;
+            --text: #c8d6e5;
+            --text2: #7d8590;
+            --text3: #555;
+            --accent: #26a69a;
+            --accent2: #2d7a72;
+            --blue: #5b9bc4;
+            --green: #26a69a;
+            --yellow: #f0c040;
+            --red: #ef5350;
+            --up: #26a69a;
+            --down: #ef5350;
+            --mono: 'JetBrains Mono', monospace;
+            --sans: 'IBM Plex Sans KR', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 13px;
+            min-height: 100vh;
+        }
+
+        /* ─── 헤더 — index.html 기준 높이 통일 ─── */
+        .header {
+            padding: 12px 20px;
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--text2);
+            font-size: 11px;
+            font-family: var(--mono);
+        }
+
+        .nav-link:hover {
+            color: var(--text);
+        }
+
+        .divider {
+            width: 1px;
+            height: 14px;
+            background: var(--border);
+        }
+
+        .logo {
+            font-family: var(--mono);
+            font-size: 13px;
+            letter-spacing: 3px;
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .header-right {
+            font-size: 11px;
+            color: var(--text3);
+            font-family: var(--mono);
+        }
+
+        /* ─── 메인 레이아웃 ─── */
+        .main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ─── 상태 카드 그리드 ─── */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .status-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 14px;
+            text-align: center;
+        }
+
+        .status-card .count {
+            font-size: 28px;
+            font-weight: 500;
+            font-family: var(--mono);
+            color: var(--accent);
+        }
+
+        .status-card .count.zero {
+            color: var(--text3);
+        }
+
+        .status-card .label {
+            font-size: 10px;
+            color: var(--text2);
+            letter-spacing: 2px;
+            margin-top: 4px;
+        }
+
+        .status-card .modified {
+            font-size: 9px;
+            color: var(--text3);
+            margin-top: 6px;
+        }
+
+        /* ─── 섹션 ─── */
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            font-family: var(--mono);
+            letter-spacing: 2px;
+            color: var(--text2);
+        }
+
+        .section-count {
+            font-size: 10px;
+            color: var(--text3);
+            font-family: var(--mono);
+        }
+
+        /* ─── 파일 리스트 ─── */
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .file-item:hover {
+            border-color: var(--border2);
+            background: var(--bg3);
+        }
+
+        .file-item.active {
+            border-color: var(--accent2);
+            background: rgba(38, 166, 154, 0.08);
+        }
+
+        .file-name {
+            font-family: var(--mono);
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        .file-arrow {
+            color: var(--text3);
+            font-size: 11px;
+        }
+
+        /* ─── 카테고리 탭 ─── */
+        .cat-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+
+        .cat-tab {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            color: var(--text2);
+            font-size: 11px;
+            font-family: var(--mono);
+            padding: 5px 14px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .cat-tab:hover {
+            border-color: var(--border2);
+            color: var(--text);
+        }
+
+        .cat-tab.active {
+            background: var(--accent2);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        /* ─── 콘텐츠 뷰어 ─── */
+        .viewer {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            max-height: 500px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+
+        .viewer::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .viewer::-webkit-scrollbar-thumb {
+            background: var(--border);
+        }
+
+        .viewer-header {
+            padding: 10px 14px;
+            background: var(--bg3);
+            border-bottom: 1px solid var(--border);
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--accent);
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+        }
+
+        .viewer-close {
+            background: none;
+            border: none;
+            color: var(--text3);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .viewer-close:hover {
+            color: var(--text);
+        }
+
+        .viewer-body {
+            padding: 14px;
+        }
+
+        /* ─── 스냅샷 내부 스타일 ─── */
+        .snap-section {
+            margin-bottom: 16px;
+        }
+
+        .snap-label {
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: var(--text3);
+            margin-bottom: 6px;
+            font-family: var(--mono);
+        }
+
+        .snap-stock {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+        }
+
+        .snap-stock-name {
+            color: var(--text);
+        }
+
+        .snap-stock-price {
+            font-family: var(--mono);
+        }
+
+        .snap-stock-chg {
+            font-family: var(--mono);
+            font-size: 11px;
+        }
+
+        .snap-insight {
+            padding: 6px 10px;
+            background: rgba(38, 166, 154, 0.06);
+            border-left: 2px solid var(--accent2);
+            margin-bottom: 4px;
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        /* ─── 이벤트 카드 ─── */
+        .event-card {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 10px 14px;
+            margin-bottom: 6px;
+        }
+
+        .event-category {
+            font-size: 9px;
+            letter-spacing: 2px;
+            color: var(--accent);
+            font-family: var(--mono);
+        }
+
+        .event-issue {
+            font-size: 12px;
+            color: var(--text);
+            margin: 4px 0;
+            line-height: 1.5;
+        }
+
+        .event-meta {
+            font-size: 10px;
+            color: var(--text3);
+        }
+
+        /* ─── 빈 상태 ─── */
+        .empty {
+            text-align: center;
+            padding: 30px;
+            color: var(--text3);
+            font-size: 12px;
+        }
+
+        /* ─── 로딩 ─── */
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text3);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 네비게이션 — index.html 기준 헤더 높이·스타일 통일 (ARC 제외) -->
+    <div class="header">
+        <div class="header-top">
+            <div class="logo">📦 ARCHIVE VIEWER</div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <a href="/"
+                    style="text-decoration:none;background:#0d1a2e;color:#64b5f6;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+                    title="DART 공시 모니터">📊 DART</a>
+                <a href="/us_market.html"
+                    style="text-decoration:none;background:#1a1a2e;color:#fff;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+                    title="미국시장">🇺🇸 US</a>
+                <a href="/context.html"
+                    style="text-decoration:none;background:#2d1e5e;color:#bb86fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+                    title="Context Tracker">🧠 CTX</a>
+                <a href="/stocks.html"
+                    style="text-decoration:none;background:#0d2818;color:#26a69a;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+                    title="종목 대시보드">📈 STOCK</a>
+                <a href="/predictions.html"
+                    style="text-decoration:none;background:#1a0d1a;color:#c084fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+                    title="예측 트래커">🎯 PRED</a>
+                <span id="lastUpdate" style="color:var(--text2);font-size:10px">—</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메인 -->
+    <div class="main">
+        <!-- 상태 카드 -->
+        <div class="status-grid" id="statusGrid">
+            <div class="loading"><span class="spinner"></span></div>
+        </div>
+
+        <!-- 카테고리 탭 -->
+        <div class="cat-tabs" id="catTabs"></div>
+
+        <!-- 파일 리스트 -->
+        <div class="section" id="fileSection" style="display:none;">
+            <div class="section-header">
+                <div class="section-title" id="sectionTitle">—</div>
+                <div class="section-count" id="sectionCount"></div>
+            </div>
+            <div class="file-list" id="fileList"></div>
+        </div>
+
+        <!-- 콘텐츠 뷰어 -->
+        <div class="viewer" id="viewer" style="display:none;">
+            <div class="viewer-header">
+                <span id="viewerTitle">—</span>
+                <button class="viewer-close" onclick="closeViewer()">✕</button>
+            </div>
+            <div class="viewer-body" id="viewerBody"></div>
+        </div>
+    </div>
+
+    <script>
+        // ─── 아카이브 API 호출 (독립) ───
+        async function fetchAPI(url) {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`API 오류: ${resp.status}`);
+            return resp.json();
+        }
+
+        // ─── 현재 선택된 카테고리 ───
+        let currentType = null;
+
+        // ─── 상태 카드 로드 ──���
+        async function loadStatus() {
+            try {
+                const data = await fetchAPI('/api/archive/status');
+                const status = data.status;
+                const grid = document.getElementById('statusGrid');
+
+                // 카테고리 이름 매핑
+                const labels = {
+                    daily: '📅 일별',
+                    weekly: '📊 주간',
+                    monthly: '📆 월간',
+                    quarterly: '📈 분기',
+                    yearly: '🗓️ 연간',
+                    events: '⚡ 이벤트'
+                };
+
+                grid.innerHTML = Object.entries(status).map(([key, val]) => `
+                    <div class="status-card" onclick="loadList('${key}')" style="cursor:pointer;">
+                        <div class="count ${val.count === 0 ? 'zero' : ''}">${val.count}</div>
+                        <div class="label">${labels[key] || key}</div>
+                        ${val.latestModified ? `<div class="modified">${formatDate(val.latestModified)}</div>` : '<div class="modified">—</div>'}
+                    </div>
+                `).join('');
+
+                // 카테고리 탭 생성
+                const tabs = document.getElementById('catTabs');
+                tabs.innerHTML = Object.entries(status).map(([key, val]) => `
+                    <button class="cat-tab" data-type="${key}" onclick="loadList('${key}')">${labels[key] || key} (${val.count})</button>
+                `).join('');
+
+                // 마지막 업데이트 시간
+                const latestDates = Object.values(status).map(v => v.latestModified).filter(Boolean);
+                if (latestDates.length > 0) {
+                    const latest = latestDates.sort().reverse()[0];
+                    document.getElementById('lastUpdate').textContent = '최종: ' + formatDate(latest);
+                }
+
+            } catch (e) {
+                document.getElementById('statusGrid').innerHTML = `<div class="empty">⚠️ 로드 실패: ${e.message}</div>`;
+            }
+        }
+
+        // ─── 파일 목록 로드 ───
+        async function loadList(type) {
+            currentType = type;
+
+            // 탭 활성화
+            document.querySelectorAll('.cat-tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.type === type);
+            });
+
+            // 뷰어 닫기
+            closeViewer();
+
+            const section = document.getElementById('fileSection');
+            const list = document.getElementById('fileList');
+            section.style.display = '';
+
+            const labels = { daily: '일별 스냅샷', weekly: '주간 요약', monthly: '월간 요약', quarterly: '분기 요약', yearly: '연간 요약', events: '��곡점 이벤트' };
+            document.getElementById('sectionTitle').textContent = labels[type] || type;
+
+            list.innerHTML = '<div class="loading"><span class="spinner"></span></div>';
+
+            try {
+                const data = await fetchAPI(`/api/archive/list/${type}`);
+                document.getElementById('sectionCount').textContent = `${data.total}건`;
+
+                if (data.files.length === 0) {
+                    list.innerHTML = '<div class="empty">아직 데이터가 없습니다</div>';
+                    return;
+                }
+
+                list.innerHTML = data.files.map(f => `
+                    <div class="file-item" data-file="${f}" onclick="loadFile('${type}', '${f}', this)">
+                        <span class="file-name">${f.replace('.json', '')}</span>
+                        <span class="file-arrow">→</span>
+                    </div>
+                `).join('');
+
+            } catch (e) {
+                list.innerHTML = `<div class="empty">⚠️ 목록 로드 실패: ${e.message}</div>`;
+            }
+        }
+
+        // ─── 파일 내용 로드 ───
+        async function loadFile(type, name, el) {
+            // 활성 표시
+            document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
+            if (el) el.classList.add('active');
+
+            const viewer = document.getElementById('viewer');
+            const body = document.getElementById('viewerBody');
+            viewer.style.display = '';
+            document.getElementById('viewerTitle').textContent = `${type} / ${name}`;
+            body.innerHTML = '<div class="loading"><span class="spinner"></span></div>';
+
+            try {
+                const data = await fetchAPI(`/api/archive/file/${type}/${name}`);
+                const content = data.content;
+
+                if (type === 'daily') {
+                    body.innerHTML = renderDaily(content);
+                } else if (type === 'events') {
+                    body.innerHTML = renderEvents(content);
+                } else {
+                    // 기타: JSON 트리로 표시
+                    body.innerHTML = renderGeneric(content);
+                }
+            } catch (e) {
+                body.innerHTML = `<div class="empty">⚠️ 파일 로드 실패: ${e.message}</div>`;
+            }
+        }
+
+        // ─── 일별 스냅샷 렌더링 ───
+        function renderDaily(data) {
+            let html = '';
+
+            // 날짜 + 요약
+            html += `<div class="snap-section">`;
+            html += `<div class="snap-label">DATE</div>`;
+            html += `<div style="font-size:14px;color:var(--accent);font-family:var(--mono);">${data.date || '—'}</div>`;
+            html += `</div>`;
+
+            // 마켓 요약
+            if (data.market) {
+                html += `<div class="snap-section">`;
+                html += `<div class="snap-label">MARKET SUMMARY</div>`;
+                html += `<div style="font-size:12px;color:var(--text2);">뉴스 ${data.market.newsCount || 0}건 · 리포트 ${data.market.reportCount || 0}건</div>`;
+
+                // 핵심 인사이트
+                if (data.market.keyInsights && data.market.keyInsights.length > 0) {
+                    html += `<div style="margin-top:8px;">`;
+                    data.market.keyInsights.forEach(insight => {
+                        const title = typeof insight === 'string' ? insight : (insight.title || insight.summary || JSON.stringify(insight));
+                        const cls = insight.cls || '';
+                        const clsColor = cls === 'good' ? 'var(--green)' : cls === 'bad' ? 'var(--red)' : 'var(--text2)';
+                        html += `<div class="snap-insight" style="border-left-color:${clsColor};">${escH(title)}</div>`;
+                    });
+                    html += `</div>`;
+                }
+                html += `</div>`;
+            }
+
+            // 종목별 주가
+            if (data.stocks && Object.keys(data.stocks).length > 0) {
+                html += `<div class="snap-section">`;
+                html += `<div class="snap-label">STOCKS (${Object.keys(data.stocks).length}종목)</div>`;
+                Object.entries(data.stocks).forEach(([name, s]) => {
+                    const chg = s.change || 0;
+                    const chgColor = chg >= 0 ? 'var(--up)' : 'var(--down)';
+                    const arrow = chg >= 0 ? '▲' : '▼';
+                    html += `<div class="snap-stock">
+                        <span class="snap-stock-name">${escH(name)}</span>
+                        <span class="snap-stock-price">${s.price ? Number(s.price).toLocaleString() : '—'}</span>
+                        <span class="snap-stock-chg" style="color:${chgColor}">${arrow} ${Math.abs(chg).toFixed(2)}%</span>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+
+            return html || '<div class="empty">데이터 없음</div>';
+        }
+
+        // ─── 이벤트 렌더링 ───
+        function renderEvents(data) {
+            // 이벤트 파일은 배열일 수 있음
+            const events = Array.isArray(data) ? data : [data];
+            if (events.length === 0) return '<div class="empty">이벤트 없음</div>';
+
+            return events.map(ev => `
+                <div class="event-card">
+                    <div class="event-category">${escH(ev.category || '기타')}</div>
+                    <div class="event-issue">${escH(ev.issue || ev.title || '')}</div>
+                    <div class="event-meta">
+                        ${ev.sentiment ? `감성: ${escH(ev.sentiment)}` : ''}
+                        ${ev.affectedSectors ? ` · 영향: ${escH(ev.affectedSectors)}` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ─── 기타 JSON 렌더링 ───
+        function renderGeneric(data) {
+            return `<pre style="font-family:var(--mono);font-size:11px;color:var(--text2);white-space:pre-wrap;word-break:break-all;">${escH(JSON.stringify(data, null, 2))}</pre>`;
+        }
+
+        // ─── 뷰어 닫기 ───
+        function closeViewer() {
+            document.getElementById('viewer').style.display = 'none';
+            document.querySelectorAll('.file-item').forEach(i => i.classList.remove('active'));
+        }
+
+        // ─── 유틸 ───
+        function escH(s) { return s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''; }
+
+        function formatDate(isoStr) {
+            if (!isoStr) return '—';
+            try {
+                const d = new Date(isoStr);
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            } catch { return isoStr; }
+        }
+
+        // ─── 초기 로드 ───
+        loadStatus();
+    </script>
+</body>
+
+</html>

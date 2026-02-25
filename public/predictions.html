@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DART — PREDICTION TRACKER</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ─── 기본 다크 테마 ─── */
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --border: #1e1e2e;
+            --text: #e8e8f0;
+            --muted: #6e6e8a;
+            --accent: #7c3aed;
+            --green: #22c55e;
+            --red: #ef4444;
+            --yellow: #f0c040;
+            --blue: #3b82f6;
+            --orange: #f97316;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans KR', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ─── 헤더 — index.html 기준 높이 통일 ─── */
+        header {
+            padding: 12px 20px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 2px;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--muted);
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            transition: color .2s;
+        }
+
+        .nav-link:hover {
+            color: var(--text);
+        }
+
+        .divider {
+            width: 1px;
+            height: 16px;
+            background: var(--border);
+        }
+
+        /* ─── 메인 ─── */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ─── 통계 카드 ─── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--muted);
+            margin-bottom: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-sub {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        /* ─── 섹션 ─── */
+        .section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .section-body {
+            padding: 0;
+        }
+
+        /* ─── 예측 카드 ─── */
+        .pred-item {
+            display: grid;
+            grid-template-columns: 60px 1fr 80px 80px 70px;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+            transition: background .15s;
+        }
+
+        .pred-item:hover {
+            background: rgba(124, 58, 237, .06);
+        }
+
+        .pred-item:last-child {
+            border-bottom: none;
+        }
+
+        .direction {
+            font-size: 20px;
+            font-weight: 700;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .dir-up {
+            color: var(--red);
+        }
+
+        .dir-down {
+            color: var(--blue);
+        }
+
+        .dir-flat {
+            color: var(--muted);
+        }
+
+        .pred-info .name {
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+
+        .pred-info .detail {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .pred-meta {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            text-align: right;
+        }
+
+        /* ─── 점수 바 ─── */
+        .score-bar {
+            position: relative;
+            height: 22px;
+            background: rgba(255, 255, 255, .05);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .score-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width .4s;
+        }
+
+        .score-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        /* ─── 배지 ─── */
+        .badge {
+            display: inline-block;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        .badge-correct {
+            background: rgba(34, 197, 94, .15);
+            color: var(--green);
+        }
+
+        .badge-wrong {
+            background: rgba(239, 68, 68, .15);
+            color: var(--red);
+        }
+
+        .badge-active {
+            background: rgba(124, 58, 237, .15);
+            color: var(--accent);
+        }
+
+        .badge-high {
+            background: rgba(239, 68, 68, .15);
+            color: var(--red);
+        }
+
+        .badge-medium {
+            background: rgba(249, 115, 22, .15);
+            color: var(--orange);
+        }
+
+        .badge-low {
+            background: rgba(107, 114, 128, .15);
+            color: var(--muted);
+        }
+
+        /* ─── 버튼 ─── */
+        .btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--surface);
+            color: var(--text);
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #6d28d9;
+        }
+
+        /* ─── 탭 ─── */
+        .tabs {
+            display: flex;
+            gap: 2px;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--muted);
+            transition: all .2s;
+            border: 1px solid transparent;
+        }
+
+        .tab:hover {
+            color: var(--text);
+        }
+
+        .tab.active {
+            background: rgba(124, 58, 237, .12);
+            color: var(--accent);
+            border-color: rgba(124, 58, 237, .3);
+        }
+
+        /* ─── 빈 상태 ─── */
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        /* ─── 종목별 테이블 ─── */
+        .stock-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .stock-table th,
+        .stock-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+        }
+
+        .stock-table th {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stock-table tr:hover td {
+            background: rgba(124, 58, 237, .04);
+        }
+
+        /* ─── 로딩 ─── */
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: var(--muted);
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ─── 반응형 ─── */
+        @media (max-width: 768px) {
+            .pred-item {
+                grid-template-columns: 40px 1fr 60px;
+            }
+
+            .pred-item> :nth-child(4),
+            .pred-item> :nth-child(5) {
+                display: none;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 네비게이션 — index.html 기준 헤더 높이·스타일 통일 (PRED 제외) -->
+    <header>
+        <div class="header-top">
+            <div class="logo">🎯 PREDICTION TRACKER</div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <a href="/"
+                    style="text-decoration:none;background:#0d1a2e;color:#64b5f6;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+                    title="DART 공시 모니터">📊 DART</a>
+                <a href="/us_market.html"
+                    style="text-decoration:none;background:#1a1a2e;color:#fff;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+                    title="미국시장">🇺🇸 US</a>
+                <a href="/context.html"
+                    style="text-decoration:none;background:#2d1e5e;color:#bb86fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+                    title="Context Tracker">🧠 CTX</a>
+                <a href="/stocks.html"
+                    style="text-decoration:none;background:#0d2818;color:#26a69a;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+                    title="종목 대시보드">📈 STOCK</a>
+                <a href="/archive.html"
+                    style="text-decoration:none;background:#1a1a0d;color:#f0c040;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+                    title="아카이브 뷰어">📦 ARC</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <!-- 통계 카드 -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="loading">통계 로딩 중</div>
+        </div>
+
+        <!-- 탭 -->
+        <div class="tabs" id="mainTabs">
+            <div class="tab active" data-tab="active" onclick="switchTab('active')">⏳ 진행 중</div>
+            <div class="tab" data-tab="evaluated" onclick="switchTab('evaluated')">✅ 평가 완료</div>
+            <div class="tab" data-tab="byStock" onclick="switchTab('byStock')">📊 종목별</div>
+            <div class="tab" data-tab="bySource" onclick="switchTab('bySource')">🏷️ 출처별</div>
+        </div>
+
+        <!-- 탭 내용 -->
+        <div class="section">
+            <div class="section-header">
+                <span id="sectionTitle">⏳ 진행 중인 예측</span>
+                <button class="btn" onclick="runEvaluation()">🔄 수동 평가</button>
+            </div>
+            <div class="section-body" id="tabContent">
+                <div class="loading">데이터 로딩 중</div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ─── 독립 API 호출 ───
+        async function fetchAPI(url) {
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error(`API 오류: ${resp.status}`);
+            return resp.json();
+        }
+
+        let currentTab = 'active';
+        let statsData = null;
+
+        // ─── 초기화 ───
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadActive();
+        });
+
+        // ─── 통계 로드 ───
+        async function loadStats() {
+            try {
+                const data = await fetchAPI('/api/predictions/stats');
+                statsData = data.stats;
+                const t = statsData.total;
+                const accuracy = t.evaluated > 0 ? t.accuracy || 0 : '-';
+                const avgScore = t.evaluated > 0 ? t.avgScore || 0 : '-';
+
+                document.getElementById('statsGrid').innerHTML = `
+            <div class="stat-card">
+                <div class="stat-label">총 예측</div>
+                <div class="stat-value">${t.predictions}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">평가 완료</div>
+                <div class="stat-value">${t.evaluated}</div>
+                <div class="stat-sub">${t.predictions > 0 ? Math.round(t.evaluated / t.predictions * 100) : 0}% 평가됨</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">방향 적중률</div>
+                <div class="stat-value" style="color: ${getAccuracyColor(accuracy)}">${accuracy}${typeof accuracy === 'number' ? '%' : ''}</div>
+                <div class="stat-sub">${t.correct}/${t.evaluated} 적중</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">평균 점수</div>
+                <div class="stat-value" style="color: ${getScoreColor(avgScore)}">${avgScore}</div>
+                <div class="stat-sub">100점 만점</div>
+            </div>
+        `;
+            } catch (e) {
+                document.getElementById('statsGrid').innerHTML = `<div class="empty">⚠️ 통계 로드 실패: ${e.message}</div>`;
+            }
+        }
+
+        // ─── 탭 전환 ───
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+
+            const titles = {
+                active: '⏳ 진행 중인 예측',
+                evaluated: '✅ 평가 완료된 예측',
+                byStock: '📊 종목별 통계',
+                bySource: '🏷️ 출처별 통계'
+            };
+            document.getElementById('sectionTitle').textContent = titles[tab] || '';
+
+            if (tab === 'active') loadActive();
+            else if (tab === 'evaluated') loadEvaluated();
+            else if (tab === 'byStock') renderByStock();
+            else if (tab === 'bySource') renderBySource();
+        }
+
+        // ─── 활성 예측 로드 ───
+        async function loadActive() {
+            const el = document.getElementById('tabContent');
+            el.innerHTML = '<div class="loading">로딩 중</div>';
+            try {
+                const data = await fetchAPI('/api/predictions');
+                if (!data.predictions || data.predictions.length === 0) {
+                    el.innerHTML = '<div class="empty">📭 진행 중인 예측이 없습니다</div>';
+                    return;
+                }
+                el.innerHTML = data.predictions.map(p => renderActivePred(p)).join('');
+            } catch (e) {
+                el.innerHTML = `<div class="empty">⚠️ 로드 실패: ${e.message}</div>`;
+            }
+        }
+
+        // ─── 평가 완료 로드 ───
+        async function loadEvaluated() {
+            const el = document.getElementById('tabContent');
+            el.innerHTML = '<div class="loading">로딩 중</div>';
+            try {
+                const data = await fetchAPI('/api/predictions/evaluated?limit=100');
+                if (!data.predictions || data.predictions.length === 0) {
+                    el.innerHTML = '<div class="empty">📭 평가된 예측이 없습니다</div>';
+                    return;
+                }
+                el.innerHTML = data.predictions.map(p => renderEvalPred(p)).join('');
+            } catch (e) {
+                el.innerHTML = `<div class="empty">⚠️ 로드 실패: ${e.message}</div>`;
+            }
+        }
+
+        // ─── 활성 예측 렌더링 ───
+        function renderActivePred(p) {
+            // 표준 형식: prediction.direction / 엑셀 형식: direction 직접
+            const pred = p.prediction || {};
+            const dir = pred.direction || p.direction || 'flat';
+            const dirLabel = getDirectionLabel(dir);
+            const dirClass = getDirectionClass(dir);
+            const name = p.name || p.stockName || p.code || '?';
+            const code = p.code || p.stockCode || '';
+            const confidence = pred.confidence || p['신뢰도'] || 'medium';
+            const targetPrice = pred.targetPrice || p.predictedPrice || null;
+            const basePrice = pred.priceAtPrediction || p.previousClose || null;
+            const timeframe = pred.timeframe || p.timeframe || '1d';
+            const dueDate = p.dueDate || p.targetDate || '-';
+
+            return `
+        <div class="pred-item">
+            <div class="direction ${dirClass}">${dirLabel}</div>
+            <div class="pred-info">
+                <div class="name">${name} <span style="color:var(--muted);font-size:11px">${code}</span></div>
+                <div class="detail">
+                    기준가 ${formatPrice(basePrice)} → 목표 ${formatPrice(targetPrice)}
+                    · <span class="badge badge-${confidence}">${confidence}</span>
+                    · ${timeframe}
+                </div>
+            </div>
+            <div class="pred-meta">${dueDate}</div>
+            <div class="pred-meta"><span class="badge badge-active">ACTIVE</span></div>
+            <div class="pred-meta">${p.source || '-'}</div>
+        </div>
+    `;
+        }
+
+        // ─── 평가 완료 렌더링 ───
+        function renderEvalPred(p) {
+            const pred = p.prediction || {};
+            const ev = p.evaluation || {};
+
+            // 표준 형식 vs 엑셀 마이그레이션 형식 처리
+            const dir = pred.direction || p.direction || 'flat';
+            const dirLabel = getDirectionLabel(dir);
+            const dirClass = getDirectionClass(dir);
+            const name = p.name || p.stockName || p.code || '?';
+            const code = p.code || p.stockCode || '';
+
+            // 평가 결과
+            const correct = ev.directionCorrect;
+            const score = ev.score || 0;
+            const actualChange = ev.actualChange;
+            const actualPrice = ev.actualPrice;
+            const basePrice = pred.priceAtPrediction || p.previousClose || null;
+
+            // 날짜
+            const predDate = p.predictionDate || (p.createdAt ? p.createdAt.slice(0, 10) : '-');
+
+            // 엑셀 마이그레이션 형식일 경우 directionCorrect가 없을 수 있음
+            const hasEval = ev.directionCorrect !== undefined;
+
+            return `
+        <div class="pred-item">
+            <div class="direction ${dirClass}">${dirLabel}</div>
+            <div class="pred-info">
+                <div class="name">
+                    ${name}
+                    <span style="color:var(--muted);font-size:11px">${code}</span>
+                    ${hasEval ?
+                    `<span class="badge ${correct ? 'badge-correct' : 'badge-wrong'}">${correct ? '적중' : '미적중'}</span>` :
+                    `<span class="badge" style="background:rgba(107,114,128,.15);color:var(--muted)">미평가</span>`
+                }
+                </div>
+                <div class="detail">
+                    ${formatPrice(basePrice)} → 실제 ${formatPrice(actualPrice)}
+                    ${actualChange !== null && actualChange !== undefined ?
+                    `(<span style="color:${actualChange >= 0 ? 'var(--red)' : 'var(--blue)'}">
+                            ${actualChange >= 0 ? '+' : ''}${actualChange}%
+                        </span>)` : ''}
+                    · ${predDate}
+                </div>
+            </div>
+            <div class="pred-meta">${p.source || '-'}</div>
+            <div>
+                ${hasEval ? renderScoreBar(score) : '<span style="color:var(--muted);font-size:11px">-</span>'}
+            </div>
+            <div class="pred-meta" style="color:${getScoreColor(score)};font-weight:700">${hasEval ? score + '점' : '-'}</div>
+        </div>
+    `;
+        }
+
+        // ─── 종목별 통계 ───
+        function renderByStock() {
+            const el = document.getElementById('tabContent');
+            if (!statsData || Object.keys(statsData.byStock).length === 0) {
+                el.innerHTML = '<div class="empty">📭 종목별 통계가 없습니다</div>';
+                return;
+            }
+
+            const rows = Object.entries(statsData.byStock)
+                .sort((a, b) => b[1].evaluated - a[1].evaluated)
+                .map(([code, s]) => `
+            <tr>
+                <td style="font-weight:600">${s.name || code}</td>
+                <td style="font-family:'JetBrains Mono',monospace">${code}</td>
+                <td>${s.predictions}</td>
+                <td>${s.evaluated}</td>
+                <td style="color:${getAccuracyColor(s.accuracy || 0)};font-weight:600">
+                    ${s.accuracy !== undefined ? s.accuracy + '%' : '-'}
+                </td>
+                <td>${s.correct || 0}</td>
+                <td style="color:${getScoreColor(s.avgScore || 0)}">${s.avgScore || '-'}</td>
+            </tr>
+        `).join('');
+
+            el.innerHTML = `
+        <table class="stock-table">
+            <thead><tr>
+                <th>종목</th><th>코드</th><th>예측 수</th><th>평가</th>
+                <th>적중률</th><th>적중</th><th>평균 점수</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+        }
+
+        // ─── 출처별 통계 ───
+        function renderBySource() {
+            const el = document.getElementById('tabContent');
+            if (!statsData) {
+                el.innerHTML = '<div class="empty">📭 출처별 통계가 없습니다</div>';
+                return;
+            }
+
+            // 출처별 + 기간별 합침
+            const sections = [];
+
+            if (Object.keys(statsData.bySource).length > 0) {
+                const srcRows = Object.entries(statsData.bySource)
+                    .map(([src, s]) => `
+                <tr>
+                    <td style="font-weight:600">🏷️ ${src}</td>
+                    <td>${s.predictions}</td><td>${s.evaluated}</td>
+                    <td style="color:${getAccuracyColor(s.accuracy || 0)};font-weight:600">${s.accuracy !== undefined ? s.accuracy + '%' : '-'}</td>
+                    <td style="color:${getScoreColor(s.avgScore || 0)}">${s.avgScore || '-'}</td>
+                </tr>
+            `).join('');
+                sections.push(srcRows);
+            }
+
+            if (Object.keys(statsData.byTimeframe).length > 0) {
+                const tfRows = Object.entries(statsData.byTimeframe)
+                    .map(([tf, s]) => `
+                <tr>
+                    <td style="font-weight:600">⏱️ ${tf}</td>
+                    <td>${s.predictions}</td><td>${s.evaluated}</td>
+                    <td style="color:${getAccuracyColor(s.accuracy || 0)};font-weight:600">${s.accuracy !== undefined ? s.accuracy + '%' : '-'}</td>
+                    <td style="color:${getScoreColor(s.avgScore || 0)}">${s.avgScore || '-'}</td>
+                </tr>
+            `).join('');
+                sections.push(tfRows);
+            }
+
+            if (sections.length === 0) {
+                el.innerHTML = '<div class="empty">📭 통계가 없습니다</div>';
+                return;
+            }
+
+            el.innerHTML = `
+        <table class="stock-table">
+            <thead><tr>
+                <th>구분</th><th>예측 수</th><th>평가</th><th>적중률</th><th>평균 점수</th>
+            </tr></thead>
+            <tbody>${sections.join('')}</tbody>
+        </table>
+    `;
+        }
+
+        // ─── 수동 평가 실행 ───
+        async function runEvaluation() {
+            if (!confirm('만기된 예측을 수동 평가하시겠습니까?')) return;
+            try {
+                const resp = await fetch('/api/predictions/evaluate', { method: 'POST' });
+                const data = await resp.json();
+                if (data.ok) {
+                    alert(`평가 완료: ${data.result.evaluated}건 평가, ${data.result.errors}건 오류`);
+                    loadStats();
+                    if (currentTab === 'active') loadActive();
+                    else if (currentTab === 'evaluated') loadEvaluated();
+                } else {
+                    alert('평가 실패: ' + (data.error || '알 수 없는 오류'));
+                }
+            } catch (e) {
+                alert('평가 요청 실패: ' + e.message);
+            }
+        }
+
+        // ─── 유틸: 방향 라벨/클래스 ───
+        function getDirectionLabel(dir) {
+            // 한글 방향 처리 (엑셀 마이그레이션)
+            if (dir === 'up' || dir === '상승') return '▲';
+            if (dir === 'down' || dir === '하락') return '▼';
+            return '━';
+        }
+
+        function getDirectionClass(dir) {
+            if (dir === 'up' || dir === '상승') return 'dir-up';
+            if (dir === 'down' || dir === '하락') return 'dir-down';
+            return 'dir-flat';
+        }
+
+        // ─── 유틸: 가격 포맷 ───
+        function formatPrice(p) {
+            if (!p) return '-';
+            return Number(p).toLocaleString() + '원';
+        }
+
+        // ─── 유틸: 색상 ───
+        function getAccuracyColor(v) {
+            if (typeof v !== 'number') return 'var(--muted)';
+            if (v >= 70) return 'var(--green)';
+            if (v >= 50) return 'var(--yellow)';
+            return 'var(--red)';
+        }
+
+        function getScoreColor(v) {
+            if (typeof v !== 'number') return 'var(--muted)';
+            if (v >= 70) return 'var(--green)';
+            if (v >= 50) return 'var(--yellow)';
+            if (v >= 30) return 'var(--orange)';
+            return 'var(--red)';
+        }
+
+        // ─── 유틸: 점수 바 ───
+        function renderScoreBar(score) {
+            const color = score >= 70 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : score >= 30 ? 'var(--orange)' : 'var(--red)';
+            return `
+        <div class="score-bar">
+            <div class="score-fill" style="width:${score}%;background:${color}"></div>
+            <div class="score-text">${score}</div>
+        </div>
+    `;
+        }
+    </script>
+</body>
+
+</html>

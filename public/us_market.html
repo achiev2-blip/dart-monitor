@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>미국 시장 대시보드</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --bg: #080b12;
+      --panel: #0d1117;
+      --border: #1c2333;
+      --accent: #00d4aa;
+      --accent2: #ff6b35;
+      --up: #26a69a;
+      --down: #ef5350;
+      --text: #e6edf3;
+      --muted: #7d8590;
+      --header-h: 52px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans KR', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER — index.html 기준 높이 통일 ── */
+    header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      flex-shrink: 0;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 2px;
+      white-space: nowrap;
+    }
+
+    .divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+    }
+
+    .market-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #555;
+      transition: background 0.3s;
+    }
+
+    .status-dot.open {
+      background: var(--up);
+      box-shadow: 0 0 8px var(--up);
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.pre {
+      background: #f0c040;
+    }
+
+    .status-dot.after {
+      background: var(--accent2);
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(38, 166, 154, 0.4);
+      }
+
+      50% {
+        box-shadow: 0 0 0 6px rgba(38, 166, 154, 0);
+      }
+    }
+
+    .clocks {
+      display: flex;
+      gap: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .clocks .kst {
+      color: var(--text);
+    }
+
+    .clocks .label {
+      color: var(--muted);
+      font-size: 9px;
+      margin-right: 4px;
+    }
+
+    /* ── CATEGORY TABS ── */
+    .tab-bar {
+      height: 34px;
+      background: #0a0e17;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 6px;
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      padding: 4px 14px;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.5px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-color: rgba(0, 212, 170, 0.3);
+      background: rgba(0, 212, 170, 0.08);
+    }
+
+    /* ── GRID ── */
+    .grid-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 3px;
+      padding: 3px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .chart-cell {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.2s, transform 0.15s;
+      min-height: 0;
+      cursor: pointer;
+    }
+
+    .chart-cell:hover {
+      border-color: #2d3748;
+      transform: scale(1.005);
+    }
+
+    .chart-cell.hidden {
+      display: none;
+    }
+
+    .cell-header {
+      height: 24px;
+      min-height: 24px;
+      background: #0a0e17;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      flex-shrink: 0;
+    }
+
+    .cell-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+    }
+
+    .cell-subtitle {
+      font-size: 8px;
+      color: var(--muted);
+    }
+
+    .cell-featured .cell-header {
+      background: rgba(0, 212, 170, 0.05);
+      border-bottom-color: rgba(0, 212, 170, 0.2);
+    }
+
+    .cell-featured {
+      border-color: rgba(0, 212, 170, 0.2);
+    }
+
+    .widget-wrap {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+
+    .widget-wrap .tradingview-widget-container,
+    .widget-wrap .tradingview-widget-container__widget {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* ── TAGS ── */
+    .tag {
+      font-size: 7px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.5px;
+    }
+
+    .tag-index {
+      background: rgba(0, 212, 170, 0.15);
+      color: var(--accent);
+    }
+
+    .tag-semi {
+      background: rgba(255, 107, 53, 0.15);
+      color: var(--accent2);
+    }
+
+    .tag-macro {
+      background: rgba(125, 133, 144, 0.15);
+      color: var(--muted);
+    }
+
+    .tag-fx {
+      background: rgba(240, 192, 64, 0.15);
+      color: #f0c040;
+    }
+
+    .tag-equip {
+      background: rgba(147, 51, 234, 0.15);
+      color: #a855f7;
+    }
+
+    .tag-ai {
+      background: rgba(59, 130, 246, 0.15);
+      color: #3b82f6;
+    }
+
+    .tag-bond {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+    }
+
+    /* ── EXPAND OVERLAY ── */
+    .expand-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 9999;
+      padding: 40px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .expand-overlay.visible {
+      display: flex;
+      flex-direction: column;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    .expand-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .expand-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+
+    .expand-close {
+      padding: 6px 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.2s;
+    }
+
+    .expand-close:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .expand-body {
+      flex: 1;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      min-height: 0;
+    }
+
+    /* ── 마감종가 패널 (기존 유지) ── */
+    .close-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: rgba(0, 212, 170, 0.1);
+      border: 1px solid rgba(0, 212, 170, 0.3);
+      border-radius: 5px;
+      color: var(--accent);
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .close-btn:hover {
+      background: rgba(0, 212, 170, 0.2);
+      border-color: var(--accent);
+    }
+
+    .close-btn.loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    #closePanel {
+      display: none;
+      position: fixed;
+      top: var(--header-h);
+      right: 0;
+      width: 360px;
+      max-height: calc(100vh - var(--header-h));
+      overflow-y: auto;
+      background: #0d1117;
+      border-left: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      border-radius: 0 0 0 8px;
+      z-index: 1000;
+      box-shadow: -4px 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .cp-header {
+      background: #0a0e17;
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .cp-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+
+    .cp-time {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .cp-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .cp-table td {
+      padding: 5px 14px;
+      font-size: 11px;
+      border-bottom: 1px solid #0f1520;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .cp-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .cp-label {
+      color: var(--muted);
+      width: 90px;
+    }
+
+    .cp-val {
+      color: var(--text);
+      text-align: right;
+    }
+
+    .cp-chg {
+      text-align: right;
+      width: 80px;
+    }
+
+    .cp-up {
+      color: var(--up);
+    }
+
+    .cp-dn {
+      color: var(--down);
+    }
+
+    .cp-na {
+      color: #444;
+    }
+
+    .cp-divider {
+      height: 1px;
+      background: var(--border);
+    }
+
+    .cp-actions {
+      padding: 10px 14px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .cp-section-label {
+      padding: 4px 14px;
+      font-size: 9px;
+      color: var(--muted);
+      background: #080b12;
+      letter-spacing: 1px;
+    }
+
+    .btn-refresh {
+      flex: 1;
+      padding: 7px;
+      background: rgba(0, 212, 170, 0.1);
+      border: 1px solid rgba(0, 212, 170, 0.3);
+      border-radius: 4px;
+      color: var(--accent);
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-refresh:hover {
+      background: rgba(0, 212, 170, 0.2);
+    }
+
+    .btn-send {
+      flex: 1.5;
+      padding: 7px;
+      background: rgba(255, 107, 53, 0.1);
+      border: 1px solid rgba(255, 107, 53, 0.3);
+      border-radius: 4px;
+      color: var(--accent2);
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-send:hover {
+      background: rgba(255, 107, 53, 0.2);
+    }
+
+    .btn-send:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    #sendStatus {
+      padding: 6px 14px;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      text-align: center;
+      min-height: 20px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER — index.html 기준 헤더 높이·스타일 통일 (US 제외) -->
+  <header>
+    <div class="header-top">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="logo">US MARKET</div>
+        <div class="divider"></div>
+        <div class="market-status">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText" style="color:var(--muted)">확인중</span>
+        </div>
+        <div class="divider"></div>
+        <div class="clocks">
+          <span><span class="label">KST</span><span class="kst" id="kstTime">--:--:--</span></span>
+          <span><span class="label">ET</span><span id="etTime">--:--</span></span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <a href="/"
+          style="text-decoration:none;background:#0d1a2e;color:#64b5f6;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+          title="DART 공시 모니터">📊 DART</a>
+        <a href="/context.html"
+          style="text-decoration:none;background:#2d1e5e;color:#bb86fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+          title="Context Tracker">🧠 CTX</a>
+        <a href="/stocks.html"
+          style="text-decoration:none;background:#0d2818;color:#26a69a;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+          title="종목 대시보드">📈 STOCK</a>
+        <a href="/archive.html"
+          style="text-decoration:none;background:#1a1a0d;color:#f0c040;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+          title="아카이브 뷰어">📦 ARC</a>
+        <a href="/predictions.html"
+          style="text-decoration:none;background:#1a0d1a;color:#c084fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+          title="예측 트래커">🎯 PRED</a>
+        <button class="close-btn" id="closePanelBtn" onclick="toggleClosePanel()">
+          📊 마감종가
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- CATEGORY TABS -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="filterCharts('all', this)">ALL</button>
+    <button class="tab-btn" onclick="filterCharts('index', this)">📈 지수</button>
+    <button class="tab-btn" onclick="filterCharts('bond', this)">📊 채권/매크로</button>
+    <button class="tab-btn" onclick="filterCharts('semi', this)">💎 반도체</button>
+    <button class="tab-btn" onclick="filterCharts('equip', this)">🔧 장비</button>
+    <button class="tab-btn" onclick="filterCharts('ai', this)">🤖 AI/서버</button>
+    <button class="tab-btn" onclick="filterCharts('fx', this)">💱 환율/원자재</button>
+  </div>
+
+  <!-- 마감종가 패널 -->
+  <div id="closePanel">
+    <div class="cp-header">
+      <span class="cp-title">CLOSING PRICES</span>
+      <span class="cp-time" id="cpTime">--</span>
+    </div>
+    <div class="cp-section-label">INDEX</div>
+    <table class="cp-table" id="cpIndexTable">
+      <tbody></tbody>
+    </table>
+    <div class="cp-section-label">SEMI / AI</div>
+    <table class="cp-table" id="cpSemiTable">
+      <tbody></tbody>
+    </table>
+    <div class="cp-section-label">EQUIPMENT</div>
+    <table class="cp-table" id="cpEquipTable">
+      <tbody></tbody>
+    </table>
+    <div class="cp-section-label">MACRO / FX</div>
+    <table class="cp-table" id="cpMacroTable">
+      <tbody></tbody>
+    </table>
+    <div class="cp-divider"></div>
+    <div class="cp-actions">
+      <button class="btn-refresh" onclick="fetchAllPrices()">🔄 새로고침</button>
+      <button class="btn-send" id="btnSend" onclick="sendToDartmonitor()" disabled>📡 dartmonitor 저장</button>
+    </div>
+    <div id="sendStatus"></div>
+  </div>
+
+  <!-- EXPAND OVERLAY (클릭하면 차트 확대) -->
+  <div class="expand-overlay" id="expandOverlay">
+    <div class="expand-header">
+      <span class="expand-title" id="expandTitle"></span>
+      <button class="expand-close" onclick="closeExpand()">✕ ESC</button>
+    </div>
+    <div class="expand-body" id="expandBody"></div>
+  </div>
+
+  <!-- 4×3 GRID (동적 생성) -->
+  <div class="grid-container" id="chartGrid"></div>
+
+  <script>
+    // ============================================================
+    // 차트 정의 — 카테고리별 TradingView 심볼
+    // ============================================================
+    const CHARTS = [
+      // ── 지수 ──
+      { id: 'sp500', title: 'S&P 500', symbol: 'FOREXCOM:SPXUSD', tag: 'INDEX', tagClass: 'tag-index', cat: 'index', featured: true },
+      { id: 'nasdaq', title: 'NASDAQ 100', symbol: 'CAPITALCOM:US100', tag: 'INDEX', tagClass: 'tag-index', cat: 'index' },
+      { id: 'sox', title: 'SOX (반도체지수)', symbol: 'NASDAQ:SOXX', tag: 'SEMI', tagClass: 'tag-semi', cat: 'index' },
+      // ── ⭐ 채권/매크로 (1순위 추가) ──
+      { id: 'us10y', title: 'US 10Y 금리', symbol: 'TVC:US10Y', tag: 'BOND', tagClass: 'tag-bond', cat: 'bond' },
+      { id: 'dxy', title: 'DXY (달러인덱스)', symbol: 'CAPITALCOM:DXY', tag: 'MACRO', tagClass: 'tag-macro', cat: 'bond' },
+      { id: 'vix', title: 'VIX (공포지수)', symbol: 'CAPITALCOM:VIX', tag: 'MACRO', tagClass: 'tag-macro', cat: 'bond' },
+      // ── 반도체 ──
+      { id: 'nvda', title: 'NVIDIA', symbol: 'NASDAQ:NVDA', tag: 'NVDA', tagClass: 'tag-semi', cat: 'semi' },
+      { id: 'amd', title: 'AMD', symbol: 'NASDAQ:AMD', tag: 'SEMI', tagClass: 'tag-semi', cat: 'semi' },
+      { id: 'mu', title: 'MICRON (HBM)', symbol: 'NASDAQ:MU', tag: 'MU', tagClass: 'tag-semi', cat: 'semi' },
+      // ── ⭐ 반도체 장비 (2순위 — 포트폴리오 직결) ──
+      { id: 'lrcx', title: '램리서치 (LRCX)', symbol: 'NASDAQ:LRCX', tag: 'EQUIP', tagClass: 'tag-equip', cat: 'equip' },
+      { id: 'klac', title: 'KLA Corp', symbol: 'NASDAQ:KLAC', tag: 'EQUIP', tagClass: 'tag-equip', cat: 'equip' },
+      // ── ⭐ AI/서버 (3순위) ──
+      { id: 'arm', title: 'ARM Holdings', symbol: 'NASDAQ:ARM', tag: 'AI', tagClass: 'tag-ai', cat: 'ai' },
+      { id: 'smci', title: 'Super Micro', symbol: 'NASDAQ:SMCI', tag: 'AI', tagClass: 'tag-ai', cat: 'ai' },
+      { id: 'avgo', title: 'BROADCOM', symbol: 'NASDAQ:AVGO', tag: 'AVGO', tagClass: 'tag-semi', cat: 'semi' },
+      // ── 환율/원자재 ──
+      { id: 'usdkrw', title: 'USD / KRW', symbol: 'FX_IDC:USDKRW', tag: '환율', tagClass: 'tag-fx', cat: 'fx' },
+      { id: 'gold', title: '금 선물', symbol: 'TVC:GOLD', tag: 'GOLD', tagClass: 'tag-fx', cat: 'fx' },
+    ];
+
+    // ============================================================
+    // 그리드 동적 생성
+    // ============================================================
+    function buildGrid() {
+      const grid = document.getElementById('chartGrid');
+      grid.innerHTML = '';
+
+      CHARTS.forEach(c => {
+        const cell = document.createElement('div');
+        cell.className = `chart-cell ${c.featured ? 'cell-featured' : ''}`;
+        cell.dataset.cat = c.cat;
+        cell.dataset.id = c.id;
+        cell.onclick = () => expandChart(c);
+
+        // 헤더
+        const header = document.createElement('div');
+        header.className = 'cell-header';
+        header.innerHTML = `
+          <span class="cell-title">${c.title}</span>
+          <span class="tag ${c.tagClass}">${c.tag}</span>
+        `;
+        cell.appendChild(header);
+
+        // 위젯 영역
+        const wrap = document.createElement('div');
+        wrap.className = 'widget-wrap';
+        const container = document.createElement('div');
+        container.className = 'tradingview-widget-container';
+        container.style.height = '100%';
+        const widgetDiv = document.createElement('div');
+        widgetDiv.className = 'tradingview-widget-container__widget';
+        widgetDiv.style.height = '100%';
+        container.appendChild(widgetDiv);
+
+        // script를 createElement로 생성해야 실행됨
+        const script = document.createElement('script');
+        script.type = 'text/javascript';
+        script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js';
+        script.async = true;
+        script.textContent = JSON.stringify({
+          symbol: c.symbol,
+          width: "100%",
+          height: "100%",
+          locale: "kr",
+          dateRange: "3M",
+          colorTheme: "dark",
+          isTransparent: true,
+          autosize: true,
+          noTimeScale: false
+        });
+        container.appendChild(script);
+
+        wrap.appendChild(container);
+        cell.appendChild(wrap);
+        grid.appendChild(cell);
+      });
+
+      updateGridLayout();
+    }
+
+    // 보이는 차트 수에 따라 그리드 레이아웃 자동 조정
+    function updateGridLayout() {
+      const grid = document.getElementById('chartGrid');
+      const visible = grid.querySelectorAll('.chart-cell:not(.hidden)').length;
+
+      if (visible <= 3) {
+        grid.style.gridTemplateColumns = `repeat(${visible}, 1fr)`;
+        grid.style.gridTemplateRows = '1fr';
+      } else if (visible <= 6) {
+        grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        grid.style.gridTemplateRows = `repeat(${Math.ceil(visible / 3)}, 1fr)`;
+      } else if (visible <= 8) {
+        grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+        grid.style.gridTemplateRows = `repeat(2, 1fr)`;
+      } else if (visible <= 12) {
+        grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+        grid.style.gridTemplateRows = `repeat(3, 1fr)`;
+      } else {
+        grid.style.gridTemplateColumns = 'repeat(4, 1fr)';
+        grid.style.gridTemplateRows = `repeat(4, 1fr)`;
+      }
+    }
+
+    // ============================================================
+    // 카테고리 필터
+    // ============================================================
+    function filterCharts(cat, btnEl) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btnEl.classList.add('active');
+
+      document.querySelectorAll('.chart-cell').forEach(cell => {
+        if (cat === 'all' || cell.dataset.cat === cat) {
+          cell.classList.remove('hidden');
+        } else {
+          cell.classList.add('hidden');
+        }
+      });
+      updateGridLayout();
+    }
+
+    // ============================================================
+    // 클릭 확장 기능
+    // ============================================================
+    function expandChart(chartDef) {
+      const overlay = document.getElementById('expandOverlay');
+      const body = document.getElementById('expandBody');
+      const title = document.getElementById('expandTitle');
+
+      title.textContent = `${chartDef.title} — ${chartDef.symbol}`;
+
+      // TradingView 고급 차트 위젯으로 확대 표시
+      body.innerHTML = `
+        <div class="tradingview-widget-container" style="width:100%;height:100%">
+          <div id="tv-expanded-widget" style="width:100%;height:100%"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"><\/script>
+          <script type="text/javascript">
+            new TradingView.widget({
+              "container_id": "tv-expanded-widget",
+              "autosize": true,
+              "symbol": "${chartDef.symbol}",
+              "interval": "D",
+              "timezone": "Asia/Seoul",
+              "theme": "dark",
+              "style": "1",
+              "locale": "kr",
+              "toolbar_bg": "#0d1117",
+              "enable_publishing": false,
+              "hide_side_toolbar": false,
+              "allow_symbol_change": true,
+              "studies": ["RSI@tv-basicstudies", "MASimple@tv-basicstudies"],
+              "show_popup_button": false,
+              "backgroundColor": "#080b12",
+              "gridColor": "#1c2333"
+            });
+          <\/script>
+        </div>
+      `;
+
+      overlay.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeExpand() {
+      const overlay = document.getElementById('expandOverlay');
+      overlay.classList.remove('visible');
+      document.getElementById('expandBody').innerHTML = '';
+      document.body.style.overflow = '';
+    }
+
+    // ESC 키로 닫기
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeExpand();
+    });
+
+    // ============================================================
+    // 마감종가 패널 (기존 로직 + 장비주/AI 추가)
+    // ============================================================
+    const DARTMONITOR_URL = '/api/macro/fetch';
+
+    const SYMBOLS = {
+      index: [
+        { key: '%5EGSPC', label: 'S&P500', fmt: 'idx' },
+        { key: '%5ENDX', label: 'NASDAQ100', fmt: 'idx' },
+        { key: '%5ESOX', label: 'SOX', fmt: 'idx' },
+      ],
+      semi: [
+        { key: 'NVDA', label: 'NVDA', fmt: 'usd' },
+        { key: 'AMD', label: 'AMD', fmt: 'usd' },
+        { key: 'MU', label: 'MU', fmt: 'usd' },
+        { key: 'AVGO', label: 'AVGO', fmt: 'usd' },
+      ],
+      equip: [
+        { key: 'LRCX', label: 'LRCX 램리서치', fmt: 'usd' },
+        { key: 'KLAC', label: 'KLAC', fmt: 'usd' },
+        { key: 'ARM', label: 'ARM', fmt: 'usd' },
+        { key: 'SMCI', label: 'SMCI', fmt: 'usd' },
+      ],
+      macro: [
+        { key: '%5EVIX', label: 'VIX', fmt: 'vix' },
+        { key: '%5ETNX', label: 'US10Y', fmt: 'rate' },
+        { key: 'DX-Y.NYB', label: 'DXY', fmt: 'idx' },
+        { key: 'USDKRW%3DX', label: 'USD/KRW', fmt: 'krw' },
+      ]
+    };
+
+    let priceData = {};
+    let panelOpen = false;
+
+    function toggleClosePanel() {
+      panelOpen = !panelOpen;
+      const panel = document.getElementById('closePanel');
+      panel.style.display = panelOpen ? 'block' : 'none';
+      if (panelOpen && Object.keys(priceData).length === 0) fetchAllPrices();
+    }
+    function fmtPrice(val, fmt) {
+      if (val == null) return '--';
+      if (fmt === 'idx') return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (fmt === 'usd') return '$' + val.toFixed(2);
+      if (fmt === 'vix') return val.toFixed(2);
+      if (fmt === 'krw') return val.toFixed(2) + '원';
+      if (fmt === 'rate') return val.toFixed(3) + '%';
+      return val.toFixed(2);
+    }
+
+    function renderRows(tableId, items) {
+      const tbody = document.querySelector('#' + tableId + ' tbody');
+      tbody.innerHTML = '';
+      items.forEach(item => {
+        const d = priceData[item.key];
+        const tr = document.createElement('tr');
+        if (!d) {
+          tr.innerHTML = `<td class="cp-label">${item.label}</td><td class="cp-val cp-na">--</td><td class="cp-chg cp-na">--</td>`;
+        } else {
+          const isUp = d.chgPct >= 0;
+          const chgStr = (isUp ? '+' : '') + d.chgPct.toFixed(2) + '%';
+          const cls = isUp ? 'cp-up' : 'cp-dn';
+          const estTag = d.estimated ? ' <span style="font-size:8px;color:var(--muted)">(예상·VIXY)</span>' : '';
+          tr.innerHTML = `
+            <td class="cp-label">${item.label}${estTag}</td>
+            <td class="cp-val ${cls}">${fmtPrice(d.price, item.fmt)}</td>
+            <td class="cp-chg ${cls}">${isUp ? '▲' : '▼'} ${chgStr}</td>`;
+        }
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function fetchAllPrices() {
+      const btn = document.querySelector('.btn-refresh');
+      btn.textContent = '⏳ 조회중...';
+      btn.style.opacity = '0.6';
+      document.getElementById('sendStatus').textContent = '';
+
+      const allSymbols = [...SYMBOLS.index, ...SYMBOLS.semi, ...SYMBOLS.equip, ...SYMBOLS.macro];
+
+      // 서버 프록시를 통해 Yahoo Finance 데이터 조회 (CORS 우회)
+      try {
+        const symbolKeys = allSymbols.map(s => s.key).join(',');
+        const resp = await fetch(`/api/macro/quote?symbols=${encodeURIComponent(symbolKeys)}`);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const json = await resp.json();
+
+        if (json.ok && json.data) {
+          allSymbols.forEach(item => {
+            // 서버는 decoded key (^GSPC) 반환, 프론트는 encoded key (%5EGSPC) 사용
+            const decoded = decodeURIComponent(item.key);
+            if (json.data[item.key]) {
+              priceData[item.key] = json.data[item.key];
+            } else if (json.data[decoded]) {
+              priceData[item.key] = json.data[decoded];
+            }
+          });
+        }
+      } catch (e) {
+        console.error('[마감종가] 서버 프록시 조회 실패:', e.message);
+      }
+
+      renderRows('cpIndexTable', SYMBOLS.index);
+      renderRows('cpSemiTable', SYMBOLS.semi);
+      renderRows('cpEquipTable', SYMBOLS.equip);
+      renderRows('cpMacroTable', SYMBOLS.macro);
+
+      const now = new Date();
+      const kst = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
+      const pad = n => String(n).padStart(2, '0');
+      document.getElementById('cpTime').textContent =
+        `${kst.getMonth() + 1}/${kst.getDate()} ${pad(kst.getHours())}:${pad(kst.getMinutes())} KST`;
+
+      btn.textContent = '🔄 새로고침';
+      btn.style.opacity = '1';
+      document.getElementById('btnSend').disabled = Object.keys(priceData).length === 0;
+    }
+
+    async function sendToDartmonitor() {
+      const btn = document.getElementById('btnSend');
+      const statusEl = document.getElementById('sendStatus');
+      btn.disabled = true;
+      statusEl.textContent = '📡 전송 중...';
+      statusEl.style.color = 'var(--muted)';
+
+      try {
+        // 서버에 수동 수집 트리거 (이미 30분 타이머로 자동 수집 중)
+        const resp = await fetch('/api/macro/fetch', { method: 'POST' });
+        if (resp.ok) {
+          statusEl.textContent = '✅ 매크로 데이터 갱신 완료!';
+          statusEl.style.color = 'var(--up)';
+        } else {
+          throw new Error('HTTP ' + resp.status);
+        }
+      } catch (e) {
+        // 폴백: /api/overseas 시도
+        try {
+          const now = new Date();
+          const kst = new Date(now.getTime() + (9 * 60 + now.getTimezoneOffset()) * 60000);
+          const yyyymmdd = `${kst.getFullYear()}${String(kst.getMonth() + 1).padStart(2, '0')}${String(kst.getDate()).padStart(2, '0')}`;
+          const payload = { date: yyyymmdd, timestamp: now.toISOString(), data: {} };
+          const allSymbols = [...SYMBOLS.index, ...SYMBOLS.semi, ...SYMBOLS.equip, ...SYMBOLS.macro];
+          allSymbols.forEach(item => {
+            if (priceData[item.key]) {
+              payload.data[item.label] = { price: priceData[item.key].price, chgPct: priceData[item.key].chgPct, prevClose: priceData[item.key].prevClose };
+            }
+          });
+          const resp2 = await fetch('/api/overseas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          if (resp2.ok) {
+            statusEl.textContent = '✅ 저장 완료 (overseas)';
+            statusEl.style.color = 'var(--up)';
+          } else throw new Error('HTTP ' + resp2.status);
+        } catch (e2) {
+          console.log('[payload]', JSON.stringify(priceData, null, 2));
+          statusEl.textContent = '⚠️ 연결 실패 - 콘솔에 데이터 출력됨';
+          statusEl.style.color = 'var(--accent2)';
+        }
+      } finally {
+        setTimeout(() => { btn.disabled = false; }, 3000);
+      }
+    }
+
+    // ============================================================
+    // 시계 & 마켓 상태
+    // ============================================================
+    function updateClock() {
+      const now = new Date();
+      const kstOffset = 9 * 60, etOffset = -5 * 60;
+      const tz = now.getTimezoneOffset();
+      const kst = new Date(now.getTime() + (kstOffset + tz) * 60000);
+      const et = new Date(now.getTime() + (etOffset + tz) * 60000);
+      const p = n => String(n).padStart(2, '0');
+
+      document.getElementById('kstTime').textContent = `${p(kst.getHours())}:${p(kst.getMinutes())}:${p(kst.getSeconds())}`;
+      document.getElementById('etTime').textContent = `${p(et.getHours())}:${p(et.getMinutes())}`;
+
+      const etMin = et.getHours() * 60 + et.getMinutes();
+      const dow = et.getDay();
+      const weekday = dow >= 1 && dow <= 5;
+      const dot = document.getElementById('statusDot');
+      const txt = document.getElementById('statusText');
+      dot.className = 'status-dot';
+
+      if (weekday && etMin >= 570 && etMin < 960) {
+        dot.classList.add('open'); txt.textContent = '🟢 미국 장중'; txt.style.color = 'var(--up)';
+      } else if (weekday && etMin >= 240 && etMin < 570) {
+        dot.classList.add('pre'); txt.textContent = '🟡 프리마켓'; txt.style.color = '#f0c040';
+      } else if (weekday && etMin >= 960 && etMin < 1080) {
+        dot.classList.add('after'); txt.textContent = '🟠 애프터마켓'; txt.style.color = 'var(--accent2)';
+      } else {
+        txt.textContent = '🔴 장마감'; txt.style.color = 'var(--muted)';
+      }
+    }
+
+    // ── INIT ──
+    buildGrid();
+    updateClock();
+    setInterval(updateClock, 1000);
+  </script>
+</body>
+
+</html>
