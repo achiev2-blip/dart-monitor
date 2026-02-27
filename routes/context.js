@@ -621,27 +621,53 @@ router.get('/claude/reports', (req, res) => {
 });
 
 // 사전 캐시된 요약 반환 — ?full=true 시 전체, 기본은 요약
+// Claude 데이터센터 — 단일 엔드포인트 (전체/개별 조회 + 이벤트 읽고 지움)
 router.get('/claude/summary', (req, res) => {
-    const summary = req.app.locals.claudeSummary;
-    if (!summary || !summary.ok) {
-        return res.json({ ok: false, error: '아직 캐시가 생성되지 않았습니다' });
+    const dc = req.app.locals.claudeDataCenter;
+    if (!dc || !dc.ok) {
+        return res.json({ ok: false, error: '아직 데이터센터 초기화 전입니다' });
     }
-    // full=true → 전체 뉴스/리포트, 기본 → 요약본
-    if (req.query.full === 'true') {
-        res.json(summary);
-    } else {
-        res.json({
-            ...summary,
-            news: summary.news.slice(0, 10),
-            reports: summary.reports.slice(0, 15),
-            _meta: {
-                ...summary._meta,
-                newsShown: Math.min(summary.news.length, 10),
-                reportsShown: Math.min(summary.reports.length, 15),
-                fullAvailable: true
-            }
-        });
+
+    const section = req.query.section;  // ?section=news/prices/macro/token/overseas/reports
+    const code = req.query.code;        // ?code=005930 종목별 필터
+
+    // 개별 섹션 조회
+    if (section) {
+        const sectionData = dc[section];
+        if (sectionData === undefined) {
+            return res.json({ ok: false, error: `알 수 없는 섹션: ${section}` });
+        }
+        // 이벤트 데이터는 읽으면 지움
+        if (['news', 'reports'].includes(section)) {
+            const result = { ok: true, ai: 'claude', section, data: sectionData, _meta: dc._meta };
+            dc[section] = [];  // 읽고 지움
+            dc._meta[section + 'Count'] = 0;
+            dc._meta.lastReadAt = new Date().toISOString();
+            return res.json(result);
+        }
+        return res.json({ ok: true, ai: 'claude', section, data: sectionData });
     }
+
+    // 종목별 필터
+    if (code) {
+        const stockData = {
+            ok: true, ai: 'claude', code,
+            price: (dc.prices || []).find(s => s.code === code) || null,
+            news: (dc.news || []).filter(n => (n.stocks || '').includes(code) || (n.title || '').includes(code)),
+            reports: (dc.reports || []).filter(r => (r.stock || '').includes(code) || (r.title || '').includes(code))
+        };
+        return res.json(stockData);
+    }
+
+    // 전체 조회 — 이벤트 데이터 읽고 지움
+    const response = JSON.parse(JSON.stringify(dc));  // 딥 카피
+    dc.news = [];     // 읽고 지움
+    dc.reports = [];  // 읽고 지움
+    dc._meta.newsCount = 0;
+    dc._meta.reportCount = 0;
+    dc._meta.lastReadAt = new Date().toISOString();
+    console.log(`[Claude/DC] 전체 읽기 — 이벤트 초기화`);
+    res.json(response);
 });
 
 router.get('/claude', async (req, res) => {
@@ -979,121 +1005,18 @@ router.get('/claude', async (req, res) => {
         res.status(500).json({ ok: false, error: e.message });
     }
 });
-// ============================================================
-// Claude 경량 서브라우트 — 개별 데이터 직접 접근 (독립 터널)
-// ============================================================
+// (서브라우트 제거됨 — /claude/summary 데이터센터에서 ?section 파라미터로 개별 조회 지원)
 
-// 뉴스 읽기 — 서버 메모리의 storedNews 접근
-router.get('/claude/news', (req, res) => {
-    const storedNews = req.app.locals.storedNews || [];
-    const limit = parseInt(req.query.limit) || 30;
-    // 최신 뉴스 역순 정렬
-    const recent = storedNews.slice(-limit).reverse().map(n => ({
-        title: n.title,
-        source: n.source,
-        date: n.date,
-        link: n.link,
-        cls: n.aiCls || '',
-        importance: n.aiImportance || '',
-        category: n.aiCategory || '',
-        stocks: n.aiStocks || '',
-        summary: n.aiSummary || ''
-    }));
-    const digest = loadContext('news_digest.json') || { latest: null };
-    console.log(`[Claude] NEWS 읽기 — ${recent.length}건`);
-    res.json({ ok: true, ai: 'claude', news: recent, digest: digest.latest, total: storedNews.length });
-});
-
-// 한투 토큰 읽기 — hantoo_token.json 파일 접근
-router.get('/claude/token', (req, res) => {
-    const tokenData = loadJSON('hantoo_token.json', null);
-    console.log('[Claude] TOKEN 읽기');
-    res.json({ ok: true, ai: 'claude', token: tokenData });
-});
-
-// 현재가 읽기 — 워치리스트 전체 종목 현재가
-router.get('/claude/prices', (req, res) => {
-    const watchlist = hantoo.getWatchlist();
-    const stockPrices = hantoo.getStockPrices();
-    const prices = watchlist.map(s => {
-        const p = stockPrices[s.code];
-        let afterHours = null;
-        try { afterHours = companyData?.getPrice(s.code)?.afterHours || p?.afterHours || null; } catch (e) { }
-        return {
-            code: s.code,
-            name: s.name,
-            sector: s.sector || '',
-            price: p?.current?.price || p?.price || s.price || null,
-            change: p?.current?.change || p?.change || null,
-            changePct: p?.changePct || null,
-            volume: p?.current?.volume || p?.volume || null,
-            high: p?.current?.high || null,
-            low: p?.current?.low || null,
-            open: p?.current?.open || null,
-            afterHours
-        };
-    });
-    console.log(`[Claude] PRICES 읽기 — ${prices.length}종목`);
-    res.json({ ok: true, ai: 'claude', prices, count: prices.length });
-});
-
-// DART 공시 조회 — 오늘 공시 목록
-router.get('/claude/dart', async (req, res) => {
-    try {
-        const now = new Date();
-        const kst = new Date(now.getTime() + 9 * 3600000);
-        const yyyymmdd = kst.getUTCFullYear().toString() +
-            String(kst.getUTCMonth() + 1).padStart(2, '0') +
-            String(kst.getUTCDate()).padStart(2, '0');
-        const dartRes = await axios.get('https://opendart.fss.or.kr/api/list.json', {
-            params: {
-                crtfc_key: config.DART_API_KEY,
-                bgn_de: req.query.date || yyyymmdd,
-                end_de: req.query.date || yyyymmdd,
-                page_count: 100
-            }, timeout: 8000
-        });
-        const disclosures = dartRes.data?.list || [];
-        // 포트폴리오 관련만 필터링 (선택)
-        let filtered = disclosures;
-        if (req.query.filter === 'portfolio') {
-            const names = hantoo.getWatchlist().map(s => s.name);
-            filtered = disclosures.filter(d =>
-                names.some(n => d.corp_name === n || d.corp_name?.includes(n) || n.includes(d.corp_name))
-            );
-        }
-        console.log(`[Claude] DART 읽기 — 전체:${disclosures.length}건 필터:${filtered.length}건`);
-        res.json({ ok: true, ai: 'claude', disclosures: filtered, total: disclosures.length, date: yyyymmdd });
-    } catch (e) {
-        console.warn(`[Claude] DART 조회 실패: ${e.message}`);
-        res.json({ ok: true, ai: 'claude', disclosures: [], error: e.message });
-    }
-});
-
-// 매크로 경제 데이터 읽기
-router.get('/claude/macro', (req, res) => {
-    const overseas = loadJSON('overseas.json', { latest: null });
-    const result = {
-        current: macro?.getCurrent() || null,
-        impact: macro?.getMarketImpactSummary() || null,
-        overseas: overseas.latest
-    };
-    console.log('[Claude] MACRO 읽기');
-    res.json({ ok: true, ai: 'claude', macro: result });
-});
-
-// 해외 시장 데이터 읽기
-router.get('/claude/overseas', (req, res) => {
-    const overseas = loadJSON('overseas.json', { latest: null, history: [] });
-    console.log('[Claude] OVERSEAS 읽기');
-    res.json({ ok: true, ai: 'claude', overseas: overseas.latest, history: (overseas.history || []).slice(0, 5) });
-});
 
 // ============================================================
-// Claude Summary — 사전 캐시 (메모리 상주, 호출 시 즉시 반환)
+// Claude 데이터센터 — 사전 수집 + 이벤트 누적 + 상태 갱신
 // ============================================================
 
-// 메모리 데이터만 읽어서 ~30KB 요약 갱신 (파일 I/O 없음)
+// 뉴스/리포트 누적 캡 (메모리 보호)
+const DC_NEWS_CAP = 100;
+const DC_REPORT_CAP = 50;
+
+// 데이터센터 갱신 (1분마다 호출) — 이벤트는 누적, 상태는 덮어쓰기
 function updateClaudeSummary(app) {
     try {
         const { storedNews, reportStores } = app.locals;
@@ -1101,63 +1024,93 @@ function updateClaudeSummary(app) {
         const stockPrices = hantoo.getStockPrices();
         const indexPrices = hantoo.getIndexPrices();
 
-        // 종목 시세 요약 (메모리 데이터만)
-        const stocks = watchlist.map(s => {
+        // 기존 데이터센터 (없으면 초기화)
+        if (!app.locals.claudeDataCenter) {
+            app.locals.claudeDataCenter = { ok: true, news: [], reports: [], _meta: {} };
+        }
+        const dc = app.locals.claudeDataCenter;
+
+        // ── 상태 데이터: 최신값 덮어쓰기 (지우지 않음) ──
+        dc.ok = true;
+        dc.mode = 'datacenter';
+        dc.timestamp = new Date().toISOString();
+        dc.index = indexPrices;
+        dc.investor = hantoo.getMarketInvestor();
+
+        // 현재가 (상태)
+        dc.prices = watchlist.map(s => {
             const p = stockPrices[s.code];
+            const pd = companyData.getPrice(s.code);
             return {
                 code: s.code, name: s.name, sector: s.sector || '',
                 price: p?.current?.price || p?.price || null,
                 change: p?.current?.change || p?.change || null,
                 changePct: p?.changePct || null,
-                volume: p?.current?.volume || p?.volume || null
+                volume: p?.current?.volume || p?.volume || null,
+                afterHours: pd?.afterHours || p?.afterHours || null
             };
         });
 
-        // 뉴스 전체 (메모리 storedNews에서 — 캐시이므로 전부 저장해도 OK)
-        const newsAll = (storedNews || []).map(n => ({
-            title: n.title, source: n.source, date: n.date || n.pubDate || '',
-            cls: n.aiCls || '', importance: n.aiImportance || '',
-            summary: n.aiSummary || '', stocks: n.aiStocks || ''
-        }));
-
-        // 리포트 전체 (메모리 reportStores에서)
-        const allReports = [];
-        if (reportStores) {
-            Object.values(reportStores).forEach(items => allReports.push(...items));
-        }
-        const reportsAll = allReports
-            .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-            .map(r => ({
-                title: r.title, broker: r.broker || r.source,
-                date: r.date, opinion: r.opinion || '',
-                stock: r.stockName || r.corp || ''
-            }));
-
-        // 캐시 갱신
-        app.locals.claudeSummary = {
-            ok: true, mode: 'summary',
-            timestamp: new Date().toISOString(),
-            index: indexPrices,
-            investor: hantoo.getMarketInvestor(),
-            stocks,
-            news: newsAll,
-            reports: reportsAll,
-            macro: {
-                current: macro.getCurrent(),
-                impact: macro.getMarketImpactSummary()
-            },
-            hantooToken: hantoo.getTokenInfo(),
-            _meta: {
-                stockCount: stocks.length,
-                newsCount: newsAll.length,
-                reportCount: reportsAll.length
-            }
+        // 매크로 (상태)
+        dc.macro = {
+            current: macro.getCurrent(),
+            impact: macro.getMarketImpactSummary()
         };
 
-        const sizeKB = Math.round(JSON.stringify(app.locals.claudeSummary).length / 1024);
-        console.log(`[Claude/summary] 캐시 갱신: ${stocks.length}종목 ${newsAll.length}뉴스 ${reportsAll.length}리포트 (${sizeKB}KB)`);
+        // 토큰 (상태)
+        dc.token = hantoo.getTokenInfo();
+
+        // 해외 (상태)
+        dc.overseas = loadJSON('overseas.json', { latest: null })?.latest || null;
+
+        // ── 이벤트 데이터: 새로운 것만 누적 (캡 적용) ──
+        const prevNewsIds = new Set((dc.news || []).map(n => n.title + n.date));
+        const newNews = (storedNews || []).filter(n => {
+            const id = (n.title || '') + (n.date || n.pubDate || '');
+            return !prevNewsIds.has(id);
+        }).map(n => ({
+            title: n.title, source: n.source, date: n.date || n.pubDate || '',
+            cls: n.aiCls || '', importance: n.aiImportance || '',
+            summary: n.aiSummary || '', stocks: n.aiStocks || '',
+            category: n.aiCategory || '', link: n.link || ''
+        }));
+        if (newNews.length > 0) {
+            dc.news = [...(dc.news || []), ...newNews].slice(-DC_NEWS_CAP);
+        }
+
+        const prevReportIds = new Set((dc.reports || []).map(r => r.title + r.date));
+        const allReports = [];
+        if (reportStores) Object.values(reportStores).forEach(items => allReports.push(...items));
+        const newReports = allReports.filter(r => {
+            const id = (r.title || '') + (r.date || '');
+            return !prevReportIds.has(id);
+        }).map(r => ({
+            title: r.title, broker: r.broker || r.source,
+            date: r.date, opinion: r.opinion || '',
+            stock: r.stockName || r.corp || ''
+        }));
+        if (newReports.length > 0) {
+            dc.reports = [...(dc.reports || []), ...newReports]
+                .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+                .slice(0, DC_REPORT_CAP);
+        }
+
+        // 메타 정보
+        dc._meta = {
+            stockCount: dc.prices.length,
+            newsCount: (dc.news || []).length,
+            reportCount: (dc.reports || []).length,
+            updatedAt: dc.timestamp,
+            lastReadAt: dc._meta?.lastReadAt || null
+        };
+
+        // 하위 호환: claudeSummary도 동일 참조
+        app.locals.claudeSummary = dc;
+
+        const sizeKB = Math.round(JSON.stringify(dc).length / 1024);
+        console.log(`[Claude/DC] 갱신: ${dc.prices.length}종목 ${(dc.news || []).length}뉴스 ${(dc.reports || []).length}리포트 (${sizeKB}KB)`);
     } catch (e) {
-        console.error(`[Claude/summary] 갱신 실패: ${e.message}`);
+        console.error(`[Claude/DC] 갱신 실패: ${e.message}`);
     }
 }
 
