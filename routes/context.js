@@ -638,7 +638,7 @@ router.get('/claude/summary', (req, res) => {
             return res.json({ ok: false, error: `알 수 없는 섹션: ${section}` });
         }
         // 이벤트 데이터는 읽으면 지움
-        if (['news', 'reports'].includes(section)) {
+        if (['news', 'reports', 'disclosures'].includes(section)) {
             const result = { ok: true, ai: 'claude', section, data: sectionData, _meta: dc._meta };
             dc[section] = [];  // 읽고 지움
             dc._meta[section + 'Count'] = 0;
@@ -654,17 +654,20 @@ router.get('/claude/summary', (req, res) => {
             ok: true, ai: 'claude', code,
             price: (dc.prices || []).find(s => s.code === code) || null,
             news: (dc.news || []).filter(n => (n.stocks || '').includes(code) || (n.title || '').includes(code)),
-            reports: (dc.reports || []).filter(r => (r.stock || '').includes(code) || (r.title || '').includes(code))
+            reports: (dc.reports || []).filter(r => (r.stock || '').includes(code) || (r.title || '').includes(code)),
+            disclosures: (dc.disclosures || []).filter(d => d.corp_code === code || (d.corp_name || '').includes(code))
         };
         return res.json(stockData);
     }
 
     // 전체 조회 — 이벤트 데이터 읽고 지움
     const response = JSON.parse(JSON.stringify(dc));  // 딥 카피
-    dc.news = [];     // 읽고 지움
-    dc.reports = [];  // 읽고 지움
+    dc.news = [];          // 읽고 지움
+    dc.reports = [];       // 읽고 지움
+    dc.disclosures = [];   // 읽고 지움
     dc._meta.newsCount = 0;
     dc._meta.reportCount = 0;
+    dc._meta.disclosureCount = 0;
     dc._meta.lastReadAt = new Date().toISOString();
     console.log(`[Claude/DC] 전체 읽기 — 이벤트 초기화`);
     res.json(response);
@@ -1012,9 +1015,10 @@ router.get('/claude', async (req, res) => {
 // Claude 데이터센터 — 사전 수집 + 이벤트 누적 + 상태 갱신
 // ============================================================
 
-// 뉴스/리포트 누적 캡 (메모리 보호)
+// 뉴스/리포트/공시 누적 캡 (메모리 보호)
 const DC_NEWS_CAP = 100;
 const DC_REPORT_CAP = 50;
+const DC_DISCLOSURE_CAP = 100;
 
 // 데이터센터 갱신 (1분마다 호출) — 이벤트는 누적, 상태는 덮어쓰기
 function updateClaudeSummary(app) {
@@ -1026,7 +1030,7 @@ function updateClaudeSummary(app) {
 
         // 기존 데이터센터 (없으면 초기화)
         if (!app.locals.claudeDataCenter) {
-            app.locals.claudeDataCenter = { ok: true, news: [], reports: [], _meta: {} };
+            app.locals.claudeDataCenter = { ok: true, news: [], reports: [], disclosures: [], _meta: {} };
         }
         const dc = app.locals.claudeDataCenter;
 
@@ -1095,11 +1099,53 @@ function updateClaudeSummary(app) {
                 .slice(0, DC_REPORT_CAP);
         }
 
+        // ── 공시 데이터: dart_YYYYMMDD_*.json 읽어서 누적 (이벤트) ──
+        const kstNow = new Date(new Date().getTime() + 9 * 3600000);
+        const yyyymmdd = kstNow.getUTCFullYear().toString() +
+            String(kstNow.getUTCMonth() + 1).padStart(2, '0') +
+            String(kstNow.getUTCDate()).padStart(2, '0');
+        const dartDir = path.join(config.DATA_DIR);
+        try {
+            // 오늘 날짜의 dart 파일 읽기
+            const dartFiles = fs.readdirSync(dartDir)
+                .filter(f => f.startsWith(`dart_${yyyymmdd}`) && f.endsWith('.json'));
+            const allDisclosures = [];
+            for (const f of dartFiles) {
+                try {
+                    const data = JSON.parse(fs.readFileSync(path.join(dartDir, f), 'utf-8'));
+                    if (data.list && Array.isArray(data.list)) {
+                        allDisclosures.push(...data.list);
+                    }
+                } catch (e) { /* 손상된 파일 무시 */ }
+            }
+            // 중복 제거 (rcept_no 기준)
+            const prevIds = new Set((dc.disclosures || []).map(d => d.rcept_no));
+            const newDisc = allDisclosures.filter(d => d.rcept_no && !prevIds.has(d.rcept_no))
+                .map(d => ({
+                    rcept_no: d.rcept_no,
+                    corp_name: d.corp_name || '',
+                    corp_code: d.corp_code || '',
+                    report_nm: d.report_nm || '',
+                    rcept_dt: d.rcept_dt || '',
+                    flr_nm: d.flr_nm || '',
+                    rm: d.rm || '',
+                    _aiCls: d._aiCls || '',
+                    _aiSummary: d._aiSummary || ''
+                }));
+            if (newDisc.length > 0) {
+                dc.disclosures = [...(dc.disclosures || []), ...newDisc].slice(-DC_DISCLOSURE_CAP);
+            }
+        } catch (e) {
+            // dart 파일 읽기 실패 — 무시
+        }
+
         // 메타 정보
         dc._meta = {
             stockCount: dc.prices.length,
             newsCount: (dc.news || []).length,
             reportCount: (dc.reports || []).length,
+            disclosureCount: (dc.disclosures || []).length,
+            disclosureDate: yyyymmdd,
             updatedAt: dc.timestamp,
             lastReadAt: dc._meta?.lastReadAt || null
         };
