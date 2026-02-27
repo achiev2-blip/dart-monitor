@@ -40,22 +40,18 @@
             min-height: 100vh;
         }
 
-        /* ── HEADER — index.html 기준 높이 통일 ── */
+        /* ── HEADER ── */
         header {
+            height: 48px;
             background: var(--panel);
             border-bottom: 1px solid var(--border);
-            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 14px;
             position: sticky;
             top: 0;
             z-index: 100;
-        }
-
-        .header-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 8px;
         }
 
         .logo {
@@ -132,7 +128,7 @@
             color: var(--down);
         }
 
-        /* ── MANAGE BUTTON ��─ */
+        /* ── MANAGE BUTTON ── */
         .manage-btn {
             margin-left: auto;
             padding: 4px 12px;
@@ -612,28 +608,18 @@
 
 <body>
 
-    <!-- 네비게이션 — index.html 기준 헤더 높이·스타일 통일 (STOCK 제외) -->
     <header>
-        <div class="header-top">
-            <div class="logo">📈 STOCK DASHBOARD</div>
-            <div style="display:flex;align-items:center;gap:8px">
-                <a href="/"
-                    style="text-decoration:none;background:#0d1a2e;color:#64b5f6;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="DART 공시 모니터">📊 DART</a>
-                <a href="/us_market.html"
-                    style="text-decoration:none;background:var(--accent,#1a1a2e);color:#fff;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="미국시장">🇺🇸 US</a>
-                <a href="/context.html"
-                    style="text-decoration:none;background:#2d1e5e;color:#bb86fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="Context Tracker">🧠 CTX</a>
-                <a href="/archive.html"
-                    style="text-decoration:none;background:#1a1a0d;color:#f0c040;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="아카이브 뷰어">📦 ARC</a>
-                <a href="/predictions.html"
-                    style="text-decoration:none;background:#1a0d1a;color:#c084fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="예측 트래커">🎯 PRED</a>
-            </div>
-        </div>
+        <a href="/" class="nav-link">📊 DART</a>
+        <div class="divider"></div>
+        <a href="/context.html" class="nav-link">🧠 CTX</a>
+        <div class="divider"></div>
+        <a href="/us_market.html" class="nav-link">🇺🇸 US</a>
+        <div class="divider"></div>
+        <a href="/archive.html" class="nav-link">📦 ARC</a>
+        <div class="divider"></div>
+        <a href="/predictions.html" class="nav-link">🎯 PRED</a>
+        <div class="divider"></div>
+        <div class="logo">STOCK DASHBOARD</div>
     </header>
 
     <!-- STOCK SELECTOR BAR -->
@@ -1193,6 +1179,11 @@
         // INIT
         init();
     </script>
+    <link rel="stylesheet" href="gemini-chat.css"><script>
+    window.geminiChatContext = { page: 'stocks', role: '종목 분석', description: '워치리스트 종목의 시세, 리포트, 뉴스를 종합 분석하는 역할' };
+    </script>
+
+    <script src="gemini-chat.js"></script>
 </body>
 
 </html>

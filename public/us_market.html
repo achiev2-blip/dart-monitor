@@ -38,20 +38,17 @@
       flex-direction: column;
     }
 
-    /* ── HEADER — index.html 기준 높이 통일 ── */
+    /* ── HEADER ── */
     header {
+      height: var(--header-h);
       background: var(--panel);
       border-bottom: 1px solid var(--border);
-      padding: 12px 20px;
-      flex-shrink: 0;
-    }
-
-    .header-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 8px;
+      padding: 0 16px;
+      flex-shrink: 0;
+      gap: 12px;
     }
 
     .header-left {
@@ -539,42 +536,45 @@
 
 <body>
 
-  <!-- HEADER — index.html 기준 헤더 높이·스타일 통일 (US 제외) -->
+  <!-- HEADER -->
   <header>
-    <div class="header-top">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="logo">US MARKET</div>
-        <div class="divider"></div>
-        <div class="market-status">
-          <div class="status-dot" id="statusDot"></div>
-          <span id="statusText" style="color:var(--muted)">확인중</span>
-        </div>
-        <div class="divider"></div>
-        <div class="clocks">
-          <span><span class="label">KST</span><span class="kst" id="kstTime">--:--:--</span></span>
-          <span><span class="label">ET</span><span id="etTime">--:--</span></span>
-        </div>
+    <div class="header-left">
+      <a href="/"
+        style="text-decoration:none;color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;">📊
+        DART</a>
+      <div class="divider"></div>
+      <a href="/context.html"
+        style="text-decoration:none;color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;">🧠
+        CTX</a>
+      <div class="divider"></div>
+      <a href="/stocks.html"
+        style="text-decoration:none;color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;">📈
+        STOCK</a>
+      <div class="divider"></div>
+      <a href="/archive.html"
+        style="text-decoration:none;color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;">📦
+        ARC</a>
+      <div class="divider"></div>
+      <a href="/predictions.html"
+        style="text-decoration:none;color:var(--muted);font-size:11px;font-family:'JetBrains Mono',monospace;">🎯
+        PRED</a>
+      <div class="divider"></div>
+      <div class="logo">US MARKET</div>
+      <div class="divider"></div>
+      <div class="market-status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText" style="color:var(--muted)">확인중</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <a href="/"
-          style="text-decoration:none;background:#0d1a2e;color:#64b5f6;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-          title="DART 공시 모니터">📊 DART</a>
-        <a href="/context.html"
-          style="text-decoration:none;background:#2d1e5e;color:#bb86fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-          title="Context Tracker">🧠 CTX</a>
-        <a href="/stocks.html"
-          style="text-decoration:none;background:#0d2818;color:#26a69a;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-          title="종목 대시보드">📈 STOCK</a>
-        <a href="/archive.html"
-          style="text-decoration:none;background:#1a1a0d;color:#f0c040;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-          title="아카이브 뷰어">📦 ARC</a>
-        <a href="/predictions.html"
-          style="text-decoration:none;background:#1a0d1a;color:#c084fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-          title="예측 트래커">🎯 PRED</a>
-        <button class="close-btn" id="closePanelBtn" onclick="toggleClosePanel()">
-          📊 마감종가
-        </button>
+      <div class="divider"></div>
+      <div class="clocks">
+        <span><span class="label">KST</span><span class="kst" id="kstTime">--:--:--</span></span>
+        <span><span class="label">ET</span><span id="etTime">--:--</span></span>
       </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <button class="close-btn" id="closePanelBtn" onclick="toggleClosePanel()">
+        📊 마감종가
+      </button>
     </div>
   </header>
 
@@ -1013,6 +1013,9 @@
     updateClock();
     setInterval(updateClock, 1000);
   </script>
+<script>
+    window.geminiChatContext = { page: 'us_market', role: '미국 시장 분석', description: '미국 주식시장 동향과 한국 시장 영향을 분석하는 역할' };
+    </script>
 </body>
 
 </html>

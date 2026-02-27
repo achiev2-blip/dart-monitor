@@ -1,0 +1,31 @@
+# node_modules
+node_modules/
+
+# 환경변수 (보안)
+.env
+
+# 데이터 파일 (VM에서만 존재)
+data/
+*.log
+
+# 백업/임시
+backup_*/
+_vm_files/
+_vm_check/
+_nav_backup/
+*.zip
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PM2
+.pm2/
+
+# 디버그 스크립트
+debug-routes.js
+check-vm*.js

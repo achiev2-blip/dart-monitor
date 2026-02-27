@@ -45,19 +45,14 @@
             min-height: 100vh;
         }
 
-        /* ─── 헤더 — index.html 기준 높이 통일 ─── */
+        /* ─── 헤더 ─── */
         .header {
-            padding: 12px 20px;
-            background: var(--bg2);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .header-top {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 8px;
+            padding: 10px 20px;
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border);
         }
 
         .header-left {
@@ -394,28 +389,21 @@
 </head>
 
 <body>
-    <!-- 네비게이션 — index.html 기준 헤더 높이·스타일 통일 (ARC 제외) -->
+    <!-- 헤더 -->
     <div class="header">
-        <div class="header-top">
+        <div class="header-left">
+            <a class="nav-link" href="/">📊 DART</a>
+            <div class="divider"></div>
+            <a class="nav-link" href="/us_market.html">🇺🇸 US</a>
+            <div class="divider"></div>
+            <a class="nav-link" href="/context.html">🧠 CTX</a>
+            <div class="divider"></div>
+            <a class="nav-link" href="/stocks.html">📈 STOCK</a>
+            <div class="divider"></div>
             <div class="logo">📦 ARCHIVE VIEWER</div>
-            <div style="display:flex;align-items:center;gap:8px">
-                <a href="/"
-                    style="text-decoration:none;background:#0d1a2e;color:#64b5f6;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="DART 공시 모니터">📊 DART</a>
-                <a href="/us_market.html"
-                    style="text-decoration:none;background:#1a1a2e;color:#fff;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="미국시장">🇺🇸 US</a>
-                <a href="/context.html"
-                    style="text-decoration:none;background:#2d1e5e;color:#bb86fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="Context Tracker">🧠 CTX</a>
-                <a href="/stocks.html"
-                    style="text-decoration:none;background:#0d2818;color:#26a69a;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="종목 대시보드">📈 STOCK</a>
-                <a href="/predictions.html"
-                    style="text-decoration:none;background:#1a0d1a;color:#c084fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="예측 트래커">🎯 PRED</a>
-                <span id="lastUpdate" style="color:var(--text2);font-size:10px">—</span>
-            </div>
+        </div>
+        <div class="header-right">
+            <span id="lastUpdate">—</span>
         </div>
     </div>
 
@@ -459,7 +447,7 @@
         // ─── 현재 선택된 카테고리 ───
         let currentType = null;
 
-        // ─── 상태 카드 로드 ──���
+        // ─── 상태 카드 로드 ───
         async function loadStatus() {
             try {
                 const data = await fetchAPI('/api/archive/status');
@@ -518,7 +506,7 @@
             const list = document.getElementById('fileList');
             section.style.display = '';
 
-            const labels = { daily: '일별 스냅샷', weekly: '주간 요약', monthly: '월간 요약', quarterly: '분기 요약', yearly: '연간 요약', events: '��곡점 이벤트' };
+            const labels = { daily: '일별 스냅샷', weekly: '주간 요약', monthly: '월간 요약', quarterly: '분기 요약', yearly: '연간 요약', events: '변곡점 이벤트' };
             document.getElementById('sectionTitle').textContent = labels[type] || type;
 
             list.innerHTML = '<div class="loading"><span class="spinner"></span></div>';
@@ -665,6 +653,9 @@
 
         // ─── 초기 로드 ───
         loadStatus();
+    </script>
+<script>
+    window.geminiChatContext = { page: 'archive', role: '아카이브 분석', description: '과거 데이터와 트렌드를 분석하여 장기 인사이트를 제공하는 역할' };
     </script>
 </body>
 

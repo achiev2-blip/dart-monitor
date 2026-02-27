@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>데이터 탐색기 — DART Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            display: flex;
+            height: 100vh;
+            overflow: hidden
+        }
+
+        a {
+            color: #58a6ff;
+            text-decoration: none
+        }
+
+        /* ── 좌측 트리 ── */
+        .sidebar {
+            width: 320px;
+            min-width: 200px;
+            max-width: 600px;
+            background: #161b22;
+            border-right: none;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0
+        }
+
+        .resizer {
+            width: 5px;
+            background: #30363d;
+            cursor: col-resize;
+            flex-shrink: 0;
+            transition: background .2s
+        }
+
+        .resizer:hover,
+        .resizer.active {
+            background: #1f6feb
+        }
+
+        .sidebar-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            align-items: center;
+            gap: 10px
+        }
+
+        .sidebar-header h2 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f0f6fc
+        }
+
+        .sidebar-header .back-btn {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            background: #21262d;
+            color: #8b949e;
+            cursor: pointer;
+            transition: .2s
+        }
+
+        .sidebar-header .back-btn:hover {
+            background: #30363d;
+            color: #f0f6fc
+        }
+
+        .file-count {
+            font-size: 11px;
+            color: #8b949e;
+            padding: 0;
+            margin-left: auto
+        }
+
+        .tree {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0
+        }
+
+        .tree::-webkit-scrollbar {
+            width: 6px
+        }
+
+        .tree::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 3px
+        }
+
+        .node {
+            cursor: pointer;
+            user-select: none
+        }
+
+        .node-row {
+            display: flex;
+            align-items: center;
+            padding: 4px 12px;
+            gap: 6px;
+            font-size: 13px;
+            border-radius: 6px;
+            margin: 0 6px;
+            transition: .15s
+        }
+
+        .node-row:hover {
+            background: #1c2128
+        }
+
+        .node-row.active {
+            background: #1f6feb33;
+            color: #58a6ff
+        }
+
+        .node-icon {
+            width: 16px;
+            text-align: center;
+            font-size: 12px;
+            flex-shrink: 0
+        }
+
+        .node-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap
+        }
+
+        .node-badge {
+            font-size: 10px;
+            color: #8b949e;
+            background: #21262d;
+            padding: 1px 6px;
+            border-radius: 8px
+        }
+
+        .node-children {
+            display: none;
+            padding-left: 12px
+        }
+
+        .node.open>.node-children {
+            display: block
+        }
+
+        .node.open>.node-row>.node-icon.dir-icon {
+            color: #e3b341
+        }
+
+        .dir-icon {
+            color: #8b949e
+        }
+
+        .file-icon {
+            color: #8b949e
+        }
+
+        /* ── 우측 내용 ── */
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden
+        }
+
+        .content-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid #30363d;
+            background: #161b22;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0
+        }
+
+        .content-header .filepath {
+            font-size: 13px;
+            color: #8b949e;
+            font-family: 'Consolas', monospace
+        }
+
+        .content-header .filepath span {
+            color: #58a6ff
+        }
+
+        .content-header .meta {
+            margin-left: auto;
+            font-size: 11px;
+            color: #8b949e;
+            display: flex;
+            gap: 12px
+        }
+
+        .content-body {
+            flex: 1;
+            overflow: auto;
+            padding: 20px
+        }
+
+        .content-body::-webkit-scrollbar {
+            width: 6px
+        }
+
+        .content-body::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 3px
+        }
+
+        .json-view {
+            font-family: 'Consolas', 'Fira Code', monospace;
+            font-size: 12.5px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-all
+        }
+
+        .json-key {
+            color: #7ee787
+        }
+
+        .json-str {
+            color: #a5d6ff
+        }
+
+        .json-num {
+            color: #d2a8ff
+        }
+
+        .json-bool {
+            color: #ff7b72
+        }
+
+        .json-null {
+            color: #8b949e
+        }
+
+        .placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #484f58;
+            font-size: 15px
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e
+        }
+
+        /* ── 통계 카드 ── */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px
+        }
+
+        .stat-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 12px 14px;
+            text-align: center
+        }
+
+        .stat-card .val {
+            font-size: 22px;
+            font-weight: 700;
+            color: #58a6ff
+        }
+
+        .stat-card .lbl {
+            font-size: 11px;
+            color: #8b949e;
+            margin-top: 4px
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <a href="context.html" class="back-btn">← 돌아가기</a>
+            <h2>📁 데이터 탐색기</h2>
+            <span class="file-count" id="file-count"></span>
+        </div>
+        <div class="tree" id="tree">
+            <div class="loading">로딩 중...</div>
+        </div>
+    </div>
+
+    <div class="resizer" id="resizer"></div>
+
+    <div class="content">
+        <div class="content-header" id="content-header" style="display:none">
+            <div class="filepath" id="filepath"></div>
+            <div class="meta" id="file-meta"></div>
+        </div>
+        <div class="content-body" id="content-body">
+            <div class="placeholder">← 왼쪽 트리에서 파일을 선택하세요</div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'dartmonitor-2024';
+        const H = { 'x-api-key': API_KEY };
+        let activeRow = null;
+
+        // ── 트리 로드 ──
+        async function loadTree() {
+            try {
+                const r = await fetch('/api/data-tree', { headers: H });
+                const d = await r.json();
+                if (!d.ok) throw new Error(d.error);
+                document.getElementById('file-count').textContent = `${d.totalFiles}개 파일`;
+                document.getElementById('tree').innerHTML = '';
+                renderNodes(d.tree, document.getElementById('tree'));
+            } catch (e) {
+                document.getElementById('tree').innerHTML = `<div class="loading" style="color:#f85149">오류: ${e.message}</div>`;
+            }
+        }
+
+        function renderNodes(nodes, parent) {
+            for (const n of nodes) {
+                const el = document.createElement('div');
+                el.className = 'node';
+                if (n.type === 'dir') {
+                    el.innerHTML = `
+        <div class="node-row">
+          <span class="node-icon dir-icon">📂</span>
+          <span class="node-name">${n.name}</span>
+          ${n.count ? `<span class="node-badge">${n.count}</span>` : ''}
+        </div>
+        <div class="node-children"></div>`;
+                    el.querySelector('.node-row').addEventListener('click', () => {
+                        el.classList.toggle('open');
+                        const dirIcon = el.querySelector('.dir-icon');
+                        dirIcon.textContent = el.classList.contains('open') ? '📂' : '📁';
+                    });
+                    if (n.children) renderNodes(n.children, el.querySelector('.node-children'));
+                } else {
+                    const sizeStr = fmtSize(n.size);
+                    el.innerHTML = `
+        <div class="node-row" data-path="${n.path}" data-size="${sizeStr}" data-modified="${n.modified}">
+          <span class="node-icon file-icon">📄</span>
+          <span class="node-name">${n.name}</span>
+          <span class="node-badge">${sizeStr}</span>
+        </div>`;
+                    el.querySelector('.node-row').addEventListener('click', () => loadFile(n.path, el.querySelector('.node-row')));
+                }
+                parent.appendChild(el);
+            }
+        }
+
+        function fmtSize(bytes) {
+            if (bytes < 1024) return bytes + 'B';
+            if (bytes < 1048576) return (bytes / 1024).toFixed(1) + 'KB';
+            return (bytes / 1048576).toFixed(1) + 'MB';
+        }
+
+        // ── 파일 로드 ──
+        async function loadFile(p, row) {
+            if (activeRow) activeRow.classList.remove('active');
+            row.classList.add('active');
+            activeRow = row;
+
+            const header = document.getElementById('content-header');
+            const body = document.getElementById('content-body');
+            header.style.display = 'flex';
+            document.getElementById('filepath').innerHTML = `<span>${p}</span>`;
+            document.getElementById('file-meta').innerHTML = `${row.dataset.size} · ${new Date(row.dataset.modified).toLocaleString('ko-KR')}`;
+            body.innerHTML = '<div class="loading">로딩 중...</div>';
+
+            try {
+                const r = await fetch(`/api/data-file?path=${encodeURIComponent(p)}`, { headers: H });
+                const d = await r.json();
+                if (!d.ok && d.error) throw new Error(d.error);
+                body.innerHTML = `<div class="json-view">${syntaxHL(d.content)}</div>`;
+            } catch (e) {
+                body.innerHTML = `<div class="loading" style="color:#f85149">오류: ${e.message}</div>`;
+            }
+        }
+
+        // ── JSON 하이라이팅 ──
+        function syntaxHL(obj) {
+            const s = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+                .replace(/: "([^"]*)"/g, ': <span class="json-str">"$1"</span>')
+                .replace(/: (-?\d+\.?\d*)/g, ': <span class="json-num">$1</span>')
+                .replace(/: (true|false)/g, ': <span class="json-bool">$1</span>')
+                .replace(/: (null)/g, ': <span class="json-null">$1</span>');
+        }
+
+        // ── 드래그 리사이즈 ──
+        const resizer = document.getElementById('resizer');
+        const sidebar = document.querySelector('.sidebar');
+        let isResizing = false;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            resizer.classList.add('active');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const newWidth = Math.min(Math.max(e.clientX, 200), 600);
+            sidebar.style.width = newWidth + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                resizer.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        loadTree();
+    </script>
+<script>
+    window.geminiChatContext = { page: 'data', role: '데이터 조회', description: '서버 데이터 파일을 조회하고 분석하는 역할' };
+    </script>
+</body>
+
+</html>

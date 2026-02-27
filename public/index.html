@@ -1,0 +1,3143 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DART 공시 모니터 v3</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    :root {
+      --bg: #1a1a2e;
+      --card: #16213e;
+      --accent: #0f3460;
+      --good: #00e676;
+      --bad: #ff5252;
+      --major: #ffab40;
+      --star: #ffd700;
+      --tab-active: #e94560;
+      --link: #64b5f6;
+      --text: #e0e0e0;
+      --text-dim: #9e9e9e;
+      --border: #1e3a5f;
+      --ai: #bb86fc;
+      --tg: #29b6f6;
+      --strong-good: #ffd700
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh
+    }
+
+    header {
+      background: var(--card);
+      border-bottom: 2px solid var(--tab-active);
+      padding: 12px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px
+    }
+
+    h1 {
+      font-size: 1.3em;
+      color: #fff
+    }
+
+    h1 span {
+      color: var(--tab-active)
+    }
+
+    .status {
+      font-size: .75em;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px
+    }
+
+    .status .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      background: var(--good);
+      animation: pulse 2s infinite
+    }
+
+    .status .dot.paused {
+      background: var(--major);
+      animation: none
+    }
+
+    .pause-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: .85em;
+      padding: 2px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: .2s;
+      line-height: 1.3
+    }
+
+    .pause-btn:hover {
+      border-color: var(--tab-active);
+      color: #fff
+    }
+
+    .pause-btn.active {
+      border-color: var(--major);
+      color: var(--major);
+      background: rgba(255, 171, 64, .1)
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .4
+      }
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-top: 10px;
+      align-items: center
+    }
+
+    .tab {
+      flex: 1;
+      padding: 8px 0;
+      background: var(--accent);
+      border: none;
+      color: var(--text-dim);
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      font-size: .85em;
+      transition: .2s;
+      text-align: center;
+      white-space: nowrap
+    }
+
+    .tab.active {
+      background: var(--tab-active);
+      color: #fff;
+      font-weight: 600
+    }
+
+    .controls {
+      display: flex;
+      gap: 6px;
+      padding: 6px 20px;
+      background: var(--card);
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      position: sticky;
+      top: 88px;
+      z-index: 99;
+      transition: top 0.1s
+    }
+
+    .filter-btn {
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-dim);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: .78em;
+      transition: .2s;
+      white-space: nowrap
+    }
+
+    .filter-btn.active {
+      background: var(--tab-active);
+      border-color: var(--tab-active);
+      color: #fff
+    }
+
+    .search-box {
+      width: 180px;
+      min-width: 120px;
+      padding: 4px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: .8em
+    }
+
+    .search-box:focus {
+      outline: none;
+      border-color: var(--tab-active)
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 14px;
+      padding: 5px 20px;
+      background: var(--accent);
+      font-size: .75em;
+      flex-wrap: wrap;
+      align-items: center;
+      position: sticky;
+      top: 122px;
+      z-index: 98;
+      transition: top 0.1s
+    }
+
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 4px
+    }
+
+    .stat .cnt {
+      font-weight: 700
+    }
+
+    main {
+      padding: 12px 20px 60px
+    }
+
+    .disclosure-group {
+      margin-bottom: 12px
+    }
+
+    .group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--accent);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: .85em;
+      font-weight: 600
+    }
+
+    .group-header .cnt {
+      background: var(--tab-active);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: .75em
+    }
+
+    .group-body {
+      overflow: hidden
+    }
+
+    .group-body.collapsed {
+      max-height: 0 !important;
+      overflow: hidden
+    }
+
+    .item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      position: relative
+    }
+
+    .item:hover {
+      background: rgba(255, 255, 255, .03)
+    }
+
+    .item.watchlist {
+      border-left: 3px solid var(--star)
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-size: .7em;
+      font-weight: 700;
+      white-space: nowrap
+    }
+
+    .badge.good {
+      background: rgba(0, 230, 118, .15);
+      color: var(--good)
+    }
+
+    .badge.strong_good {
+      background: rgba(255, 215, 0, .2);
+      color: var(--strong-good);
+      font-weight: 800;
+      text-shadow: 0 0 6px rgba(255, 215, 0, .5)
+    }
+
+    .badge.bad {
+      background: rgba(255, 82, 82, .15);
+      color: var(--bad)
+    }
+
+    .badge.major {
+      background: rgba(255, 171, 64, .15);
+      color: var(--major)
+    }
+
+    .badge.normal {
+      background: rgba(255, 255, 255, .05);
+      color: var(--text-dim)
+    }
+
+    .item.strong-glow {
+      border-left: 4px solid var(--strong-good);
+      background: rgba(255, 215, 0, .04);
+      animation: strongPulse 2.5s ease-in-out infinite
+    }
+
+    @keyframes strongPulse {
+
+      0%,
+      100% {
+        background: rgba(255, 215, 0, .04);
+        box-shadow: 0 0 0 rgba(255, 215, 0, 0)
+      }
+
+      50% {
+        background: rgba(255, 215, 0, .1);
+        box-shadow: 0 0 12px rgba(255, 215, 0, .15)
+      }
+    }
+
+    .item.strong-glow-off {
+      border-left: 4px solid var(--strong-good);
+      animation: none;
+      background: transparent
+    }
+
+    .item-body {
+      flex: 1;
+      min-width: 0
+    }
+
+    .item-title {
+      font-size: .88em;
+      line-height: 1.4
+    }
+
+    .item-title a {
+      color: var(--link);
+      text-decoration: none
+    }
+
+    .item-title a:hover {
+      text-decoration: underline
+    }
+
+    .item-meta {
+      font-size: .73em;
+      color: var(--text-dim);
+      margin-top: 3px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center
+    }
+
+    .item-actions {
+      display: inline-flex;
+      gap: 3px;
+      vertical-align: middle;
+      margin-left: 4px
+    }
+
+    .star {
+      color: var(--star);
+      font-size: .85em
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-dim)
+    }
+
+    .empty-state .icon {
+      font-size: 3em;
+      margin-bottom: 10px
+    }
+
+    .badge.foreign {
+      background: rgba(41, 182, 246, .15);
+      color: var(--tg)
+    }
+
+    .badge.domestic {
+      background: rgba(255, 171, 64, .15);
+      color: var(--major)
+    }
+
+    .badge.discover {
+      background: rgba(156, 39, 176, .15);
+      color: #ce93d8
+    }
+
+    .news-summary {
+      font-size: .78em;
+      color: var(--text-dim);
+      margin-top: 4px;
+      line-height: 1.4
+    }
+
+    .news-ai {
+      margin-top: 4px;
+      padding: 6px 8px;
+      background: rgba(187, 134, 252, .08);
+      border: 1px solid rgba(187, 134, 252, .15);
+      border-radius: 4px;
+      font-size: .76em;
+      line-height: 1.4;
+      display: none
+    }
+
+    .news-ai.show {
+      display: block
+    }
+
+    .news-source {
+      font-size: .7em;
+      color: var(--text-dim);
+      background: rgba(255, 255, 255, .05);
+      padding: 1px 6px;
+      border-radius: 3px
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 18px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: .82em;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: .3s;
+      z-index: 200;
+      max-width: 350px
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0)
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--text-dim)
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--border);
+      border-top-color: var(--tab-active);
+      border-radius: 50%;
+      animation: spin .8s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .date-input {
+      padding: 4px 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: .78em;
+      white-space: nowrap
+    }
+
+    /* AI Analysis */
+    .ai-btn {
+      padding: 2px 6px;
+      background: rgba(187, 134, 252, .15);
+      border: 1px solid var(--ai);
+      color: var(--ai);
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: .68em;
+      transition: .2s
+    }
+
+    .ai-btn:hover {
+      background: rgba(187, 134, 252, .3)
+    }
+
+    .ai-btn.loading {
+      opacity: .5;
+      cursor: wait
+    }
+
+    .ai-result {
+      margin-top: 6px;
+      padding: 8px 10px;
+      background: rgba(187, 134, 252, .08);
+      border: 1px solid rgba(187, 134, 252, .2);
+      border-radius: 4px;
+      font-size: .78em;
+      line-height: 1.5;
+      display: none
+    }
+
+    .ai-result.show {
+      display: block
+    }
+
+    .ai-result .ai-label {
+      color: var(--ai);
+      font-weight: 700;
+      font-size: .72em;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px
+    }
+
+    .ai-impact {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: .72em;
+      font-weight: 700;
+      margin-left: 6px
+    }
+
+    .ai-impact.high {
+      background: rgba(255, 82, 82, .2);
+      color: var(--bad)
+    }
+
+    .ai-impact.mid {
+      background: rgba(255, 171, 64, .2);
+      color: var(--major)
+    }
+
+    .ai-impact.low {
+      background: rgba(0, 230, 118, .15);
+      color: var(--good)
+    }
+
+    /* Telegram tab */
+    .tg-config {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px
+    }
+
+    .tg-config h3 {
+      font-size: .95em;
+      color: var(--tg);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px
+    }
+
+    .tg-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    .tg-row label {
+      font-size: .8em;
+      color: var(--text-dim);
+      min-width: 80px
+    }
+
+    .tg-input {
+      flex: 1;
+      min-width: 200px;
+      padding: 6px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: .82em
+    }
+
+    .tg-input:focus {
+      outline: none;
+      border-color: var(--tg)
+    }
+
+    .tg-btn {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: .82em;
+      font-weight: 600;
+      transition: .2s
+    }
+
+    .tg-btn.primary {
+      background: var(--tg);
+      color: #fff
+    }
+
+    .tg-btn.primary:hover {
+      background: #039be5
+    }
+
+    .tg-btn.secondary {
+      background: var(--accent);
+      color: var(--text-dim);
+      border: 1px solid var(--border)
+    }
+
+    .tg-btn.secondary:hover {
+      color: #fff
+    }
+
+    .tg-btn:disabled {
+      opacity: .4;
+      cursor: not-allowed
+    }
+
+    .tg-status {
+      font-size: .78em;
+      color: var(--text-dim);
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: var(--bg);
+      border-radius: 4px;
+      display: none
+    }
+
+    .tg-status.show {
+      display: block
+    }
+
+    .tg-preview {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 12px;
+      font-size: .8em;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+      color: var(--text-dim)
+    }
+
+    .tg-filter-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px
+    }
+
+    /* Text convert modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, .6);
+      z-index: 300;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px
+    }
+
+    .modal-overlay.show {
+      display: flex
+    }
+
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      width: 100%;
+      max-width: 700px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border)
+    }
+
+    .modal-header h3 {
+      font-size: .95em
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 1.2em;
+      cursor: pointer
+    }
+
+    .modal-body {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1
+    }
+
+    .modal-body textarea {
+      width: 100%;
+      min-height: 300px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      font-size: .8em;
+      line-height: 1.6;
+      padding: 12px;
+      resize: vertical;
+      font-family: 'Segoe UI', monospace
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      justify-content: flex-end
+    }
+
+
+    /* Corp-news integration */
+    .corp-news-divider {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      font-size: .73em;
+      color: var(--text-dim);
+      border-top: 1px dashed var(--border);
+      margin-top: 4px
+    }
+
+    .corp-news-divider::before,
+    .corp-news-divider::after {
+      content: '';
+      flex: 1;
+      border-top: 1px dashed var(--border)
+    }
+
+    .corp-news-compact .item {
+      padding: 6px 12px
+    }
+
+    .corp-news-compact .item-title {
+      font-size: .82em
+    }
+
+    .corp-news-compact .news-ai {
+      font-size: .72em;
+      padding: 4px 6px
+    }
+
+    /* Report items */
+    .badge.report {
+      background: rgba(100, 181, 246, .15);
+      color: var(--link)
+    }
+
+    .report-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: .73em;
+      color: var(--text-dim);
+      margin-top: 3px
+    }
+
+    .target-price {
+      font-weight: 700;
+      font-size: .85em
+    }
+
+    .price-up {
+      color: var(--good)
+    }
+
+    .price-down {
+      color: var(--bad)
+    }
+
+    .price-same {
+      color: var(--text-dim)
+    }
+
+    .opinion-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: .7em;
+      font-weight: 600
+    }
+
+    .opinion-badge.buy {
+      background: rgba(0, 230, 118, .15);
+      color: var(--good)
+    }
+
+    .opinion-badge.hold {
+      background: rgba(255, 171, 64, .15);
+      color: var(--major)
+    }
+
+    .opinion-badge.sell {
+      background: rgba(255, 82, 82, .15);
+      color: var(--bad)
+    }
+
+    .corp-section-label {
+      font-size: .72em;
+      color: var(--ai);
+      padding: 4px 12px;
+      background: rgba(187, 134, 252, .05);
+      border-left: 2px solid var(--ai)
+    }
+
+    @media(max-width:600px) {
+      .controls {
+        flex-wrap: wrap
+      }
+
+      .search-box {
+        flex: 1;
+        min-width: 100px
+      }
+
+      .item {
+        flex-direction: column;
+        gap: 4px
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="header-top">
+      <h1>📊 DART <span>공시 모니터</span></h1>
+      <div style="display:flex;align-items:center;gap:8px">
+        <a href="/us_market.html"
+          style="text-decoration:none;background:var(--accent);color:#fff;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+          title="미국시장">🇺🇸 US</a>
+        <a href="/context.html"
+          style="text-decoration:none;background:#2d1e5e;color:#bb86fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+          title="Context Tracker">🧠 CTX</a>
+        <a href="/stocks.html"
+          style="text-decoration:none;background:#0d2818;color:#26a69a;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+          title="종목 대시보드">📈 STOCK</a>
+        <a href="/archive.html"
+          style="text-decoration:none;background:#1a1a0d;color:#f0c040;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+          title="아카이브 뷰어">📦 ARC</a>
+        <a href="/predictions.html"
+          style="text-decoration:none;background:#1a0d1a;color:#c084fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
+          title="예측 트래커">🎯 PRED</a>
+        <div class="status"><button class="pause-btn" id="pauseBtn" onclick="togglePause()"
+            title="수집 일시정지/재개">⏸</button><span class="dot" id="statusDot"></span><span id="statusText">대기 중</span></div>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="realtime">⚡ 실시간</button>
+      <button class="tab" data-tab="report">📊 리포트</button>
+      <button class="tab" data-tab="daily">📅 일별</button>
+      <button class="tab" data-tab="corp">🏢 종목별</button>
+      <button class="tab" data-tab="news">📰 뉴스</button>
+      <button class="tab" onclick="openTgModal()"
+        style="color:var(--tg);flex:none;width:36px;font-size:.75em">✈️</button>
+      <button class="tab" onclick="resetServer()" style="color:var(--bad);flex:none;width:36px;font-size:.75em"
+        title="상태 저장 후 서버 종료">🔄</button>
+      <button class="tab" onclick="openBackupModal()"
+        style="color:var(--good);flex:none;width:36px;font-size:.75em">💾</button>
+      <input class="date-input" id="dateInput" type="date" style="margin-left:auto" />
+    </div>
+  </header>
+
+  <!-- 주가 급변동 알림 배너 -->
+  <div id="priceAlertBanner"
+    style="display:none;background:linear-gradient(90deg,rgba(255,82,82,.12),rgba(68,138,255,.12));border-bottom:1px solid var(--border);padding:6px 12px;font-size:.8em;overflow:hidden;max-height:120px;transition:all .3s ease">
+  </div>
+
+  <div class="controls" id="controlsBar">
+    <button class="filter-btn active" data-filter="all">전체</button>
+    <button class="filter-btn" data-filter="watchlist">⭐ 워치리스트</button>
+    <button class="filter-btn" data-filter="strong_good" style="color:var(--strong-good)">🔥 강력호재</button>
+    <button class="filter-btn" data-filter="good">🟢 호재</button>
+    <button class="filter-btn" data-filter="bad">🔴 악재</button>
+    <button class="filter-btn" data-filter="major">📋 주요</button>
+    <button class="filter-btn" data-filter="discover">🔍 발굴</button>
+    <input class="search-box" id="searchBox" placeholder="종목명·공시 제목 검색..." />
+  </div>
+  <div class="stats-bar">
+    <div class="stat">전체 <span class="cnt" id="cntAll">0</span></div>
+    <div class="stat" style="color:var(--strong-good)">🔥강력 <span class="cnt" id="cntStrong">0</span></div>
+    <div class="stat" style="color:var(--good)">호재 <span class="cnt" id="cntGood">0</span></div>
+    <div class="stat" style="color:var(--bad)">악재 <span class="cnt" id="cntBad">0</span></div>
+    <div class="stat" style="color:var(--major)">주요 <span class="cnt" id="cntMajor">0</span></div>
+    <div class="stat" style="color:var(--star)">⭐ <span class="cnt" id="cntStar">0</span></div>
+    <div class="stat" style="color:var(--link)">📊 <span class="cnt" id="cntReport">0</span></div>
+  </div>
+  <main id="content">
+    <div class="loading">
+      <div class="spinner"></div>
+      <p style="margin-top:10px">공시 데이터를 불러오는 중...</p>
+    </div>
+  </main>
+
+  <!-- Telegram Modal -->
+  <div class="modal-overlay" id="tgModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 style="color:var(--tg)">✈️ 텔레그램 전송</h3>
+        <button class="modal-close" onclick="closeTgModal()">✕</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+        <div id="tgUserList"></div>
+        <div style="font-size:.85em;color:var(--tg);font-weight:600">+ 새 사용자 추가</div>
+        <div class="tg-row"><label>별명</label><input class="tg-input" id="tgLabelM" placeholder="예: 홍길동" /></div>
+        <div class="tg-row"><label>봇 토큰</label><input class="tg-input" id="tgTokenM"
+            placeholder="123456789:ABCDEF..." /><button class="tg-btn secondary"
+            onclick="navigator.clipboard.writeText(document.getElementById('tgTokenM').value);toast('토큰 복사 완료')"
+            style="padding:4px 8px">📋</button></div>
+        <div class="tg-row"><label>Chat ID</label><input class="tg-input" id="tgChatIdM" placeholder="자동확인 버튼을 누르세요" />
+        </div>
+        <div class="tg-row" style="gap:6px">
+          <button class="tg-btn primary" onclick="addTgUser()">➕ 추가</button>
+          <button class="tg-btn secondary" onclick="testTgNew()">🔔 테스트</button>
+        </div>
+        <div class="tg-status" id="tgStatus"></div>
+        <hr style="border-color:var(--border)">
+        <div class="tg-filter-row">
+          <button class="tg-btn primary" onclick="sendTgNow('all')">전체 전송</button>
+          <button class="tg-btn secondary" onclick="sendTgNow('watchlist')">⭐ 워치리스트</button>
+          <button class="tg-btn secondary" onclick="sendTgNow('good')">🟢 호재</button>
+          <button class="tg-btn secondary" onclick="sendTgNow('bad')">🔴 악재</button>
+          <button class="tg-btn secondary" onclick="sendTgNow('major')">📋 주요</button>
+        </div>
+        <div><button class="tg-btn secondary" onclick="previewTg('all')" style="font-size:.75em">👁️ 미리보기</button></div>
+        <div class="tg-preview" id="tgPreview">전송 버튼을 누르거나 미리보기를 클릭하세요</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backup Modal -->
+  <div class="modal-overlay" id="backupModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 style="color:var(--good)">💾 백업 설정</h3>
+        <button class="modal-close" onclick="closeBackupModal()">✕</button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:.85em;color:var(--text-dim)">Google Drive 폴더 등 백업 경로를 지정하면 자동으로 데이터를 백업합니다.</div>
+        <div class="tg-row"><label style="min-width:90px">백업 폴더</label><input class="tg-input" id="backupPath"
+            placeholder="예: C:\Users\user\Google Drive\dart-backup" /></div>
+        <div class="tg-row"><label style="min-width:90px">주기 (시간)</label><input class="tg-input" id="backupInterval"
+            type="number" min="1" max="24" value="6" style="width:80px;flex:none" /></div>
+        <div class="tg-row" style="gap:6px">
+          <label style="min-width:90px">자동 백업</label>
+          <button class="tg-btn" id="backupToggle" onclick="toggleAutoBackup()">OFF</button>
+        </div>
+        <hr style="border-color:var(--border)">
+        <div class="tg-row" style="gap:6px">
+          <button class="tg-btn primary" onclick="doBackupNow()" style="background:var(--good)">💾 지금 백업</button>
+          <button class="tg-btn secondary" onclick="doRestore()">♻️ 복원</button>
+        </div>
+        <div class="tg-status" id="backupStatus"></div>
+        <div id="backupInfo"
+          style="font-size:.78em;color:var(--text-dim);padding:8px;background:var(--bg);border-radius:4px"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script>
+    // ============================================================
+    // API 키 자동 주입 (외부 접근 시 인증)
+    // ============================================================
+    var DART_API_KEY_HEADER = 'dartmonitor-2024';
+
+    // fetch 래퍼
+    var _origFetch = window.fetch;
+    window.fetch = function (url, opts) {
+      opts = opts || {};
+      opts.headers = opts.headers || {};
+      if (typeof url === 'string' && url.indexOf('/api') === 0) {
+        opts.headers['x-api-key'] = DART_API_KEY_HEADER;
+      }
+      return _origFetch(url, opts);
+    };
+
+    // XHR 래퍼
+    var _origXHROpen = XMLHttpRequest.prototype.open;
+    var _origXHRSend = XMLHttpRequest.prototype.send;
+    var _origXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
+    XMLHttpRequest.prototype.open = function (method, url) {
+      this._dartUrl = url;
+      return _origXHROpen.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function () {
+      if (this._dartUrl && this._dartUrl.indexOf('/api') === 0) {
+        _origXHRSetHeader.call(this, 'x-api-key', DART_API_KEY_HEADER);
+      }
+      return _origXHRSend.apply(this, arguments);
+    };
+
+    (function () {
+      // ============================================================
+      // CONFIG (API 키는 서버에서 관리)
+      // ============================================================
+      var API_BASE = '/api/dart';
+      var GEMINI_URL = '/api/gemini';
+      var POLL_MS = 600000;
+      var CACHE_DAYS = 3;
+
+      // Telegram config (multi-user)
+      var TG_USERS = (function () {
+        var raw = localStorage.getItem('dart_tg_users');
+        if (raw) { try { var arr = JSON.parse(raw); if (Array.isArray(arr) && arr.length) return arr } catch (e) { } }
+        var oldT = localStorage.getItem('dart_tg_token') || '8258877401:AAEQ3xZheQJ0F8zUOVzGUPpPTDipEg53O6E';
+        var oldC = localStorage.getItem('dart_tg_chatid') || '8464610734';
+        var m = [{ token: oldT, chatId: oldC, label: '관리자' }];
+        localStorage.setItem('dart_tg_users', JSON.stringify(m));
+        localStorage.removeItem('dart_tg_token'); localStorage.removeItem('dart_tg_chatid');
+        return m;
+      })();
+      function saveTgUsers() { localStorage.setItem('dart_tg_users', JSON.stringify(TG_USERS)) }
+      var TG_BOT_TOKEN = (TG_USERS[0] && TG_USERS[0].token) || '';
+      var TG_CHAT_ID = (TG_USERS[0] && TG_USERS[0].chatId) || '';
+
+      // ============================================================
+      // WATCHLIST (서버에서 동적 로딩)
+      // ============================================================
+      var WATCHLIST = [];
+      // 서버에서 watchlist 로드
+      fetch('/api/watchlist').then(function (r) { return r.json() }).then(function (list) {
+        if (Array.isArray(list)) {
+          WATCHLIST = list.map(function (s) { return s.name });
+          console.log('[WATCHLIST] ' + WATCHLIST.length + '종목 로드');
+        }
+      }).catch(function (e) {
+        console.error('[WATCHLIST] 로드 실패:', e);
+        // 폴백: 기본 종목
+        WATCHLIST = ['삼성전자', 'SK하이닉스', '한미반도체'];
+      });
+
+      // ============================================================
+      // KEYWORDS
+      // ============================================================
+      var KW_GOOD = ['자기주식취득', '배당결정', '수주', '신규시설투자', '실적호전', '상향', '자사주', '무상증자', '배당'];
+      var KW_BAD = ['유상증자', '전환사채', '자기주식처분', '횡령', '감사의견거절', '하향', '소송', '감자결정', '상장폐지'];
+      var KW_MAJOR = ['사업보고서', '분기보고서', '반기보고서', '주요사항보고서', '대량보유', '임원변동', '최대주주'];
+      var KW_EXCLUDE = ['증권신고서(채권', '일괄신고추가서류', '투자설명서', '효력발생'];
+
+      // ============================================================
+      // SECTOR / THEME KEYWORDS (for news classification)
+      // ============================================================
+      var SECTOR_MAP = {
+        '조선': ['HD한국조선해양', '한화오션', '삼성중공업', 'HD현대중공업', 'HD현대'],
+        '반도체': ['삼성전자', 'SK하이닉스', '한미반도체', '삼성전기'],
+        '2차전지': ['LG에너지솔루션', '삼성SDI', '에코프로', '에코프로비엠', '포스코퓨처엠'],
+        '자동차': ['현대차', '기아', '현대모비스'],
+        '금융': ['KB금융', '하나금융지주', '우리금융지주', '신한지주', '메리츠금융지주', '카카오뱅크', '삼성생명', '삼성화재'],
+        '통신': ['SK텔레콤', 'KT', 'LG'],
+        '바이오': ['삼성바이오로직스', '셀트리온', 'HLB'],
+        '에너지': ['한국전력', '두산에너빌리티', 'SK이노베이션', 'SK'],
+        '항공방산': ['한화에어로스페이스', '대한항공', 'LG이노텍'],
+        '유통소비재': ['이마트', '롯데케미칼'],
+        'IT플랫폼': ['NAVER', '카카오', '크래프톤', 'SK스퀘어'],
+        '철강소재': ['POSCO홀딩스', '포스코퓨처엠', '고려아연', '한화솔루션'],
+        '건설': ['현대건설', 'HD현대', '삼성물산'],
+        '디스플레이': ['LG디스플레이', '삼성전자', '삼성SDI'],
+        '원전': ['한국전력', '두산에너빌리티', '한화에어로스페이스']
+      };
+
+      var SECTOR_KEYWORDS = {
+        '조선': ['조선', '함정', 'MRO', '해양', '선박', 'K조선', 'KDDX', '해군', 'LNG선', '초대형', '수주잔고'],
+        '반도체': ['반도체', 'HBM', '파운드리', '메모리', 'D램', '낸드', 'AI칩', 'GPU', 'TSMC', '웨이퍼', 'EUV', '패키징'],
+        '2차전지': ['배터리', '양극재', '음극재', '전해질', '전고체', '리튬', '니켈', 'ESS', 'IRA', 'AMPC', 'NCM', 'LFP'],
+        '자동차': ['자동차', '전기차', 'EV', '하이브리드', '자율주행', '완성차', '내수판매', '수출', '글로벌판매'],
+        '금융': ['금리', '대출', '예금', '은행', '보험', '증권', '금융지주', '배당', '자사주', 'NIM', '충당금'],
+        '통신': ['5G', '6G', '통신', 'AI데이터센터', '클라우드', '구독'],
+        '바이오': ['바이오', '신약', '임상', 'FDA', '허가', 'ADC', 'CDMO', '위탁생산', '파이프라인', '블록버스터'],
+        '에너지': ['전력', '발전', '원자력', '원전', '신재생', '태양광', '풍력', 'SMR', '가스'],
+        '항공방산': ['방산', '무기', '수출', '전투기', 'K방산', '미사일', '위성', 'UAM', '항공'],
+        '유통소비재': ['유통', '소비', '백화점', '마트', '이커머스', '편의점', '소매'],
+        'IT플랫폼': ['플랫폼', 'AI', '인공지능', '광고', '검색', '메타버스', '게임', '웹툰', '콘텐츠'],
+        '철강소재': ['철강', '소재', '아연', '동', '알루미늄', '화학', '석유화학', '정유'],
+        '건설': ['건설', '주택', '아파트', '재건축', '분양', 'SOC', '인프라', '부동산'],
+        '디스플레이': ['디스플레이', 'OLED', 'LCD', '패널', 'IT부품'],
+        '원전': ['원전', '원자력', 'SMR', '체코', '폴란드', 'UAE', 'APR1400', '핵연료']
+      };
+
+      // News-specific keywords (market-wide, not tied to watchlist)
+      var NEWS_KW_GOOD = [
+        '수주', '계약체결', '흑자전환', '사상최대', '신고가', '상향', '호실적',
+        '독점', '승인', 'FDA허가', '수출호조', '공급계약', 'MOU', '투자유치',
+        '매출증가', '영업이익', '순이익', '성장', '확대', '수혜', '기대감',
+        '목표가상향', '매수', '비중확대', '탑픽', '턴어라운드'
+      ];
+      var NEWS_KW_BAD = [
+        '적자', '하향', '리콜', '제재', '소송패소', '감산', '구조조정',
+        '상폐', '횡령', '부도', '영업손실', '매출감소', '실적부진',
+        '목표가하향', '매도', '비중축소', '공매도', '하락', '급락', '폭락',
+        '관세', '규제', '금지', '철수', '파산', '디폴트'
+      ];
+
+      // Gemini usage tracking
+      var GEMINI_DAILY_LIMIT = 200;
+      var geminiCallCount = (function () {
+        try {
+          var raw = localStorage.getItem('dart_gemini_usage');
+          if (raw) {
+            var obj = JSON.parse(raw);
+            if (obj.date === today()) return obj.count;
+          }
+        } catch (e) { }
+        return 0;
+      })();
+      function trackGeminiCall() {
+        geminiCallCount++;
+        try { localStorage.setItem('dart_gemini_usage', JSON.stringify({ date: today(), count: geminiCallCount })) } catch (e) { }
+        if (geminiCallCount === Math.floor(GEMINI_DAILY_LIMIT * 0.8)) {
+          toast('⚠️ Gemini 일일 사용량 80% 도달 (' + geminiCallCount + '/' + GEMINI_DAILY_LIMIT + ')');
+        }
+        if (geminiCallCount >= GEMINI_DAILY_LIMIT) {
+          toast('🚫 Gemini 일일 한도 초과 — AI 분석 일시 중단');
+        }
+      }
+      function canCallGemini() { return geminiCallCount < GEMINI_DAILY_LIMIT }
+
+
+      // ============================================================
+      // STATE
+      // ============================================================
+      var allItems = [];
+      var currentTab = 'realtime';
+      var currentFilter = 'all';
+      var searchQuery = '';
+      var selectedDate = '';
+      var aiCache = {}; // rcept_no -> AI result
+
+      // ============================================================
+      // UTILS
+      // ============================================================
+      function today() { var d = new Date(); return d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2) }
+      function formatDate(s) { if (!s || s.length !== 8) return s; return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8) }
+      function isWatchlist(name) { for (var i = 0; i < WATCHLIST.length; i++) { if (name && name.indexOf(WATCHLIST[i]) >= 0) return true } return false }
+      function escHtml(s) { return s ? s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : ''; }
+
+      // Sector-based news helpers
+      function getRelatedSectors(title) {
+        if (!title) return [];
+        var results = [];
+        for (var sector in SECTOR_KEYWORDS) {
+          var kws = SECTOR_KEYWORDS[sector];
+          for (var i = 0; i < kws.length; i++) {
+            if (title.indexOf(kws[i]) >= 0) {
+              results.push({ sector: sector, keyword: kws[i], stocks: SECTOR_MAP[sector] || [] });
+              break;
+            }
+          }
+        }
+        return results;
+      }
+
+      function preClassifyNews(title) {
+        if (!title) return 'normal';
+        for (var i = 0; i < NEWS_KW_BAD.length; i++) { if (title.indexOf(NEWS_KW_BAD[i]) >= 0) return 'bad' }
+        for (var i = 0; i < NEWS_KW_GOOD.length; i++) { if (title.indexOf(NEWS_KW_GOOD[i]) >= 0) return 'good' }
+        return 'normal';
+      }
+
+      function isWatchlistRelated(item) {
+        // Check if any AI-identified corp matches watchlist
+        if (item.watch) return true;
+        if (item.aiResult && item.aiResult.corp) {
+          var corps = item.aiResult.corp.split(/[,，\s]+/);
+          for (var i = 0; i < corps.length; i++) {
+            var c = corps[i].trim();
+            if (!c) continue;
+            for (var j = 0; j < WATCHLIST.length; j++) {
+              if (c.indexOf(WATCHLIST[j]) >= 0 || WATCHLIST[j].indexOf(c) >= 0) return true;
+            }
+          }
+        }
+        // Check sector match
+        if (item.sectors && item.sectors.length > 0) {
+          for (var i = 0; i < item.sectors.length; i++) {
+            var stocks = item.sectors[i].stocks || [];
+            for (var j = 0; j < stocks.length; j++) {
+              for (var k = 0; k < WATCHLIST.length; k++) {
+                if (stocks[j].indexOf(WATCHLIST[k]) >= 0) return true;
+              }
+            }
+          }
+        }
+        return false;
+      }
+
+
+      function classify(title) {
+        if (!title) return 'normal';
+        for (var i = 0; i < KW_EXCLUDE.length; i++) { if (title.indexOf(KW_EXCLUDE[i]) >= 0) return 'exclude' }
+        for (var i = 0; i < KW_BAD.length; i++) { if (title.indexOf(KW_BAD[i]) >= 0) return 'bad' }
+        for (var i = 0; i < KW_GOOD.length; i++) { if (title.indexOf(KW_GOOD[i]) >= 0) return 'good' }
+        for (var i = 0; i < KW_MAJOR.length; i++) { if (title.indexOf(KW_MAJOR[i]) >= 0) return 'major' }
+        return 'normal';
+      }
+
+      function classLabel(c) { return c === 'strong_good' ? '🔥강력호재' : c === 'good' ? '호재' : c === 'bad' ? '악재' : c === 'major' ? '주요' : '일반' }
+
+      function toast(msg) {
+        var t = document.getElementById('toast');
+        t.textContent = msg; t.classList.add('show');
+        setTimeout(function () { t.classList.remove('show') }, 2500);
+      }
+
+      function setStatus(msg) { document.getElementById('statusText').textContent = msg }
+
+      // ============================================================
+      // CACHE
+      // ============================================================
+      function cacheKey(date) { return 'dart_' + date }
+      function saveCache(date, items) {
+        try { localStorage.setItem(cacheKey(date), JSON.stringify({ ts: Date.now(), data: items })) } catch (e) { }
+      }
+      function loadCache(date) {
+        try { var raw = localStorage.getItem(cacheKey(date)); if (!raw) return null; var obj = JSON.parse(raw); return obj.data || null } catch (e) { return null }
+      }
+      function cleanCache() {
+        try {
+          var cutoff = Date.now() - CACHE_DAYS * 86400000;
+          for (var i = localStorage.length - 1; i >= 0; i--) {
+            var k = localStorage.key(i);
+            if (k && k.indexOf('dart_') === 0 && k !== 'dart_proxy' && k !== 'dart_tg_token' && k !== 'dart_tg_chatid' && k !== 'dart_tg_users') {
+              try { var obj = JSON.parse(localStorage.getItem(k)); if (obj.ts < cutoff) localStorage.removeItem(k) } catch (e) { localStorage.removeItem(k) }
+            }
+          }
+        } catch (e) { }
+      }
+
+      // ============================================================
+      // DART API
+      // ============================================================
+      function buildUrl(page, date) {
+        return '/api/dart?date=' + date + '&page=' + page;
+      }
+
+      function fetchPage(page, date, cb) {
+        var url = buildUrl(page, date);
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.timeout = 15000;
+        xhr.onload = function () {
+          if (xhr.status === 200) {
+            try { var data = JSON.parse(xhr.responseText); cb(null, data) } catch (e) { cb(e, null) }
+          } else { cb(new Error('HTTP ' + xhr.status), null) }
+        };
+        xhr.onerror = function () { cb(new Error('서버 연결 실패'), null) };
+        xhr.ontimeout = function () { cb(new Error('Timeout'), null) };
+        xhr.send();
+      }
+
+      function fetchAll(date, callback) {
+        var collected = [];
+        function getPage(p) {
+          if (p > 5) { callback(null, collected); return }
+          fetchPage(p, date, function (err, data) {
+            if (err) {
+              if (p === 1) { callback(err, null); return }
+              callback(null, collected); return;
+            }
+            if (data.status && data.status !== '000') {
+              if (data.status === '013') { callback(null, collected); return }
+              if (p === 1) { callback(new Error(data.message || 'API error'), null); return }
+              callback(null, collected); return;
+            }
+            var list = data.list || [];
+            for (var i = 0; i < list.length; i++) {
+              var item = list[i];
+              var cls = classify(item.report_nm);
+              if (cls === 'exclude') continue;
+              collected.push({
+                no: item.rcept_no,
+                corp: item.corp_name || '',
+                title: item.report_nm || '',
+                date: item.rcept_dt || '',
+                cls: cls,
+                watch: isWatchlist(item.corp_name),
+                url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=' + item.rcept_no,
+                flrNm: item.flr_nm || ''
+              });
+            }
+            var totalPages = Math.ceil((data.total_count || 0) / 100);
+            if (p < totalPages && p < 5) { getPage(p + 1) }
+            else { callback(null, collected) }
+          });
+        }
+        getPage(1);
+      }
+
+      function loadData(date) {
+        if (clientPaused && !date) return;
+        date = date || today();
+        setStatus('로딩 중...');
+        showLoading();
+        var cached = loadCache(date);
+        if (cached && cached.length > 0 && date !== today()) {
+          allItems = cached;
+          setStatus(formatDate(date) + ' (캐시) ' + cached.length + '건');
+          checkNewAlerts(cached);
+          renderCurrent(); return;
+        }
+        fetchAll(date, function (err, items) {
+          if (err) {
+            serverFailCount++;
+            if (serverFailCount >= 3) { setStatus('⚠️ 서버 연결 끊김 — 폴링 중단'); stopPolling() }
+            else { setStatus('오류: ' + err.message) }
+            if (cached) { allItems = cached; renderCurrent() }
+            else { showEmpty('서버 연결을 확인하세요') }
+            return;
+          }
+          serverFailCount = 0;
+          allItems = items;
+          saveCache(date, items);
+          setStatus(formatDate(date) + ' 마감 ' + items.length + '건');
+          if (items.length > 0) toast(items.length + '건의 공시를 불러왔습니다');
+          checkNewAlerts(items);
+          renderCurrent();
+        });
+      }
+
+
+
+      // Track sent items (서버와 동기화)
+      var sentItems = {};
+      var sentItemsLoaded = false;
+      var failedSends = [];  // 전송 실패 큐
+
+      // 시작 시 서버에서 전송 이력 로드
+      fetch('/api/sent').then(function (r) { return r.json() }).then(function (d) {
+        if (d && typeof d === 'object') { sentItems = d }
+        sentItemsLoaded = true;
+        console.log('[TG] 전송이력 복원: ' + Object.keys(sentItems).length + '건');
+        retryFailedSends();  // 이전 실패 건 재시도
+      }).catch(function () { sentItemsLoaded = true; });
+
+      // 서버에 전송 이력 저장
+      function syncSentItems(key) {
+        var obj = {}; obj[key] = true;
+        fetch('/api/sent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: obj }) }).catch(function () { });
+      }
+
+      // 전송 실패 저장 + 재시도
+      function saveFailedSend(type, key, text) {
+        failedSends.push({ type: type, key: key, text: text, time: Date.now() });
+        try { localStorage.setItem('dart_failed_sends', JSON.stringify(failedSends)) } catch (e) { }
+        console.log('[TG] 실패 저장: ' + type + ' (큐: ' + failedSends.length + '건)');
+      }
+      function retryFailedSends() {
+        try { var saved = JSON.parse(localStorage.getItem('dart_failed_sends') || '[]'); if (saved.length) failedSends = saved } catch (e) { }
+        if (!failedSends.length || !TG_USERS.length) return;
+        console.log('[TG] 실패 건 재시도: ' + failedSends.length + '건');
+        var retry = failedSends.slice();
+        failedSends = [];
+        localStorage.removeItem('dart_failed_sends');
+        for (var i = 0; i < retry.length; i++) {
+          (function (item) {
+            if (sentItems[item.key]) { return }  // 이미 전송됨
+            sendTelegram(item.text, function (err) {
+              if (!err) { sentItems[item.key] = true; syncSentItems(item.key); console.log('[TG] 재시도 성공: ' + item.key) }
+              else { saveFailedSend(item.type, item.key, item.text) }
+            });
+          })(retry[i]);
+        }
+      }
+
+      function checkNewAlerts(items) {
+        if (!TG_USERS.length || !sentItemsLoaded) return;
+        var newAlerts = [];
+        for (var i = 0; i < items.length; i++) {
+          var it = items[i];
+          if (sentItems[it.no]) continue;
+          sentItems[it.no] = true;
+          if (it.cls === 'good' || it.cls === 'bad' || it.cls === 'strong_good') {
+            newAlerts.push(it);
+          }
+        }
+        if (!newAlerts.length) return;
+        var lines = [];
+        lines.push('🚨 *새 공시 알림* (' + newAlerts.length + '건)');
+        lines.push('');
+        for (var i = 0; i < newAlerts.length; i++) {
+          var it = newAlerts[i];
+          var emoji = it.cls === 'strong_good' ? '🔥 강력호재' : it.cls === 'good' ? '🟢 호재' : '🔴 악재';
+          var star = it.watch ? '⭐ ' : '';
+          lines.push(star + '*' + it.corp + '* ' + emoji);
+          lines.push('  ' + it.title);
+          lines.push('  [상세보기](' + it.url + ')');
+          lines.push('');
+        }
+        lines.push('⏰ ' + new Date().toLocaleString('ko-KR'));
+        var tgMsg = lines.join('\n');
+        sendTelegram(tgMsg, function (err) {
+          if (!err) {
+            toast('📨 새 공시 ' + newAlerts.length + '건 텔레그램 전송');
+            for (var k = 0; k < newAlerts.length; k++) { syncSentItems(newAlerts[k].no) }
+          } else {
+            for (var k = 0; k < newAlerts.length; k++) { saveFailedSend('공시', newAlerts[k].no, tgMsg) }
+          }
+        });
+      }
+
+      // ============================================================
+      // GEMINI AI ANALYSIS
+      // ============================================================
+      function callGemini(prompt, cb) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/gemini', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.timeout = 30000;
+        xhr.onload = function () {
+          if (xhr.status === 200) {
+            try {
+              var resp = JSON.parse(xhr.responseText);
+              var text = resp.candidates[0].content.parts[0].text;
+              cb(null, text);
+            } catch (e) { cb(e, null) }
+          } else { cb(new Error('Gemini HTTP ' + xhr.status), null) }
+        };
+        xhr.onerror = function () { cb(new Error('Gemini 서버 오류'), null) };
+        xhr.ontimeout = function () { cb(new Error('Gemini 타임아웃'), null) };
+        xhr.send(JSON.stringify({ prompt: prompt }));
+      }
+
+      function buildAiPrompt(item) {
+        return '한국 주식시장 DART 공시 분석 전문가로서 다음 공시를 분석해주세요.\n\n'
+          + '종목: ' + item.corp + '\n'
+          + '공시제목: ' + item.title + '\n'
+          + '접수일: ' + formatDate(item.date) + '\n'
+          + '제출인: ' + (item.flrNm || 'N/A') + '\n\n'
+          + '다음 형식으로 간결하게 답변:\n'
+          + '판단: [호재/악재/중립] (한 단어)\n'
+          + '영향도: [상/중/하] (한 단어)\n'
+          + '요약: (2~3줄 핵심 분석)\n'
+          + '투자포인트: (1줄 핵심)';
+      }
+
+      function parseAiResult(text) {
+        var result = { sentiment: '중립', impact: '중', summary: '', point: '' };
+        try {
+          var lines = text.split('\n');
+          for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (line.indexOf('판단') >= 0) {
+              if (line.indexOf('호재') >= 0) result.sentiment = '호재';
+              else if (line.indexOf('악재') >= 0) result.sentiment = '악재';
+              else result.sentiment = '중립';
+            }
+            if (line.indexOf('영향도') >= 0) {
+              if (line.indexOf('상') >= 0) result.impact = '상';
+              else if (line.indexOf('하') >= 0) result.impact = '하';
+              else result.impact = '중';
+            }
+            if (line.indexOf('요약') >= 0) {
+              result.summary = line.replace(/^.*?요약[:\s]*/, '').trim();
+              // grab next lines if summary is short
+              for (var j = i + 1; j < lines.length && j <= i + 2; j++) {
+                var nl = lines[j].trim();
+                if (nl && nl.indexOf('투자포인트') < 0 && nl.indexOf('판단') < 0 && nl.indexOf('영향도') < 0) {
+                  result.summary += ' ' + nl;
+                } else break;
+              }
+            }
+            if (line.indexOf('투자포인트') >= 0) {
+              result.point = line.replace(/^.*?투자포인트[:\s]*/, '').trim();
+            }
+          }
+          if (!result.summary) result.summary = text.substring(0, 200);
+        } catch (e) { result.summary = text.substring(0, 200) }
+        return result;
+      }
+
+      window.analyzeItem = function (no) {
+        if (aiCache[no]) {
+          var el = document.getElementById('ai-' + no);
+          if (el) el.classList.toggle('show');
+          return;
+        }
+        var item = null;
+        for (var i = 0; i < allItems.length; i++) { if (allItems[i].no === no) { item = allItems[i]; break } }
+        if (!item) return;
+        var btn = document.querySelector('[data-ai="' + no + '"]');
+        if (btn) { btn.classList.add('loading'); btn.textContent = '분석중...'; }
+        if (!canCallGemini()) { toast('⚠️ Gemini 일일 한도 도달'); if (btn) { btn.classList.remove('loading'); btn.textContent = '🤖 AI'; } return }
+        trackGeminiCall();
+        callGemini(buildAiPrompt(item), function (err, text) {
+          if (btn) { btn.classList.remove('loading'); btn.textContent = '🤖 AI'; }
+          if (err) { toast('AI 분석 오류: ' + err.message); return }
+          var parsed = parseAiResult(text);
+          aiCache[no] = parsed;
+          var el = document.getElementById('ai-' + no);
+          if (el) {
+            var impactCls = parsed.impact === '상' ? 'high' : parsed.impact === '하' ? 'low' : 'mid';
+            var sentColor = parsed.sentiment === '호재' ? 'var(--good)' : parsed.sentiment === '악재' ? 'var(--bad)' : 'var(--text-dim)';
+            el.innerHTML = '<div class="ai-label">🤖 Gemini 분석 '
+              + '<span style="color:' + sentColor + '">' + parsed.sentiment + '</span>'
+              + '<span class="ai-impact ' + impactCls + '">영향도 ' + parsed.impact + '</span></div>'
+              + '<div>' + escHtml(parsed.summary) + '</div>'
+              + (parsed.point ? '<div style="margin-top:4px;color:var(--major)">💡 ' + escHtml(parsed.point) + '</div>' : '');
+            el.classList.add('show');
+          }
+        });
+      };
+
+      window.analyzeAll = function () {
+        var items = getFiltered();
+        var watchItems = items.filter(function (x) { return x.watch && (x.cls === 'good' || x.cls === 'bad' || x.cls === 'strong_good') });
+        if (!watchItems.length) {
+          watchItems = items.filter(function (x) { return x.cls === 'good' || x.cls === 'bad' || x.cls === 'strong_good' }).slice(0, 10);
+        }
+        if (!watchItems.length) { toast('분석할 호재/악재 공시가 없습니다'); return }
+        toast(watchItems.length + '건 AI 분석 시작...');
+        var idx = 0;
+        function next() {
+          if (idx >= watchItems.length) { toast('AI 분석 완료'); return }
+          var item = watchItems[idx]; idx++;
+          if (aiCache[item.no]) { next(); return }
+          window.analyzeItem(item.no);
+          setTimeout(next, 2000); // rate limit
+        }
+        next();
+      };
+
+      // ============================================================
+      // TEXT CONVERSION
+      // ============================================================
+      function itemsToText(items) {
+        var lines = [];
+        var d = selectedDate ? formatDate(selectedDate) : formatDate(today());
+        lines.push('═══════════════════════════════════════');
+        lines.push('  DART 공시 모니터 — ' + d);
+        lines.push('  총 ' + items.length + '건 (필터: ' + currentFilter + ')');
+        lines.push('═══════════════════════════════════════');
+        lines.push('');
+
+        for (var i = 0; i < items.length; i++) {
+          var it = items[i];
+          var prefix = it.watch ? '★ ' : '  ';
+          var tag = '[' + classLabel(it.cls) + ']';
+          lines.push(prefix + tag + ' ' + it.corp + ' — ' + it.title);
+          lines.push('    접수일: ' + formatDate(it.date) + (it.flrNm ? ' | 제출: ' + it.flrNm : ''));
+          lines.push('    링크: ' + it.url);
+          if (aiCache[it.no]) {
+            var ai = aiCache[it.no];
+            lines.push('    🤖 AI: ' + ai.sentiment + ' (영향도 ' + ai.impact + ') ' + ai.summary);
+          }
+          lines.push('');
+        }
+
+        lines.push('═══════════════════════════════════════');
+        lines.push('  생성: ' + new Date().toLocaleString('ko-KR'));
+        lines.push('═══════════════════════════════════════');
+        return lines.join('\n');
+      }
+
+      window.closeTextModal = function () { };
+
+      window.copyTextOutput = function () { };
+
+      // ============================================================
+      // COPY FILTERED (Clipboard)
+      // ============================================================
+      window.copyFiltered = function () {
+        var items = getFiltered();
+        if (!items.length) { toast('복사할 데이터가 없습니다'); return }
+        var text = itemsToText(items);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () {
+            toast('클립보드에 복사 완료 (' + items.length + '건)');
+          }).catch(function () { fallbackCopy(text) });
+        } else { fallbackCopy(text) }
+      };
+
+      function fallbackCopy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); toast('복사 완료') } catch (e) { toast('복사 실패') }
+        document.body.removeChild(ta);
+      }
+
+      // Per-item text conversion
+      function singleItemText(item) {
+        var lines = [];
+        var tag = '[' + classLabel(item.cls) + ']';
+        var star = item.watch ? '★ ' : '';
+        lines.push(star + tag + ' ' + item.corp + ' — ' + item.title);
+        lines.push('접수일: ' + formatDate(item.date) + (item.flrNm ? ' | 제출: ' + item.flrNm : ''));
+        lines.push('링크: ' + item.url);
+        if (aiCache[item.no]) {
+          var ai = aiCache[item.no];
+          lines.push('🤖 AI: ' + ai.sentiment + ' (영향도 ' + ai.impact + ') ' + ai.summary);
+          if (ai.point) lines.push('💡 ' + ai.point);
+        }
+        return lines.join('\n');
+      }
+
+      window.copyItem = function (no) {
+        var item = null;
+        for (var i = 0; i < allItems.length; i++) { if (allItems[i].no === no) { item = allItems[i]; break } }
+        if (!item) return;
+        var text = singleItemText(item);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function () { toast(item.corp + ' 복사 완료') }).catch(function () { fallbackCopy(text) });
+        } else { fallbackCopy(text) }
+      };
+
+      window.textItem = function (no) {
+        var item = null;
+        for (var i = 0; i < allItems.length; i++) { if (allItems[i].no === no) { item = allItems[i]; break } }
+        if (!item) return;
+        var link = item.url;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(link).then(function () { toast('링크 복사 완료') }).catch(function () { fallbackCopy(link) });
+        } else { fallbackCopy(link) }
+      };
+
+      // ============================================================
+      // NEWS ENGINE
+      // ============================================================
+      var allNews = [];
+      var sentNewsUrls = {};
+      var newsAiCache = {};
+      var NEWS_POLL_MS = 480000; // 8분 간격
+
+      // Report engine state
+      var allReports = [];
+      var reportCache = {}; // corp+broker -> previous report (for change detection)
+      var REPORT_POLL_MS = 720000; // 12분 간격
+
+      // ============================================================
+      // 일시정지 제어
+      // ============================================================
+      var clientPaused = false;
+      var pollTimers = { dart: null, news: null, report: null };
+      var serverFailCount = 0;
+
+      window.togglePause = function () {
+        if (clientPaused) {
+          // 재개
+          fetch('/api/resume', { method: 'POST' }).catch(function () { });
+          clientPaused = false;
+          startPolling();
+          document.getElementById('pauseBtn').textContent = '⏸';
+          document.getElementById('pauseBtn').classList.remove('active');
+          document.getElementById('pauseBtn').title = '수집 일시정지';
+          document.getElementById('statusDot').classList.remove('paused');
+          setStatus('수집 재개됨');
+          toast('▶️ 수집 재개');
+          // 즉시 1회 갱신
+          loadData(); loadNews(); fetchReports();
+        } else {
+          // 일시정지
+          fetch('/api/pause', { method: 'POST' }).catch(function () { });
+          clientPaused = true;
+          stopPolling();
+          document.getElementById('pauseBtn').textContent = '▶';
+          document.getElementById('pauseBtn').classList.add('active');
+          document.getElementById('pauseBtn').title = '수집 재개';
+          document.getElementById('statusDot').classList.add('paused');
+          setStatus('⏸ 일시정지');
+          toast('⏸️ 수집 일시정지 — 서버·클라이언트 모두 중단');
+        }
+      }
+
+      function startPolling() {
+        stopPolling();
+        serverFailCount = 0;
+        pollTimers.dart = setInterval(function () {
+          if (clientPaused || serverFailCount >= 3) return;
+          if (!selectedDate || selectedDate === today()) {
+            var day = new Date().getDay();
+            if (day === 0 || day === 6) return;
+            loadData();
+          }
+        }, POLL_MS);
+        pollTimers.news = setInterval(function () {
+          if (clientPaused || serverFailCount >= 3) return;
+          loadNews();
+        }, NEWS_POLL_MS);
+        pollTimers.report = setInterval(function () {
+          if (clientPaused || serverFailCount >= 3) return;
+          var day = new Date().getDay();
+          if (day === 0 || day === 6) return;
+          fetchReports();
+        }, REPORT_POLL_MS);
+      }
+
+      function stopPolling() {
+        if (pollTimers.dart) { clearInterval(pollTimers.dart); pollTimers.dart = null; }
+        if (pollTimers.news) { clearInterval(pollTimers.news); pollTimers.news = null; }
+        if (pollTimers.report) { clearInterval(pollTimers.report); pollTimers.report = null; }
+      }
+
+      // RSS_FEEDS config은 서버에서 관리
+
+      function isWatchlistNews(title) {
+        if (!title) return false;
+        for (var i = 0; i < WATCHLIST.length; i++) {
+          if (title.indexOf(WATCHLIST[i]) >= 0) return true;
+        }
+        var engMap = ['Samsung', 'SK Hynix', 'LG Energy', 'Hyundai', 'Kia', 'Celltrion', 'POSCO', 'NAVER', 'Kakao', 'Krafton', 'Korean Air', 'LG Chem', 'Hanwha', 'HLB', 'HD Hyundai'];
+        for (var i = 0; i < engMap.length; i++) {
+          if (title.toLowerCase().indexOf(engMap[i].toLowerCase()) >= 0) return true;
+        }
+        var sectors = getRelatedSectors(title);
+        for (var i = 0; i < sectors.length; i++) {
+          var stocks = sectors[i].stocks;
+          for (var j = 0; j < stocks.length; j++) {
+            for (var k = 0; k < WATCHLIST.length; k++) {
+              if (stocks[j].indexOf(WATCHLIST[k]) >= 0) return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      function fetchAllNews(cb) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/news', true);
+        xhr.timeout = 30000;
+        xhr.onload = function () {
+          if (xhr.status === 200) {
+            try {
+              var resp = JSON.parse(xhr.responseText);
+              var items = resp.items || [];
+              // [DIAG] API 응답 원본 진단
+              var dcnt = 0, fcnt = 0, noLink = 0, noTitle = 0;
+              for (var i = 0; i < items.length; i++) {
+                var it = items[i];
+                // 필드명 방어: url→link 폴백
+                if (!it.link && it.url) { it.link = it.url }
+                // 필드명 방어: feedType/newsType→type 폴백
+                if (!it.type && it.feedType) { it.type = it.feedType }
+                if (!it.type && it.newsType) { it.type = it.newsType }
+                // 필드명 방어: name/feedName→source 폴백
+                if (!it.source && it.name) { it.source = it.name }
+                if (!it.source && it.feedName) { it.source = it.feedName }
+                it.pubDate = it.pubDate ? new Date(it.pubDate) : new Date();
+                it.cls = preClassifyNews(it.title);
+                it.watch = isWatchlistNews(it.title);
+                it.sectors = getRelatedSectors(it.title);
+                it.aiDone = false;
+                it.aiResult = null;
+                // 진단 카운트
+                if (it.type === 'foreign') fcnt++; else dcnt++;
+                if (!it.link) noLink++;
+                if (!it.title) noTitle++;
+              }
+              console.log('[NEWS-DIAG] API total:' + items.length + ' domestic:' + dcnt + ' foreign:' + fcnt + ' noLink:' + noLink + ' noTitle:' + noTitle);
+              if (items.length > 0) {
+                // 첫 국내/외신 아이템 샘플 출력
+                var dSample = null, fSample = null;
+                for (var j = 0; j < items.length; j++) {
+                  if (!dSample && items[j].type !== 'foreign') dSample = items[j];
+                  if (!fSample && items[j].type === 'foreign') fSample = items[j];
+                  if (dSample && fSample) break;
+                }
+                if (dSample) console.log('[NEWS-DIAG] domestic sample:', JSON.stringify({ title: dSample.title, link: dSample.link, type: dSample.type, source: dSample.source }));
+                if (fSample) console.log('[NEWS-DIAG] foreign sample:', JSON.stringify({ title: fSample.title, link: fSample.link, type: fSample.type, source: fSample.source }));
+                if (!dSample) console.warn('[NEWS-DIAG] ⚠️ 국내뉴스 0건! API 응답에 domestic 타입 없음');
+              }
+              if (resp.errors > 0 && items.length > 0) {
+                toast('📰 뉴스 ' + items.length + '건 (일부 피드 실패)');
+              }
+              cb(items);
+            } catch (e) { console.error('[NEWS-DIAG] JSON parse error:', e); cb([]) }
+          } else { console.error('[NEWS-DIAG] HTTP error:', xhr.status); cb([]) }
+        };
+        xhr.onerror = function () { toast('⚠️ 서버 연결 실패'); cb([]) };
+        xhr.ontimeout = function () { console.error('[NEWS-DIAG] timeout'); cb([]) };
+        xhr.send();
+      }
+
+      function loadNews() {
+        if (clientPaused) return;
+        fetchAllNews(function (newItems) {
+          var added = 0;
+          var dupSkipped = 0;
+          var noLinkSkipped = 0;
+          for (var i = 0; i < newItems.length; i++) {
+            var lnk = newItems[i].link;
+            if (!lnk) { noLinkSkipped++; continue }
+            if (!sentNewsUrls[lnk]) {
+              sentNewsUrls[lnk] = true;
+              allNews.unshift(newItems[i]);
+              added++;
+            } else {
+              dupSkipped++;
+            }
+          }
+          if (allNews.length > 500) allNews = allNews.slice(0, 500);
+          // [DIAG] 중복체크 결과
+          var dInAll = 0, fInAll = 0;
+          for (var k = 0; k < allNews.length; k++) { if (allNews[k].type === 'foreign') fInAll++; else dInAll++ }
+          console.log('[NEWS-DIAG] loadNews: input:' + newItems.length + ' added:' + added + ' dup:' + dupSkipped + ' noLink:' + noLinkSkipped + ' | allNews total:' + allNews.length + ' (domestic:' + dInAll + ' foreign:' + fInAll + ')');
+          if (added > 0) {
+            toast('📰 뉴스 ' + added + '건 수집');
+            analyzeNewsBatch(allNews.slice(0, Math.min(added, 20)));
+          }
+          if (currentTab === 'news') renderNews();
+        });
+      }
+
+      function analyzeNewsBatch(items) {
+        var idx = 0;
+        function next() {
+          if (idx >= items.length) return;
+          if (!canCallGemini()) { toast('⚠️ Gemini 일일 한도 도달 — 사전분류만 사용'); return }
+          var item = items[idx]; idx++;
+          if (item.aiDone || newsAiCache[item.link]) {
+            if (newsAiCache[item.link]) {
+              item.aiResult = newsAiCache[item.link];
+              item.cls = newsAiCache[item.link].cls;
+              item.aiDone = true;
+            }
+            next(); return;
+          }
+          // Build context-aware prompt (no watchlist bias)
+          var sectorCtx = '';
+          if (item.sectors && item.sectors.length > 0) {
+            var parts = [];
+            for (var s = 0; s < item.sectors.length; s++) {
+              parts.push('[' + item.sectors[s].sector + '] ' + item.sectors[s].stocks.join(', '));
+            }
+            sectorCtx = '\n\n참고 - 기사에서 감지된 관련 업종:\n' + parts.join('\n');
+          }
+          var prompt = '한국 주식시장 뉴스 분석 전문가로서 다음 뉴스를 분석해주세요.\n\n'
+            + '제목: ' + item.title + '\n'
+            + '출처: ' + item.source + '\n'
+            + '유형: ' + (item.type === 'foreign' ? '외신' : '국내')
+            + sectorCtx + '\n\n'
+            + '다음 형식으로 간결하게 답변:\n'
+            + '판단: [호재/악재/중립] (한 단어)\n'
+            + '영향도: [상/중/하] (한 단어)\n'
+            + '관련종목: (이 뉴스로 직접 수혜/피해를 받는 상장 종목명, 복수 가능. 없으면 "시장전체")\n'
+            + '업종: (해당 업종/테마)\n'
+            + '요약: (1줄 한국어 핵심 요약)';
+          trackGeminiCall();
+          callGemini(prompt, function (err, aiText) {
+            if (!err && aiText) {
+              var parsed = parseNewsAi(aiText);
+              item.aiResult = parsed;
+              item.cls = parsed.cls;
+              item.aiDone = true;
+              newsAiCache[item.link] = parsed;
+              // 2-tier alert: 호재/악재 + 워치리스트 관련 → 텔레그램
+              if (parsed.cls === 'good' || parsed.cls === 'bad' || parsed.cls === 'strong_good') {
+                if (sentItemsLoaded && isWatchlistRelated(item) && !sentItems['news_' + item.link]) {
+                  sentItems['news_' + item.link] = true;
+                  sendNewsAlert(item);
+                }
+              }
+              if (currentTab === 'news') renderNews();
+            }
+            setTimeout(next, 2000);
+          });
+        }
+        next();
+      }
+
+      function parseNewsAi(text) {
+        var result = { cls: 'normal', corp: '시장전체', summary: '', impact: '중', sector: '' };
+        try {
+          var lines = text.split('\n');
+          for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (line.indexOf('판단') >= 0) {
+              if (line.indexOf('강력호재') >= 0 || line.indexOf('강력 호재') >= 0) result.cls = 'strong_good';
+              else if (line.indexOf('호재') >= 0) result.cls = 'good';
+              else if (line.indexOf('악재') >= 0) result.cls = 'bad';
+              else result.cls = 'normal';
+            }
+            if (line.indexOf('영향도') >= 0) {
+              if (line.indexOf('상') >= 0) result.impact = '상';
+              else if (line.indexOf('하') >= 0) result.impact = '하';
+              else result.impact = '중';
+            }
+            if (line.indexOf('관련종목') >= 0) {
+              result.corp = line.replace(/^.*?관련종목[:\s]*/, '').trim() || '시장전체';
+            }
+            if (line.indexOf('업종') >= 0 && line.indexOf('관련종목') < 0) {
+              result.sector = line.replace(/^.*?업종[:\s]*/, '').trim();
+            }
+            if (line.indexOf('요약') >= 0) {
+              result.summary = line.replace(/^.*?요약[:\s]*/, '').trim();
+            }
+          }
+          if (!result.summary) result.summary = text.substring(0, 100);
+        } catch (e) { result.summary = text.substring(0, 100) }
+        return result;
+      }
+
+      function sendNewsAlert(item) {
+        if (!TG_USERS.length) return;
+        var emoji = item.cls === 'strong_good' ? '🔥 강력호재' : item.cls === 'good' ? '🟢 호재' : '🔴 악재';
+        var flag = item.type === 'foreign' ? '🌐 외신' : '🇰🇷 국내';
+        var impactEmoji = item.aiResult && item.aiResult.impact === '상' ? '🔥' : '';
+        var lines = [];
+        lines.push('📰 *뉴스 알림* ' + emoji + ' ' + impactEmoji);
+        lines.push(flag + ' | ' + item.source);
+        lines.push('');
+        lines.push('*' + item.title + '*');
+        if (item.aiResult) {
+          lines.push('🤖 ' + item.aiResult.summary);
+          lines.push('📊 관련: ' + item.aiResult.corp + (item.aiResult.sector ? ' (' + item.aiResult.sector + ')' : ''));
+          lines.push('💡 영향도: ' + item.aiResult.impact);
+        }
+        lines.push('[기사보기](' + item.link + ')');
+        lines.push('⏰ ' + new Date().toLocaleString('ko-KR'));
+        var tgMsg = lines.join('\n');
+        sendTelegram(tgMsg, function (err) {
+          if (!err) {
+            toast('📰 뉴스 알림 텔레그램 전송');
+            syncSentItems('news_' + item.link);
+          } else {
+            saveFailedSend('뉴스', 'news_' + item.link, tgMsg);
+          }
+        });
+      }
+
+      // Corp→News mapping for integrated view
+      function getNewsForCorp(corpName) {
+        return allNews.filter(function (item) {
+          // 1. 제목에 종목명 포함
+          if (item.title.indexOf(corpName) >= 0) return true;
+          // 2. AI 분석 결과의 관련종목에 포함
+          if (item.aiResult && item.aiResult.corp) {
+            if (item.aiResult.corp.indexOf(corpName) >= 0) return true;
+          }
+          // 3. 업종 섹터의 관련 종목에 포함
+          if (item.sectors) {
+            for (var i = 0; i < item.sectors.length; i++) {
+              var stocks = item.sectors[i].stocks;
+              for (var j = 0; j < stocks.length; j++) {
+                if (stocks[j].indexOf(corpName) >= 0) return true;
+              }
+            }
+          }
+          return false;
+        });
+      }
+
+      // Corp→Report mapping
+      function getReportsForCorp(corpName) {
+        return allReports.filter(function (r) {
+          return r.corp && r.corp.indexOf(corpName) >= 0;
+        });
+      }
+
+      function renderNewsItem(item) {
+        var typeBadge = item.type === 'foreign' ? '<span class="badge foreign">외신</span>' : '<span class="badge domestic">국내</span>';
+        var clsBadge = item.cls !== 'normal' ? '<span class="badge ' + item.cls + '">' + classLabel(item.cls) + '</span>' : '';
+        // Discover badge: 워치리스트 밖 호재
+        var discoverBadge = ((item.cls === 'good' || item.cls === 'strong_good') && !item.watch && !isWatchlistRelated(item)) ? '<span class="badge" style="background:rgba(156,39,176,.15);color:#ce93d8">🔍 발굴</span>' : '';
+        // Impact badge
+        var impactBadge = '';
+        if (item.aiResult && item.aiResult.impact) {
+          var ic = item.aiResult.impact === '상' ? 'high' : item.aiResult.impact === '하' ? 'low' : 'mid';
+          impactBadge = '<span class="ai-impact ' + ic + '" style="font-size:.65em;margin-left:4px">' + item.aiResult.impact + '</span>';
+        }
+        var timeStr = '';
+        try {
+          var d = item.pubDate;
+          timeStr = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+        } catch (e) { }
+        var aiHtml = '';
+        if (item.aiResult) {
+          var sentColor = item.cls === 'strong_good' ? 'var(--strong-good)' : item.cls === 'good' ? 'var(--good)' : item.cls === 'bad' ? 'var(--bad)' : 'var(--text-dim)';
+          aiHtml = '<div class="news-ai show">🤖 <span style="color:' + sentColor + '">' + escHtml(item.aiResult.summary) + '</span>'
+            + (item.aiResult.corp && item.aiResult.corp !== '시장전체' ? ' · 📊 ' + escHtml(item.aiResult.corp) : '')
+            + (item.aiResult.sector ? ' · 🏷️' + escHtml(item.aiResult.sector) : '') + '</div>';
+        }
+        // Sector tags from pre-classification
+        var sectorHtml = '';
+        if (item.sectors && item.sectors.length > 0 && !item.aiResult) {
+          var tags = [];
+          for (var s = 0; s < item.sectors.length; s++)tags.push(item.sectors[s].sector);
+          sectorHtml = '<div style="margin-top:2px"><span style="font-size:.65em;color:var(--ai);background:rgba(187,134,252,.1);padding:1px 5px;border-radius:3px">🏷️ ' + escHtml(tags.join(', ')) + '</span></div>';
+        }
+        var nStrongGlow = item.cls === 'strong_good' && !item._seen ? 'strong-glow' : '';
+        var nStrongOff = item.cls === 'strong_good' && item._seen ? 'strong-glow-off' : '';
+        var nExtraCls = nStrongGlow || nStrongOff;
+        return '<div class="item' + (item.watch ? ' watchlist' : '') + (nExtraCls ? ' ' + nExtraCls : '') + '"' + (item.cls === 'strong_good' ? ' onclick="dismissStrongGlow(this)"' : '') + '>'
+          + typeBadge + ' ' + clsBadge + discoverBadge + impactBadge
+          + '<div class="item-body">'
+          + '<div class="item-title">' + (item.watch ? '<span class="star">★</span> ' : '')
+          + '<a href="' + escHtml(item.link) + '" target="_blank" rel="noopener">' + escHtml(item.title) + '</a>'
+          + ' <span class="item-actions">'
+          + '<button class="ai-btn" onclick="window.open(\'' + escHtml(item.link) + '\',\'_blank\')" title="기사 열기">🔗</button>'
+          + '</span>'
+          + '</div>'
+          + '<div class="item-meta">'
+          + '<span>' + timeStr + '</span>'
+          + '<span class="news-source">' + escHtml(item.source) + '</span>'
+          + '</div>'
+          + aiHtml
+          + sectorHtml
+          + '</div>'
+          + '</div>';
+      }
+
+      function renderNews() {
+        updateStats();
+        if (!allNews.length) {
+          document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:10px">뉴스를 수집하는 중... (90초 간격)</p></div>';
+          return;
+        }
+        var items = allNews;
+        // [DIAG] 필터 전 카운트
+        var preD = 0, preF = 0;
+        for (var z = 0; z < items.length; z++) { if (items[z].type === 'foreign') preF++; else preD++ }
+        if (searchQuery) {
+          var q = searchQuery.toLowerCase();
+          items = items.filter(function (x) { return (x.title + ' ' + x.source).toLowerCase().indexOf(q) >= 0 });
+        }
+        if (currentFilter === 'watchlist') items = items.filter(function (x) { return x.watch || isWatchlistRelated(x) });
+        else if (currentFilter === 'strong_good') items = items.filter(function (x) { return x.cls === 'strong_good' });
+        else if (currentFilter === 'good') items = items.filter(function (x) { return x.cls === 'good' });
+        else if (currentFilter === 'bad') items = items.filter(function (x) { return x.cls === 'bad' });
+        else if (currentFilter === 'discover') items = items.filter(function (x) { return (x.cls === 'good' || x.cls === 'strong_good') && !x.watch && !isWatchlistRelated(x) });
+        // [DIAG] 필터 후 카운트
+        var postD = 0, postF = 0;
+        for (var z2 = 0; z2 < items.length; z2++) { if (items[z2].type === 'foreign') postF++; else postD++ }
+        console.log('[NEWS-DIAG] renderNews: filter=' + currentFilter + ' | before(d:' + preD + ' f:' + preF + ') → after(d:' + postD + ' f:' + postF + ') total:' + items.length);
+        if (!items.length) { showEmpty('필터 조건에 맞는 뉴스가 없습니다'); return }
+        // Sort: 호재/악재 우선, 영향도 상 우선
+        items.sort(function (a, b) {
+          // 강력호재 최상위 (1일 이내)
+          var sa = a.cls === 'strong_good' ? 2 : 0;
+          var sb = b.cls === 'strong_good' ? 2 : 0;
+          if (sa !== sb) return sb - sa;
+          var wa = (a.cls === 'good' || a.cls === 'bad') ? 1 : 0;
+          var wb = (b.cls === 'good' || b.cls === 'bad') ? 1 : 0;
+          if (wa !== wb) return wb - wa;
+          var ia = a.aiResult && a.aiResult.impact === '상' ? 1 : 0;
+          var ib = b.aiResult && b.aiResult.impact === '상' ? 1 : 0;
+          if (ia !== ib) return ib - ia;
+          return (b.pubDate || 0) - (a.pubDate || 0);
+        });
+        // Gemini usage display
+        var usageHtml = '<div style="text-align:right;font-size:.7em;color:var(--text-dim);padding:4px 0">🤖 Gemini: ' + geminiCallCount + '/' + GEMINI_DAILY_LIMIT + ' | 뉴스: ' + allNews.length + '건</div>';
+        var html = usageHtml;
+        for (var i = 0; i < Math.min(items.length, 200); i++) { html += renderNewsItem(items[i]) }
+        document.getElementById('content').innerHTML = html;
+      }
+
+      // ============================================================
+      // BROKER REPORT ENGINE
+      // ============================================================
+      function fetchReports() {
+        if (clientPaused) return;
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/reports', true);
+        xhr.timeout = 20000;
+        xhr.onload = function () {
+          if (xhr.status === 200) {
+            try {
+              var resp = JSON.parse(xhr.responseText);
+              var items = resp.items || [];
+              // 프론트엔드 필드 추가
+              for (var i = 0; i < items.length; i++) {
+                items[i].cls = 'normal';
+                items[i].watch = isWatchlist(items[i].corp);
+                items[i].prevTargetPrice = 0;
+                items[i].prevOpinion = '';
+                items[i].priceChange = 0;
+              }
+              if (items.length > 0) {
+                processNewReports(items);
+                toast('📊 리포트 ' + items.length + '건 수집');
+              }
+            } catch (e) { }
+          }
+        };
+        xhr.onerror = function () { toast('⚠️ 리포트 서버 연결 실패') };
+        xhr.ontimeout = function () { };
+        xhr.send();
+      }
+
+      function processNewReports(items) {
+        var newAlerts = [];
+        for (var i = 0; i < items.length; i++) {
+          var r = items[i];
+          var key = r.corp + '|' + r.broker + '|' + r.date;
+          // 중복 체크
+          var dup = false;
+          for (var j = 0; j < allReports.length; j++) {
+            if (allReports[j].corp === r.corp && allReports[j].broker === r.broker && allReports[j].date === r.date) { dup = true; break }
+          }
+          if (dup) continue;
+          // 이전 리포트와 비교 (보조 판단)
+          var prevKey = r.corp + '|' + r.broker;
+          var prev = reportCache[prevKey];
+          if (prev && prev.targetPrice > 0 && r.targetPrice > 0) {
+            r.prevTargetPrice = prev.targetPrice;
+            r.prevOpinion = prev.opinion;
+            var change = ((r.targetPrice - prev.targetPrice) / prev.targetPrice) * 100;
+            r.priceChange = Math.round(change * 10) / 10;
+          }
+          // AI 분석 결과 우선 적용
+          if (r.aiResult && r.aiResult.cls && r.aiResult.cls !== 'normal') {
+            r.cls = r.aiResult.cls;
+          }
+          // AI 없으면 기존 가격비교 폴백
+          else if (r.priceChange > 3) r.cls = 'good';
+          else if (r.priceChange < -3) r.cls = 'bad';
+          // 투자의견 변경 감지 (AI 없을 때만)
+          if (r.cls === 'normal' && prev && prev.opinion && r.opinion && prev.opinion !== r.opinion) {
+            if (r.opinion.indexOf('매수') >= 0 && prev.opinion.indexOf('매수') < 0) r.cls = 'good';
+            else if (r.opinion.indexOf('매도') >= 0 || r.opinion.indexOf('비중축소') >= 0) r.cls = 'bad';
+            else r.cls = 'major';
+          }
+          reportCache[prevKey] = { targetPrice: r.targetPrice, opinion: r.opinion, date: r.date };
+          allReports.unshift(r);
+          if ((r.cls === 'good' || r.cls === 'bad' || r.cls === 'strong_good') && r.watch) {
+            var sentKey = 'rpt_' + r.corp + '|' + r.broker + '|' + r.date;
+            if (sentItemsLoaded && !sentItems[sentKey]) {
+              newAlerts.push(r);
+              sentItems[sentKey] = true;
+            }
+          }
+        }
+        if (allReports.length > 200) allReports = allReports.slice(0, 200);
+        // TG alerts
+        for (var a = 0; a < newAlerts.length; a++) {
+          sendReportAlert(newAlerts[a]);
+        }
+        if (currentTab === 'corp') renderCorp();
+      }
+
+      function sendReportAlert(r) {
+        if (!TG_USERS.length) return;
+        var emoji = r.cls === 'strong_good' ? '🔥 강력호재' : r.cls === 'good' ? '🟢 호재' : r.cls === 'bad' ? '🔴 악재' : '📋 리포트';
+        var lines = [];
+        lines.push('📊 *증권사 리포트* ' + emoji);
+        lines.push(escHtml(r.broker) + ' | ' + r.date);
+        lines.push('');
+        lines.push('*' + escHtml(r.corp) + '* — ' + escHtml(r.title));
+        if (r.prevTargetPrice && r.targetPrice) {
+          var arrow = r.priceChange > 0 ? '📈' : '📉';
+          lines.push(arrow + ' 목표가: ' + r.prevTargetPrice.toLocaleString() + '원 → ' + r.targetPrice.toLocaleString() + '원 (' +
+            (r.priceChange > 0 ? '+' : '') + r.priceChange + '%)');
+        } else if (r.targetPrice) {
+          lines.push('🎯 목표가: ' + r.targetPrice.toLocaleString() + '원');
+        }
+        if (r.opinion) {
+          var opChg = r.prevOpinion && r.prevOpinion !== r.opinion ? ' (' + r.prevOpinion + ' → ' + r.opinion + ')' : ' (' + r.opinion + ')';
+          lines.push('💡 투자의견: ' + r.opinion + opChg);
+        }
+        if (r.aiResult && r.aiResult.summary) {
+          lines.push('🤖 ' + r.aiResult.summary + (r.aiResult.direction ? ' [' + r.aiResult.direction + ']' : ''));
+        }
+        if (r.pdfLink) lines.push('[리포트 보기](' + r.pdfLink + ')');
+        lines.push('⏰ ' + new Date().toLocaleString('ko-KR'));
+        var tgMsg = lines.join('\n');
+        sendTelegram(tgMsg, function (err) {
+          if (!err) {
+            toast('📊 리포트 알림 전송');
+            syncSentItems('rpt_' + r.corp + '|' + r.broker + '|' + r.date);
+          } else {
+            saveFailedSend('리포트', 'rpt_' + r.corp + '|' + r.broker + '|' + r.date, tgMsg);
+          }
+        });
+      }
+
+      function renderReportItem(r) {
+        var clsBadge = r.cls !== 'normal' ? '<span class="badge ' + r.cls + '">' + classLabel(r.cls) + '</span>' : '';
+        var opCls = r.opinion.indexOf('매수') >= 0 ? 'buy' : r.opinion.indexOf('매도') >= 0 || r.opinion.indexOf('비중축소') >= 0 ? 'sell' : 'hold';
+
+        // 변동 여부 판단
+        var hasChange = r.prevTargetPrice && r.prevTargetPrice !== r.targetPrice && r.priceChange !== 0;
+        var isUp = hasChange && r.priceChange > 0;
+        var isDown = hasChange && r.priceChange < 0;
+        var changeColor = isUp ? '#ff5252' : isDown ? '#448aff' : '#aaa';
+        var arrow = isUp ? ' ▲' : isDown ? ' ▼' : '';
+
+        // 기업명 + 가격 라인
+        var corpLine = '<strong style="font-size:1em;color:' + (hasChange ? changeColor : '#fff') + '">' + escHtml(r.corp) + '</strong>';
+        if (r.targetPrice) {
+          corpLine += '<span style="font-size:.9em;font-weight:700;color:' + changeColor + ';margin-left:8px">'
+            + r.targetPrice.toLocaleString() + '원' + arrow + '</span>';
+          if (hasChange) {
+            corpLine += ' <span style="font-size:.78em;font-weight:700;color:' + changeColor + '">' + (isUp ? '+' : '') + r.priceChange + '%</span>';
+            corpLine += ' <span style="font-size:.7em;color:var(--text-dim);text-decoration:line-through">' + r.prevTargetPrice.toLocaleString() + '</span>';
+          }
+        }
+
+        // AI 분석 결과
+        var aiHtml = '';
+        if (r.aiResult && r.aiResult.summary) {
+          var aiColor = r.aiResult.cls === 'strong_good' ? 'var(--strong-good)' : r.aiResult.cls === 'good' ? 'var(--good)' : r.aiResult.cls === 'bad' ? 'var(--bad)' : 'var(--text-dim)';
+          var dirBadge = r.aiResult.direction ? ' <span style="font-size:.7em;padding:1px 4px;border-radius:3px;background:rgba(187,134,252,.15);color:var(--ai)">' + escHtml(r.aiResult.direction) + '</span>' : '';
+          aiHtml = '<div style="margin-top:3px;font-size:.8em">🤖 <span style="color:' + aiColor + '">' + escHtml(r.aiResult.summary) + '</span>' + dirBadge + '</div>';
+        }
+
+        // 제목 라인 (변동 시 같은 색)
+        var titleColor = hasChange ? changeColor : 'var(--link)';
+        var rStrongGlow = r.cls === 'strong_good' && !r._seen ? 'strong-glow' : '';
+        var rStrongOff = r.cls === 'strong_good' && r._seen ? 'strong-glow-off' : '';
+        var rExtraCls = rStrongGlow || rStrongOff;
+
+        return '<div class="item' + (r.watch ? ' watchlist' : '') + (rExtraCls ? ' ' + rExtraCls : '') + '"' + (r.cls === 'strong_good' ? ' onclick="dismissStrongGlow(this)"' : '') + '>'
+          + '<span class="badge report">📊</span> ' + clsBadge
+          + '<div class="item-body">'
+          + '<div class="item-title">' + (r.watch ? '<span class="star">★</span> ' : '') + corpLine + '</div>'
+          + '<div style="font-size:.85em;margin-top:3px"><a href="' + escHtml(r.pdfLink || r.detailLink || '') + '" target="_blank" rel="noopener" style="color:' + titleColor + '">' + escHtml(r.title) + '</a>'
+          + (r.source === '현대차증권' && !r.pdfLink ? ' <a href="https://www.hmsec.com/research/researchList.do?researchType=company" target="_blank" rel="noopener" style="font-size:.85em;color:var(--text-dim)">[현대차증권 리서치↗]</a>' : '')
+          + '</div>'
+          + aiHtml
+          + '<div class="report-meta">'
+          + '<span>' + escHtml(r.broker) + '</span>'
+          + (r.opinion ? '<span class="opinion-badge ' + opCls + '">' + escHtml(r.opinion) + '</span>' : '')
+          + '<span>' + escHtml(r.date) + '</span>'
+          + '</div>'
+          + '</div>'
+          + '</div>';
+      }
+
+      // ============================================================
+      // TELEGRAM
+      // ============================================================
+      function buildTgMessage(items, filterLabel) {
+        var d = selectedDate ? formatDate(selectedDate) : formatDate(today());
+        var lines = [];
+        lines.push('📊 *DART 공시 모니터*');
+        lines.push('📅 ' + d + ' | ' + filterLabel + ' ' + items.length + '건');
+        lines.push('');
+
+        for (var i = 0; i < Math.min(items.length, 30); i++) {
+          var it = items[i];
+          var emoji = it.cls === 'good' ? '🟢' : it.cls === 'bad' ? '🔴' : it.cls === 'major' ? '📋' : '⚪';
+          var star = it.watch ? '⭐' : '';
+          lines.push(emoji + star + ' *' + it.corp + '*');
+          lines.push('  ' + it.title);
+          lines.push('  [상세보기](' + it.url + ')');
+          if (aiCache[it.no]) {
+            var ai = aiCache[it.no];
+            lines.push('  🤖 ' + ai.sentiment + '(' + ai.impact + ') ' + ai.summary.substring(0, 80));
+          }
+          lines.push('');
+        }
+
+        if (items.length > 30) {
+          lines.push('... 외 ' + (items.length - 30) + '건');
+        }
+        lines.push('⏰ ' + new Date().toLocaleString('ko-KR'));
+        return lines.join('\n');
+      }
+
+      function sendTelegramTo(tk, ci, text, cb) {
+        if (!tk || !ci) { if (cb) cb(new Error('No token/chatId')); return }
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/telegram', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.timeout = 15000;
+        xhr.onload = function () {
+          if (xhr.status === 200) { cb(null, 'OK') }
+          else { try { var r = JSON.parse(xhr.responseText); cb(new Error(r.error || '전송 실패')) } catch (e) { cb(new Error('HTTP ' + xhr.status)) } }
+        };
+        xhr.onerror = function () { cb(new Error('서버 연결 실패')) };
+        xhr.ontimeout = function () { cb(new Error('타임아웃')) };
+        xhr.send(JSON.stringify({ token: tk, chatId: ci, text: text }));
+      }
+      function sendTelegram(text, cb) {
+        sendTelegramAll(text, cb);
+      }
+      function sendTelegramAll(text, cb) {
+        if (!TG_USERS.length) { if (cb) cb(new Error('등록된 사용자 없음')); return }
+        var sent = 0, fail = 0, tot = TG_USERS.length, i = 0;
+        function nxt() {
+          if (i >= tot) { if (cb) cb(null, { sent: sent, failed: fail }); return }
+          var u = TG_USERS[i]; i++;
+          sendTelegramTo(u.token, u.chatId, text, function (e) {
+            if (e) fail++; else sent++;
+            setTimeout(nxt, 300);
+          });
+        }
+        nxt();
+      }
+
+
+
+      window.addTgUser = function () {
+        var label = document.getElementById('tgLabelM').value.trim();
+        var token = document.getElementById('tgTokenM').value.trim();
+        var chatId = document.getElementById('tgChatIdM').value.trim();
+        if (!token || !chatId) { toast('봇 토큰과 Chat ID를 입력하세요'); return }
+        if (!label) label = '사용자' + (TG_USERS.length + 1);
+        for (var i = 0; i < TG_USERS.length; i++) { if (TG_USERS[i].chatId === chatId && TG_USERS[i].token === token) { toast('이미 등록된 사용자입니다'); return } }
+        TG_USERS.push({ token: token, chatId: chatId, label: label });
+        saveTgUsers();
+        document.getElementById('tgLabelM').value = '';
+        document.getElementById('tgTokenM').value = '';
+        document.getElementById('tgChatIdM').value = '';
+        toast(label + ' 추가 완료'); renderTgUserList();
+      };
+
+      window.removeTgUser = function (idx) {
+        if (idx < 0 || idx >= TG_USERS.length) return;
+        if (!confirm(TG_USERS[idx].label + ' - 삭제하시겠습니까?')) return;
+        TG_USERS.splice(idx, 1); saveTgUsers();
+        toast('삭제 완료'); renderTgUserList();
+      };
+
+      window.testTgUser = function (idx) {
+        if (idx < 0 || idx >= TG_USERS.length) return;
+        var u = TG_USERS[idx];
+        var st = document.getElementById('tgStatus');
+        st.classList.add('show'); st.textContent = u.label + ' 테스트 중...'; st.style.color = 'var(--text-dim)';
+        sendTelegramTo(u.token, u.chatId, '📊 DART 공시 모니터 연결 테스트\n✅ ' + u.label + '\n⏰ ' + new Date().toLocaleString('ko-KR'), function (err) {
+          if (err) { st.textContent = '❌ 오류: ' + err.message; st.style.color = 'var(--bad)' }
+          else { st.textContent = '✅ 테스트 성공!'; st.style.color = 'var(--good)'; toast(u.label + ' 전송 OK') }
+        });
+      };
+
+      window.testTgNew = function () {
+        var token = document.getElementById('tgTokenM').value.trim();
+        var chatId = document.getElementById('tgChatIdM').value.trim();
+        if (!token || !chatId) { toast('봇 토큰과 Chat ID를 입력하세요'); return }
+        var st = document.getElementById('tgStatus');
+        st.classList.add('show'); st.textContent = '테스트 전송 중...'; st.style.color = 'var(--text-dim)';
+        sendTelegramTo(token, chatId, '📊 DART 공시 모니터 연결 테스트\n✅ 정상 작동 중\n⏰ ' + new Date().toLocaleString('ko-KR'), function (err) {
+          if (err) { st.textContent = '❌ 오류: ' + err.message; st.style.color = 'var(--bad)' }
+          else { st.textContent = '✅ 테스트 성공!'; st.style.color = 'var(--good)'; toast('텔레그램 테스트 전송 성공') }
+        });
+      };
+
+      function renderTgUserList() {
+        var el = document.getElementById('tgUserList');
+        if (!el) return;
+        if (!TG_USERS.length) { el.innerHTML = '<div style="font-size:.8em;color:var(--text-dim);padding:8px">등록된 사용자 없음</div>'; return }
+        var h = '<div style="font-size:.85em;color:var(--tg);font-weight:600;margin-bottom:6px">📋 등록된 사용자 (' + TG_USERS.length + '명)</div>';
+        for (var i = 0; i < TG_USERS.length; i++) {
+          var u = TG_USERS[i];
+          var ts = u.token.length > 10 ? '...' + u.token.slice(-6) : u.token;
+          var cs = u.chatId.length > 6 ? u.chatId.slice(0, 4) + '...' : u.chatId;
+          h += '<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--bg);border-radius:4px;margin-bottom:4px;font-size:.8em">'
+            + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+            + '<strong>' + (i + 1) + '. ' + escHtml(u.label) + '</strong> <span style="color:var(--text-dim)">' + escHtml(ts) + ' / ' + escHtml(cs) + '</span></span>'
+            + '<button class="tg-btn secondary" onclick="testTgUser(' + i + ')" style="padding:2px 6px;font-size:.85em" title="테스트">🔔</button>'
+            + '<button class="tg-btn secondary" onclick="removeTgUser(' + i + ')" style="padding:2px 6px;font-size:.85em;color:var(--bad)" title="삭제">🗑️</button>'
+            + '</div>';
+        }
+        h += '<hr style="border-color:var(--border);margin:8px 0">';
+        el.innerHTML = h;
+      };
+
+      window.sendTgNow = function (filterType) {
+        filterType = filterType || 'all';
+        var items = allItems;
+        var label = '전체';
+        if (filterType === 'watchlist') { items = items.filter(function (x) { return x.watch }); label = '⭐ 워치리스트' }
+        else if (filterType === 'good') { items = items.filter(function (x) { return x.cls === 'good' }); label = '🟢 호재' }
+        else if (filterType === 'bad') { items = items.filter(function (x) { return x.cls === 'bad' }); label = '🔴 악재' }
+        else if (filterType === 'major') { items = items.filter(function (x) { return x.cls === 'major' }); label = '📋 주요' }
+
+        if (!items.length) { toast('전송할 공시가 없습니다'); return }
+        var st = document.getElementById('tgStatus');
+        st.classList.add('show'); st.textContent = '전송 중... (' + items.length + '건)'; st.style.color = 'var(--text-dim)';
+        var msg = buildTgMessage(items, label);
+
+        // Update preview
+        var preview = document.getElementById('tgPreview');
+        if (preview) preview.textContent = msg;
+
+        sendTelegramAll(msg, function (err, result) {
+          if (err) { st.textContent = '❌ 전송 실패: ' + err.message; st.style.color = 'var(--bad)' }
+          else { st.textContent = '✅ ' + items.length + '건 전송 완료 (' + result.sent + '/' + TG_USERS.length + '명)'; st.style.color = 'var(--good)'; toast('텔레그램 전송 완료') }
+        });
+      };
+
+      window.previewTg = function (filterType) {
+        filterType = filterType || 'all';
+        var items = allItems;
+        var label = '전체';
+        if (filterType === 'watchlist') { items = items.filter(function (x) { return x.watch }); label = '⭐ 워치리스트' }
+        else if (filterType === 'good') { items = items.filter(function (x) { return x.cls === 'good' }); label = '🟢 호재' }
+        else if (filterType === 'bad') { items = items.filter(function (x) { return x.cls === 'bad' }); label = '🔴 악재' }
+        else if (filterType === 'major') { items = items.filter(function (x) { return x.cls === 'major' }); label = '📋 주요' }
+        var msg = buildTgMessage(items, label);
+        var preview = document.getElementById('tgPreview');
+        if (preview) preview.textContent = msg;
+      };
+
+      // ============================================================
+      // FILTER & SEARCH
+      // ============================================================
+      function getFiltered() {
+        var items = allItems;
+        if (currentFilter === 'watchlist') items = items.filter(function (x) { return x.watch });
+        else if (currentFilter === 'strong_good') items = items.filter(function (x) { return x.cls === 'strong_good' });
+        else if (currentFilter === 'good') items = items.filter(function (x) { return x.cls === 'good' });
+        else if (currentFilter === 'bad') items = items.filter(function (x) { return x.cls === 'bad' });
+        else if (currentFilter === 'major') items = items.filter(function (x) { return x.cls === 'major' });
+        if (searchQuery) {
+          var q = searchQuery.toLowerCase();
+          items = items.filter(function (x) { return (x.corp + ' ' + x.title).toLowerCase().indexOf(q) >= 0 });
+        }
+        return items;
+      }
+
+      function getFilteredReports() {
+        var items = allReports;
+        if (currentFilter === 'watchlist') items = items.filter(function (x) { return x.watch });
+        else if (currentFilter === 'strong_good') items = items.filter(function (x) { return x.cls === 'strong_good' });
+        else if (currentFilter === 'good') items = items.filter(function (x) { return x.cls === 'good' });
+        else if (currentFilter === 'bad') items = items.filter(function (x) { return x.cls === 'bad' });
+        if (searchQuery) {
+          var q = searchQuery.toLowerCase();
+          items = items.filter(function (x) { return (x.corp + ' ' + x.title + ' ' + x.broker).toLowerCase().indexOf(q) >= 0 });
+        }
+        return items;
+      }
+
+      function updateStats() {
+        var sg = 0, g = 0, b = 0, m = 0, s = 0, total = 0;
+        var src;
+        if (currentTab === 'news' || currentTab === 'telegram') src = allNews;
+        else if (currentTab === 'report') src = allReports;
+        else src = allItems;
+        total = src.length;
+        for (var i = 0; i < src.length; i++) {
+          if (src[i].cls === 'strong_good') sg++;
+          if (src[i].cls === 'good') g++;
+          if (src[i].cls === 'bad') b++;
+          if (src[i].cls === 'major') m++;
+          if (src[i].watch) s++;
+        }
+        document.getElementById('cntAll').textContent = total;
+        document.getElementById('cntStrong').textContent = sg;
+        document.getElementById('cntGood').textContent = g;
+        document.getElementById('cntBad').textContent = b;
+        document.getElementById('cntMajor').textContent = m;
+        document.getElementById('cntStar').textContent = s;
+        document.getElementById('cntReport').textContent = allReports.length;
+      }
+
+      // ============================================================
+      // RENDER
+      // ============================================================
+      function showLoading() {
+        document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:10px">공시 데이터를 불러오는 중...</p></div>';
+      }
+
+      function showEmpty(msg) {
+        document.getElementById('content').innerHTML = '<div class="empty-state"><div class="icon">🔭</div><p>' + (msg || '표시할 공시가 없습니다') + '</p></div>';
+      }
+
+      function renderItem(item) {
+        var hasAi = aiCache[item.no];
+        var strongGlow = item.cls === 'strong_good' && !item._seen ? 'strong-glow' : '';
+        var strongOff = item.cls === 'strong_good' && item._seen ? 'strong-glow-off' : '';
+        var extraCls = strongGlow || strongOff;
+        return '<div class="item' + (item.watch ? ' watchlist' : '') + (extraCls ? ' ' + extraCls : '') + '"' + (item.cls === 'strong_good' ? ' onclick="dismissStrongGlow(this,\'' + item.no + '\')"' : '') + '>'
+          + '<span class="badge ' + item.cls + '">' + classLabel(item.cls) + '</span>'
+          + '<div class="item-body">'
+          + '<div class="item-title">' + (item.watch ? '<span class="star">★</span> ' : '')
+          + '<strong>' + escHtml(item.corp) + '</strong> '
+          + '<a href="' + item.url + '" target="_blank" rel="noopener">' + escHtml(item.title) + '</a>'
+          + ' <span class="item-actions">'
+          + '<button class="ai-btn" onclick="window.open(\'' + item.url + '\',\'_blank\')" title="공시 열기">🔗</button>'
+          + '<button class="ai-btn" data-ai="' + item.no + '" onclick="analyzeItem(\'' + item.no + '\')" title="AI분석">🤖</button>'
+          + '</span>'
+          + '</div>'
+          + '<div class="item-meta">'
+          + '<span>' + formatDate(item.date) + '</span>'
+          + (item.flrNm ? '<span>제출: ' + escHtml(item.flrNm) + '</span>' : '')
+          + '</div>'
+          + '<div class="ai-result' + (hasAi ? ' show' : '') + '" id="ai-' + item.no + '">'
+          + (hasAi ? renderAiCached(item.no) : '')
+          + '</div>'
+          + '</div>'
+          + '</div>';
+      }
+
+      function renderAiCached(no) {
+        var ai = aiCache[no];
+        if (!ai) return '';
+        var impactCls = ai.impact === '상' ? 'high' : ai.impact === '하' ? 'low' : 'mid';
+        var sentColor = ai.sentiment === '호재' ? 'var(--good)' : ai.sentiment === '악재' ? 'var(--bad)' : 'var(--text-dim)';
+        return '<div class="ai-label">🤖 Gemini 분석 '
+          + '<span style="color:' + sentColor + '">' + ai.sentiment + '</span>'
+          + '<span class="ai-impact ' + impactCls + '">영향도 ' + ai.impact + '</span></div>'
+          + '<div>' + escHtml(ai.summary) + '</div>'
+          + (ai.point ? '<div style="margin-top:4px;color:var(--major)">💡 ' + escHtml(ai.point) + '</div>' : '');
+      }
+
+      function renderRealtime() {
+        var items = getFiltered();
+        updateStats();
+        if (!items.length) { showEmpty(); return }
+        items.sort(function (a, b) {
+          if (a.watch !== b.watch) return a.watch ? -1 : 1;
+          return (b.no || '').localeCompare(a.no || '');
+        });
+        var html = '';
+        for (var i = 0; i < items.length; i++) { html += renderItem(items[i]) }
+        document.getElementById('content').innerHTML = html;
+      }
+
+      function renderDaily() {
+        var items = getFiltered();
+        updateStats();
+        if (!items.length) { showEmpty(); return }
+        var groups = {};
+        for (var i = 0; i < items.length; i++) {
+          var d = items[i].date || 'unknown';
+          if (!groups[d]) groups[d] = [];
+          groups[d].push(items[i]);
+        }
+        var dates = Object.keys(groups).sort().reverse();
+        var html = '';
+        for (var i = 0; i < dates.length; i++) {
+          var d = dates[i]; var list = groups[d];
+          html += '<div class="disclosure-group">'
+            + '<div class="group-header" onclick="toggleGroup(this)">'
+            + '<span>📅 ' + formatDate(d) + '</span>'
+            + '<span class="cnt">' + list.length + '건</span>'
+            + '</div>'
+            + '<div class="group-body">';
+          for (var j = 0; j < list.length; j++) { html += renderItem(list[j]) }
+          html += '</div></div>';
+        }
+        document.getElementById('content').innerHTML = html;
+      }
+
+      // 기업별 주가 데이터 캐시
+      var companyPriceCache = {};
+      var companyPriceLoading = false;
+
+      function loadCompanyPrices(callback) {
+        if (companyPriceLoading) return;
+        companyPriceLoading = true;
+        fetch('/api/companies').then(function (r) { return r.json() }).then(function (d) {
+          if (d && d.items) {
+            for (var i = 0; i < d.items.length; i++) {
+              var c = d.items[i];
+              companyPriceCache[c.name] = c;
+            }
+            // 각 종목의 일봉 데이터도 로드
+            var codes = d.items.map(function (c) { return c.code });
+            var loaded = 0;
+            for (var j = 0; j < codes.length; j++) {
+              (function (code) {
+                fetch('/api/companies/' + code).then(function (r) { return r.json() }).then(function (detail) {
+                  if (detail && detail.price) {
+                    var name = detail.info ? detail.info.name : code;
+                    if (companyPriceCache[name]) {
+                      companyPriceCache[name].daily = detail.price.daily || [];
+                      companyPriceCache[name].currentDetail = detail.price.current;
+                    }
+                  }
+                  loaded++;
+                  if (loaded >= codes.length && callback) callback();
+                }).catch(function () { loaded++; if (loaded >= codes.length && callback) callback(); });
+              })(codes[j]);
+            }
+          }
+          companyPriceLoading = false;
+        }).catch(function () { companyPriceLoading = false; });
+      }
+
+      function renderMiniChart(canvasId, dailyData) {
+        if (!dailyData || dailyData.length === 0) return;
+        var canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        var ctx = canvas.getContext('2d');
+        // 최근 30일 데이터 (왼쪽=과거, 오른쪽=현재)
+        var data = dailyData.slice(-30);
+        var labels = data.map(function (d) { return d.date ? d.date.substring(5) : ''; });
+        var prices = data.map(function (d) { return d.close || d.price || 0; });
+        var firstPrice = prices[0] || 1;
+        var lastPrice = prices[prices.length - 1] || 0;
+        var isUp = lastPrice >= firstPrice;
+        var lineColor = isUp ? '#00e676' : '#ff5252';
+        var bgColor = isUp ? 'rgba(0,230,118,.12)' : 'rgba(255,82,82,.12)';
+
+        // 고점/저점 계산
+        var maxPrice = Math.max.apply(null, prices);
+        var minPrice = Math.min.apply(null, prices.filter(function (p) { return p > 0; }));
+        var maxIdx = prices.indexOf(maxPrice);
+        var minIdx = prices.indexOf(minPrice);
+
+        // 고점/저점 표시 플러그인
+        var highLowPlugin = {
+          id: 'highLowLabels',
+          afterDraw: function (chart) {
+            var meta = chart.getDatasetMeta(0);
+            if (!meta || !meta.data || meta.data.length === 0) return;
+            var ctx2 = chart.ctx;
+            ctx2.save();
+            ctx2.font = 'bold 10px sans-serif';
+            // 고점
+            if (maxIdx >= 0 && maxIdx < meta.data.length) {
+              var pt = meta.data[maxIdx];
+              ctx2.fillStyle = '#ff5252';
+              ctx2.textAlign = maxIdx > prices.length * 0.7 ? 'right' : 'left';
+              ctx2.fillText('▲ ' + maxPrice.toLocaleString(), pt.x + (maxIdx > prices.length * 0.7 ? -4 : 4), pt.y - 4);
+            }
+            // 저점
+            if (minIdx >= 0 && minIdx < meta.data.length) {
+              var pt2 = meta.data[minIdx];
+              ctx2.fillStyle = '#448aff';
+              ctx2.textAlign = minIdx > prices.length * 0.7 ? 'right' : 'left';
+              ctx2.fillText('▼ ' + minPrice.toLocaleString(), pt2.x + (minIdx > prices.length * 0.7 ? -4 : 4), pt2.y + 12);
+            }
+            ctx2.restore();
+          }
+        };
+
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: prices,
+              borderColor: lineColor,
+              backgroundColor: bgColor,
+              borderWidth: 1.5,
+              fill: true,
+              pointRadius: function (ctx3) {
+                var idx = ctx3.dataIndex;
+                return (idx === maxIdx || idx === minIdx) ? 3 : 0;
+              },
+              pointBackgroundColor: function (ctx3) {
+                var idx = ctx3.dataIndex;
+                if (idx === maxIdx) return '#ff5252';
+                if (idx === minIdx) return '#448aff';
+                return lineColor;
+              },
+              tension: 0.3
+            }]
+          },
+          plugins: [highLowPlugin],
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }, tooltip: {
+                callbacks: {
+                  label: function (ctx4) { return ctx4.parsed.y.toLocaleString() + '원'; }
+                }
+              }
+            },
+            scales: {
+              x: {
+                display: true,
+                ticks: {
+                  color: 'rgba(255,255,255,.35)',
+                  font: { size: 9 },
+                  maxTicksLimit: 6,
+                  maxRotation: 0
+                },
+                grid: { display: false },
+                border: { display: false }
+              },
+              y: { display: false }
+            },
+            interaction: { intersect: false, mode: 'index' }
+          }
+        });
+      }
+
+      function renderCorp() {
+        var items = getFiltered();
+        updateStats();
+        if (!items.length && !allNews.length && !allReports.length) { showEmpty(); return }
+        var groups = {};
+        for (var i = 0; i < items.length; i++) {
+          var c = items[i].corp || '기타';
+          if (!groups[c]) groups[c] = { items: [], watch: items[i].watch, news: [], reports: [] };
+          groups[c].items.push(items[i]);
+          if (items[i].watch) groups[c].watch = true;
+        }
+        // 뉴스/리포트만 있고 공시가 없는 워치리스트 종목도 표시
+        for (var w = 0; w < WATCHLIST.length; w++) {
+          var wn = WATCHLIST[w];
+          if (!groups[wn]) {
+            var corpNews = getNewsForCorp(wn);
+            var corpReports = getReportsForCorp(wn);
+            if (corpNews.length > 0 || corpReports.length > 0) {
+              groups[wn] = { items: [], watch: true, news: corpNews, reports: corpReports };
+            }
+          }
+        }
+        // 주가 데이터가 있는 워치리스트 종목도 보여주기
+        for (var w2 = 0; w2 < WATCHLIST.length; w2++) {
+          var wn2 = WATCHLIST[w2];
+          if (!groups[wn2] && companyPriceCache[wn2]) {
+            groups[wn2] = { items: [], watch: true, news: [], reports: [] };
+          }
+        }
+        // 각 그룹에 뉴스/리포트 매핑
+        var corpKeys = Object.keys(groups);
+        for (var i = 0; i < corpKeys.length; i++) {
+          var c = corpKeys[i]; var g = groups[c];
+          if (!g.news) g.news = getNewsForCorp(c);
+          if (!g.reports) g.reports = getReportsForCorp(c);
+        }
+        var corps = corpKeys.sort(function (a, b) {
+          // 1. 검색어와 일치하는 종목이 최상단
+          if (searchQuery) {
+            var q = searchQuery.toLowerCase();
+            var matchA = a.toLowerCase().indexOf(q) >= 0 ? 1 : 0;
+            var matchB = b.toLowerCase().indexOf(q) >= 0 ? 1 : 0;
+            // 정확히 같은 이름일수록 더 위로
+            var exactA = a.toLowerCase() === q ? 2 : matchA;
+            var exactB = b.toLowerCase() === q ? 2 : matchB;
+            if (exactA !== exactB) return exactB - exactA;
+          }
+          // 2. 워치리스트 우선
+          if (groups[a].watch !== groups[b].watch) return groups[a].watch ? -1 : 1;
+          // 3. 아이템 수
+          var ca = groups[a].items.length + groups[a].news.length + groups[a].reports.length;
+          var cb = groups[b].items.length + groups[b].news.length + groups[b].reports.length;
+          if (ca !== cb) return cb - ca;
+          return a.localeCompare(b);
+        });
+        var html = '';
+        var chartIds = [];
+        for (var i = 0; i < corps.length; i++) {
+          var c = corps[i]; var g = groups[c];
+          var discCnt = g.items.length;
+          var newsCnt = g.news.length;
+          var rptCnt = g.reports.length;
+          var cntParts = [];
+          if (discCnt) cntParts.push('공시 ' + discCnt);
+          if (newsCnt) cntParts.push('뉴스 ' + newsCnt);
+          if (rptCnt) cntParts.push('리포트 ' + rptCnt);
+          var cntLabel = cntParts.join(' | ') || (discCnt + '건');
+          // 주가 정보
+          var priceInfo = companyPriceCache[c];
+          var priceHtml = '';
+          if (priceInfo && priceInfo.price) {
+            var chg = priceInfo.change || 0;
+            var chgColor = chg > 0 ? 'var(--bad)' : chg < 0 ? 'var(--link)' : 'var(--text-dim)';
+            var arrow = chg > 0 ? '▲' : chg < 0 ? '▼' : '';
+            priceHtml = '<span style="margin-left:8px;font-size:.82em;font-weight:700;color:' + chgColor + '">'
+              + Number(priceInfo.price).toLocaleString() + '원 '
+              + '<span style="font-size:.85em">' + arrow + (chg > 0 ? '+' : '') + chg.toFixed(2) + '%</span></span>';
+          }
+          var chartId = 'chart-' + c.replace(/[^a-zA-Z0-9가-힣]/g, '_') + '-' + i;
+          html += '<div class="disclosure-group">'
+            + '<div class="group-header" onclick="toggleGroup(this)">'
+            + '<span>' + (g.watch ? '⭐ ' : '🏢 ') + escHtml(c) + priceHtml + '</span>'
+            + '<span class="cnt">' + cntLabel + '</span>'
+            + '</div>'
+            + '<div class="group-body">';
+          // 미니 차트
+          if (priceInfo && priceInfo.daily && priceInfo.daily.length > 0) {
+            html += '<div style="padding:8px 12px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border)">'
+              + '<div style="height:80px;position:relative"><canvas id="' + chartId + '"></canvas></div>'
+              + '</div>';
+            chartIds.push({ id: chartId, daily: priceInfo.daily });
+          }
+          // 공시 아이템
+          for (var j = 0; j < g.items.length; j++) { html += renderItem(g.items[j]) }
+          // 증권사 리포트
+          if (rptCnt > 0) {
+            html += '<div class="corp-news-divider">📊 증권사 리포트 (' + rptCnt + ')</div>';
+            html += '<div class="corp-news-compact">';
+            for (var r = 0; r < Math.min(g.reports.length, 5); r++) { html += renderReportItem(g.reports[r]) }
+            if (rptCnt > 5) html += '<div style="text-align:center;font-size:.72em;color:var(--text-dim);padding:4px">...외 ' + (rptCnt - 5) + '건</div>';
+            html += '</div>';
+          }
+          // 관련 뉴스
+          if (newsCnt > 0) {
+            html += '<div class="corp-news-divider">📰 관련 뉴스 (' + newsCnt + ')</div>';
+            html += '<div class="corp-news-compact">';
+            for (var n = 0; n < Math.min(g.news.length, 5); n++) { html += renderNewsItem(g.news[n]) }
+            if (newsCnt > 5) html += '<div style="text-align:center;font-size:.72em;color:var(--text-dim);padding:4px">...외 ' + (newsCnt - 5) + '건</div>';
+            html += '</div>';
+          }
+          html += '</div></div>';
+        }
+        document.getElementById('content').innerHTML = html;
+        // 차트 렌더링 (DOM 삽입 후)
+        setTimeout(function () {
+          for (var ci = 0; ci < chartIds.length; ci++) {
+            renderMiniChart(chartIds[ci].id, chartIds[ci].daily);
+          }
+        }, 100);
+      }
+
+      window.openTgModal = function () {
+        var el = document.getElementById('tgModal');
+        document.getElementById('tgLabelM').value = '';
+        document.getElementById('tgTokenM').value = '';
+        document.getElementById('tgChatIdM').value = '';
+        renderTgUserList();
+        el.classList.add('show');
+      };
+      window.closeTgModal = function () {
+        document.getElementById('tgModal').classList.remove('show');
+      };
+
+      // ============================================================
+      // BACKUP MODAL
+      // ============================================================
+      window.openBackupModal = function () {
+        document.getElementById('backupModal').classList.add('show');
+        loadBackupConfig();
+      };
+      window.closeBackupModal = function () {
+        document.getElementById('backupModal').classList.remove('show');
+      };
+      document.getElementById('backupModal').addEventListener('click', function (e) {
+        if (e.target === this) closeBackupModal();
+      });
+
+      function loadBackupConfig() {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/backup/config', true);
+        xhr.onload = function () {
+          if (xhr.status === 200) {
+            try {
+              var cfg = JSON.parse(xhr.responseText);
+              document.getElementById('backupPath').value = cfg.folderPath || '';
+              document.getElementById('backupInterval').value = cfg.intervalHours || 6;
+              var btn = document.getElementById('backupToggle');
+              btn.textContent = cfg.enabled ? 'ON' : 'OFF';
+              btn.className = 'tg-btn ' + (cfg.enabled ? 'primary' : 'secondary');
+              var info = '마지막 백업: ' + (cfg.lastBackup ? new Date(cfg.lastBackup).toLocaleString('ko-KR') : '없음');
+              document.getElementById('backupInfo').textContent = info;
+            } catch (e) { }
+          }
+        };
+        xhr.send();
+      }
+
+      window.toggleAutoBackup = function () {
+        var btn = document.getElementById('backupToggle');
+        var enable = btn.textContent === 'OFF';
+        var folder = document.getElementById('backupPath').value.trim();
+        var interval = parseInt(document.getElementById('backupInterval').value) || 6;
+        if (enable && !folder) { toast('백업 폴더 경로를 입력하세요'); return }
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/backup/config', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onload = function () {
+          if (xhr.status === 200) {
+            btn.textContent = enable ? 'ON' : 'OFF';
+            btn.className = 'tg-btn ' + (enable ? 'primary' : 'secondary');
+            toast(enable ? '자동 백업 시작' : '자동 백업 중지');
+          }
+        };
+        xhr.send(JSON.stringify({ enabled: enable, folderPath: folder, intervalHours: interval }));
+      };
+
+      window.doBackupNow = function () {
+        var folder = document.getElementById('backupPath').value.trim();
+        if (!folder) { toast('백업 폴더 경로를 입력하세요'); return }
+        var st = document.getElementById('backupStatus');
+        st.classList.add('show'); st.textContent = '백업 중...'; st.style.color = 'var(--text-dim)';
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/backup/now', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onload = function () {
+          try {
+            var r = JSON.parse(xhr.responseText);
+            if (r.success) {
+              st.textContent = '✅ 백업 완료 (' + r.files + '개 파일) → ' + r.path;
+              st.style.color = 'var(--good)';
+              toast('💾 백업 완료');
+              // config도 저장
+              var interval = parseInt(document.getElementById('backupInterval').value) || 6;
+              var xhr2 = new XMLHttpRequest();
+              xhr2.open('POST', '/api/backup/config', true);
+              xhr2.setRequestHeader('Content-Type', 'application/json');
+              xhr2.send(JSON.stringify({ folderPath: folder, intervalHours: interval }));
+              loadBackupConfig();
+            } else {
+              st.textContent = '❌ 실패: ' + r.error; st.style.color = 'var(--bad)';
+            }
+          } catch (e) { st.textContent = '❌ 오류'; st.style.color = 'var(--bad)' }
+        };
+        xhr.send(JSON.stringify({ folderPath: folder }));
+      };
+
+      window.doRestore = function () {
+        var folder = prompt('복원할 백업 폴더 전체 경로를 입력하세요:\n예: C:\\Users\\user\\Google Drive\\dart-backup\\dart-backup-2026-02-17T12-00-00');
+        if (!folder) return;
+        if (!confirm('현재 데이터를 덮어씁니다. 계속하시겠습니까?')) return;
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/backup/restore', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onload = function () {
+          try {
+            var r = JSON.parse(xhr.responseText);
+            if (r.success) { toast('♻️ 복원 완료 (' + r.restored + '개 파일). 페이지를 새로고침합니다.'); location.reload() }
+            else { toast('복원 실패: ' + r.error) }
+          } catch (e) { toast('복원 오류') }
+        };
+        xhr.send(JSON.stringify({ folderPath: folder }));
+      };
+
+      function renderReports() {
+        updateStats();
+        if (!allReports.length) {
+          document.getElementById('content').innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:10px">리포트를 수집하는 중... (3분 간격)</p></div>';
+          return;
+        }
+        var items = getFilteredReports();
+        if (!items.length) { showEmpty('필터 조건에 맞는 리포트가 없습니다'); return }
+        var usageHtml = '<div style="text-align:right;font-size:.7em;color:var(--text-dim);padding:4px 0">📊 리포트: ' + allReports.length + '건</div>';
+        var html = usageHtml;
+        for (var i = 0; i < Math.min(items.length, 100); i++) { html += renderReportItem(items[i]) }
+        document.getElementById('content').innerHTML = html;
+      }
+
+      function renderCurrent() {
+        updateStats();
+        if (currentTab === 'realtime') renderRealtime();
+        else if (currentTab === 'report') renderReports();
+        else if (currentTab === 'daily') renderDaily();
+        else if (currentTab === 'corp') renderCorp();
+        else if (currentTab === 'news') renderNews();
+      }
+
+      window.toggleGroup = function (el) {
+        var body = el.nextElementSibling;
+        if (body) body.classList.toggle('collapsed');
+      };
+
+      // ============================================================
+      // EVENT HANDLERS
+      // ============================================================
+      document.querySelectorAll('.tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('.tab').forEach(function (b) { b.classList.remove('active') });
+          btn.classList.add('active');
+          currentTab = btn.getAttribute('data-tab');
+          if (currentTab === 'news' && allNews.length === 0) loadNews();
+          if (currentTab === 'report' && allReports.length === 0) fetchReports();
+          if (currentTab === 'corp' && allNews.length === 0) loadNews();
+          if (currentTab === 'corp' && allReports.length === 0) fetchReports();
+          if (currentTab === 'corp' && !Object.keys(companyPriceCache).length) loadCompanyPrices(function () { renderCorp() });
+          renderCurrent();
+          setTimeout(updateStickyTop, 50);
+        });
+      });
+
+      document.querySelectorAll('.filter-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.querySelectorAll('.filter-btn').forEach(function (b) { b.classList.remove('active') });
+          btn.classList.add('active');
+          currentFilter = btn.getAttribute('data-filter');
+          renderCurrent();
+        });
+      });
+
+      document.getElementById('searchBox').addEventListener('input', function (e) {
+        searchQuery = e.target.value;
+        renderCurrent();
+      });
+
+      document.getElementById('dateInput').addEventListener('change', function (e) {
+        var v = e.target.value;
+        if (v) { selectedDate = v.replace(/-/g, ''); loadData(selectedDate) }
+      });
+
+      // Modal close on overlay click
+      document.getElementById('tgModal').addEventListener('click', function (e) {
+        if (e.target === this) closeTgModal();
+      });
+
+      // ESC key to close modals
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { closeTgModal(); closeBackupModal() }
+      });
+
+      // ============================================================
+      // 강력호재 이펙트 해제 (클릭 시)
+      // ============================================================
+      window.dismissStrongGlow = function (el, itemNo) {
+        el.classList.remove('strong-glow');
+        el.classList.add('strong-glow-off');
+        // allItems/allReports/allNews에서 _seen 마킹
+        if (itemNo) {
+          for (var i = 0; i < allItems.length; i++) { if (allItems[i].no === itemNo) allItems[i]._seen = true }
+        }
+        for (var i = 0; i < allReports.length; i++) {
+          var rEl = allReports[i];
+          // reports don't have .no, check by DOM match
+        }
+      }
+
+      // ============================================================
+      // 리셋 버튼: 상태 저장 + 서버 종료
+      // ============================================================
+      window.resetServer = function () {
+        if (!confirm('서버 상태를 저장하고 종료합니다.\n계속하시겠습니까?')) return;
+        toast('💾 상태 저장 중...');
+        fetch('/api/state/save').then(function (r) { return r.json() }).then(function (d) {
+          if (d.ok) {
+            toast('✅ 저장 완료. 서버를 종료합니다...');
+            setTimeout(function () {
+              fetch('/api/shutdown', { method: 'POST' }).catch(function () { });
+              setTimeout(function () {
+                document.title = '[종료됨] DART 공시 모니터';
+                setStatus('⏹ 서버 종료됨');
+                document.getElementById('statusDot').style.background = 'var(--bad)';
+                document.getElementById('statusDot').style.animation = 'none';
+              }, 1500);
+            }, 500);
+          }
+        }).catch(function (e) { toast('❌ 저장 실패: ' + e.message) });
+      }
+
+      // ============================================================
+      // STICKY TOP 동적 계산
+      // ============================================================
+      function updateStickyTop() {
+        var header = document.querySelector('header');
+        var controls = document.querySelector('.controls');
+        var statsBar = document.querySelector('.stats-bar');
+        if (!header || !controls || !statsBar) return;
+        var headerH = header.getBoundingClientRect().height;
+        controls.style.top = headerH + 'px';
+        var controlsH = controls.getBoundingClientRect().height;
+        statsBar.style.top = (headerH + controlsH) + 'px';
+      }
+      updateStickyTop();
+      window.addEventListener('resize', updateStickyTop);
+
+      // ============================================================
+      // INIT
+      // ============================================================
+      var d = new Date();
+      var todayStr = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+      document.getElementById('dateInput').value = todayStr;
+
+      cleanCache();
+
+      loadData();
+      loadNews();
+      fetchReports();
+      loadCompanyPrices();
+
+      // 주가 급변동 알림 폴링 (30초 간격)
+      var lastAlertId = 0;
+      function pollPriceAlerts() {
+        if (clientPaused) return;
+        fetch('/api/price-alerts?since=' + lastAlertId).then(function (r) { return r.json() }).then(function (d) {
+          if (!d.alerts || !d.alerts.length) return;
+          var banner = document.getElementById('priceAlertBanner');
+          var html = '';
+          for (var i = 0; i < d.alerts.length; i++) {
+            var a = d.alerts[i];
+            if (a.id > lastAlertId) lastAlertId = a.id;
+            var emoji = a.change > 0 ? '📈' : '📉';
+            var arrow = a.change > 0 ? '▲' : '▼';
+            var color = a.change > 0 ? 'var(--bad)' : 'var(--link)';
+            html += '<div style="padding:3px 0;display:flex;align-items:center;gap:6px">'
+              + '<span>' + emoji + '</span>'
+              + '<strong style="color:' + color + '">' + escHtml(a.name) + '</strong>'
+              + '<span style="color:' + color + '">' + arrow + ' ' + a.prevPrice.toLocaleString() + '원 → ' + a.price.toLocaleString() + '원</span>'
+              + '<span style="font-weight:700;color:' + color + '">(' + (a.change > 0 ? '+' : '') + a.change + '%)</span>'
+              + '<span style="color:var(--text-dim);font-size:.85em;margin-left:auto">' + escHtml(a.time) + '</span>'
+              + '</div>';
+          }
+          banner.innerHTML = html;
+          banner.style.display = 'block';
+          // 토스트로도 알림
+          var latest = d.alerts[0];
+          toast((latest.change > 0 ? '📈' : '📉') + ' ' + latest.name + ' ' + (latest.change > 0 ? '+' : '') + latest.change + '%');
+          // 10초 후 배너 자동 닫기
+          setTimeout(function () { banner.style.display = 'none'; }, 10000);
+        }).catch(function () { });
+      }
+      setInterval(pollPriceAlerts, 30000);
+      pollPriceAlerts();
+
+      // Auto-refresh: 일시정지 지원 폴링 시작
+      startPolling();
+
+      // 서버 일시정지 상태 동기화 (페이지 로드 시)
+      fetch('/api/status').then(function (r) { return r.json() }).then(function (d) {
+        if (d.isPaused) {
+          clientPaused = true;
+          stopPolling();
+          document.getElementById('pauseBtn').textContent = '▶';
+          document.getElementById('pauseBtn').classList.add('active');
+          document.getElementById('statusDot').classList.add('paused');
+          setStatus('⏸ 일시정지');
+        }
+      }).catch(function () { });
+
+    })();
+  </script>
+  <link rel="stylesheet" href="gemini-chat.css">
+  <script>
+    window.geminiChatContext = { page: 'dart', role: '공시 분석', description: '실시간 DART 공시 데이터를 분석하고 관련 정보를 제공하는 역할' };
+  </script>
+
+  <script src="gemini-chat.js"></script>
+</body>
+
+</html>

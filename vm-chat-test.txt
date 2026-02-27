@@ -1,0 +1,39 @@
+=== VM Gemini Chat 인증 테스트 ===
+
+--- Test 1: ?api_key=dartmonitor-gemini ---
+HTTP 401: {"ok":false,"error":"인증 필요: x-api-key 헤더를 확인하세요."}
+
+--- Test 2: x-api-key: dartmonitor-gemini ---
+HTTP 401: {"ok":false,"error":"인증 필요: x-api-key 헤더를 확인하세요."}
+
+--- Test 3: ?api_key=dartmonitor-2024 ---
+HTTP 404: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot POST /api/gemini/chat</pre>
+</body>
+</html>
+
+
+--- Test 4: x-api-key: dartmonitor-2024 ---
+HTTP 404: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot POST /api/gemini/chat</pre>
+</body>
+</html>
+
+
+--- Test 5: GET /api/gemini/ctx?api_key=dartmonitor-gemini ---
+HTTP 401: {"ok":false,"error":"인증 필요: x-api-key 헤더를 확인하세요."}
+
+--- Test 6: GET /api/claude/ctx?api_key=dartmonitor-claude ---
+HTTP 401: {"ok":false,"error":"인증 필요: x-api-key 헤더를 확인하세요."}

@@ -1,0 +1,40 @@
+=== VM 위젯 구조 완전 파악 ===
+
+--- 1. gemini-chat 정적 파일 ---
+  gemini-chat.js: HTTP 404 (NOT FOUND)
+  gemini-chat.css: HTTP 404 (NOT FOUND)
+
+--- 2. VM HTML 파일 위젯 참조 ---
+  /: JS참조=false CSS참조=false 위젯마크업=false 인라인코드=false
+  /stocks.html: JS참조=false CSS참조=false 위젯마크업=false 인라인코드=false
+  /context.html: JS참조=false CSS참조=false 위젯마크업=false 인라인코드=false
+
+--- 3. /api/gemini/chat 엔드포인트 ---
+  api_key=gemini: HTTP 401 → {"ok":false,"error":"인증 필요: x-api-key 헤더를 확인하세요."}
+  api_key=internal: HTTP 404 → <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot POST /api/gemini/chat</pre>
+</body>
+</html>
+
+  x-api-key=gemini: HTTP 401 → {"ok":false,"error":"인증 필요: x-api-key 헤더를 확인하세요."}
+
+--- 4. AI 공간 라우트 존재 여부 ---
+  GET /api/gemini/ctx: HTTP 401
+  GET /api/gemini/prices: HTTP 401
+  GET /api/gemini/news: HTTP 401
+  GET /api/claude/ctx: HTTP 401
+
+--- 5. 이전에 올린 zip 파일 확인 ---
+  (HTTP로 확인 불가 — GCP SSH 필요)
+  로컬에 있는 관련 파일:
+    chat-js-b64.txt: 29662 bytes (2026-02-24T13:42:17)
+    chat-css-b64.txt: 15350 bytes (2026-02-24T13:42:10)
+    dart-monitor-deploy.zip: 1433755 bytes (2026-02-24T09:39:46)
+    dart-monitor-update.zip: 3996187 bytes (2026-02-24T13:33:09)
+    dart-monitor-update.tar.gz: 1151638 bytes (2026-02-24T03:39:01)

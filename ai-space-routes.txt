@@ -1,0 +1,25 @@
+﻿145: router.get(`/${aiName}/permissions`, (req, res) => {
+190: router.post(`/${aiName}/permissions`, (req, res) => {
+217: router.get(`/${aiName}/ctx`, requirePermission('ctx', 'read'), (req, res) => {
+246: router.post(`/${aiName}/ctx`, requirePermission('ctx', 'write'), (req, res) => {
+321: router.get(`/${aiName}/archive`, requirePermission('arc', 'read'), (req, res) =>
+341: router.post(`/${aiName}/archive`, (req, res) => {
+366: router.get(`/${aiName}/predictions`, requirePermission('pred', 'read'), (req, re
+376: router.post(`/${aiName}/predictions`, requirePermission('pred', 'save'), (req, r
+389: router.patch(`/${aiName}/predictions/:id`, requirePermission('pred', 'evaluate')
+412: router.get(`/${aiName}/stocks/:code/analysis`, requirePermission('stock', 'read'
+427: router.post(`/${aiName}/stocks/:code/analysis`, requirePermission('stock', 'save
+451: router.post(`/${aiName}/analyze/:code`, requirePermission('stock', 'analyze'), a
+612: router.post(`/${aiName}/stocks/:code/memo`, requirePermission('stock', 'write'),
+648: router.post(`/${aiName}/stocks/:code/ai-analysis`, requirePermission('stock', 'w
+685: router.post(`/${aiName}/chat`, requirePermission('ctx', 'read'), async (req, res
+799: router.get(`/${aiName}/token`, (req, res) => {
+811: router.get(`/${aiName}/news`, requirePermission('ctx', 'read'), (req, res) => {
+835: router.get(`/${aiName}/reports`, requirePermission('ctx', 'read'), (req, res) =>
+859: router.get(`/${aiName}/prices`, requirePermission('stock', 'read'), (req, res) =
+890: router.get(`/${aiName}/dart`, requirePermission('ctx', 'read'), async (req, res)
+927: router.get(`/${aiName}/macro`, requirePermission('ctx', 'read'), (req, res) => {
+942: router.get(`/${aiName}/overseas`, requirePermission('ctx', 'read'), (req, res) =
+953: router.get(`/${aiName}/commands`, requirePermission('ctx', 'read'), (req, res) =
+961: router.post(`/${aiName}/commands`, requirePermission('ctx', 'write'), (req, res)
+980: router.patch(`/${aiName}/commands/:id`, requirePermission('ctx', 'write'), (req,

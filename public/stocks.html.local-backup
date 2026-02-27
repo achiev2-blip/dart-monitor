@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>종목 대시보드 — DART Monitor</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1/dist/chartjs-chart-financial.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #080b12;
+            --panel: #0d1117;
+            --border: #1c2333;
+            --accent: #00d4aa;
+            --accent2: #ff6b35;
+            --up: #26a69a;
+            --down: #ef5350;
+            --text: #e6edf3;
+            --muted: #7d8590;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Noto Sans KR', sans-serif;
+            min-height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        header {
+            height: 48px;
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 14px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 2px;
+        }
+
+        .divider {
+            width: 1px;
+            height: 24px;
+            background: var(--border);
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: var(--muted);
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: var(--text);
+        }
+
+        /* ── STOCK SELECTOR ── */
+        .stock-bar {
+            background: #0a0e17;
+            border-bottom: 1px solid var(--border);
+            padding: 8px 16px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .stock-chip {
+            padding: 4px 12px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        .stock-chip:hover {
+            border-color: #3d4a5c;
+            color: var(--text);
+        }
+
+        .stock-chip.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0, 212, 170, 0.08);
+        }
+
+        .stock-chip .price-tag {
+            font-size: 9px;
+            margin-left: 6px;
+        }
+
+        .stock-chip .up {
+            color: var(--up);
+        }
+
+        .stock-chip .dn {
+            color: var(--down);
+        }
+
+        /* ── MANAGE BUTTON ── */
+        .manage-btn {
+            margin-left: auto;
+            padding: 4px 12px;
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255, 107, 53, 0.1);
+            border: 1px solid rgba(255, 107, 53, 0.3);
+            border-radius: 4px;
+            color: var(--accent2);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .manage-btn:hover {
+            background: rgba(255, 107, 53, 0.2);
+        }
+
+        /* ── MAIN LAYOUT ── */
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 0;
+            min-height: calc(100vh - 48px - 46px);
+        }
+
+        .content-area {
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+        }
+
+        .side-panel {
+            background: var(--panel);
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+        }
+
+        /* ── CARDS ── */
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            height: 32px;
+            background: #0a0e17;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+        }
+
+        .card-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 1px;
+        }
+
+        .card-body {
+            padding: 12px;
+        }
+
+        /* ── PRICE HERO ── */
+        .price-hero {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            padding: 16px 12px 8px;
+        }
+
+        .price-main {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .price-change {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .price-meta {
+            display: flex;
+            gap: 16px;
+            padding: 0 12px 12px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--muted);
+        }
+
+        .price-meta span {
+            display: flex;
+            gap: 4px;
+        }
+
+        .price-meta .label {
+            color: #555;
+        }
+
+        /* ── CHART ── */
+        .chart-container {
+            height: 300px;
+            padding: 8px;
+        }
+
+        /* ── LIST ITEMS ── */
+        .list-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #0f1520;
+            transition: background 0.2s;
+            cursor: default;
+        }
+
+        .list-item:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .item-title {
+            font-size: 12px;
+            line-height: 1.4;
+            color: var(--text);
+        }
+
+        .item-meta {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 3px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .item-tag {
+            font-size: 8px;
+            padding: 1px 5px;
+            border-radius: 2px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .tag-호재 {
+            background: rgba(38, 166, 154, 0.15);
+            color: var(--up);
+        }
+
+        .tag-악재 {
+            background: rgba(239, 83, 80, 0.15);
+            color: var(--down);
+        }
+
+        .tag-중립 {
+            background: rgba(125, 133, 144, 0.15);
+            color: var(--muted);
+        }
+
+        .tag-상 {
+            background: rgba(255, 107, 53, 0.15);
+            color: var(--accent2);
+        }
+
+        .tag-중 {
+            background: rgba(240, 192, 64, 0.15);
+            color: #f0c040;
+        }
+
+        .tag-하 {
+            background: rgba(125, 133, 144, 0.1);
+            color: #555;
+        }
+
+        .item-link {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .item-link:hover {
+            text-decoration: underline;
+        }
+
+        /* ── SIDE SECTIONS ── */
+        .side-section {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .side-header {
+            padding: 8px 14px;
+            background: #0a0e17;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: var(--accent);
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .side-content {
+            padding: 10px 14px;
+        }
+
+        .ai-summary {
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--text);
+        }
+
+        .sentiment-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 8px;
+        }
+
+        /* ── MANAGE PANEL MODAL ── */
+        .manage-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .manage-overlay.visible {
+            display: flex;
+        }
+
+        .manage-modal {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 14px 16px;
+            background: #0a0e17;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--accent);
+            letter-spacing: 1px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--muted);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+
+        .modal-close:hover {
+            color: var(--text);
+        }
+
+        .modal-body {
+            padding: 16px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .add-form {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .add-form input {
+            flex: 1;
+            padding: 8px 10px;
+            background: #1a1a2e;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            font-size: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            outline: none;
+        }
+
+        .add-form input:focus {
+            border-color: var(--accent);
+        }
+
+        .add-form button {
+            padding: 8px 16px;
+            background: rgba(0, 212, 170, 0.15);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+            border-radius: 4px;
+            color: var(--accent);
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+        }
+
+        .stock-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid #0f1520;
+            font-size: 12px;
+        }
+
+        .stock-list-item:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .stock-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .stock-code {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .stock-sector {
+            font-size: 9px;
+            color: var(--accent2);
+            padding: 1px 5px;
+            background: rgba(255, 107, 53, 0.1);
+            border-radius: 2px;
+        }
+
+        .delete-btn {
+            background: none;
+            border: 1px solid rgba(239, 83, 80, 0.3);
+            border-radius: 3px;
+            color: var(--down);
+            font-size: 10px;
+            padding: 3px 8px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .delete-btn:hover {
+            background: rgba(239, 83, 80, 0.15);
+        }
+
+        /* ── EMPTY STATE ── */
+        .empty {
+            text-align: center;
+            padding: 20px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        /* ── LOADING ── */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        /* ── 급등락 분석 버튼 ── */
+        .spike-btn {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid var(--border);
+            background: rgba(125, 133, 144, 0.08);
+            color: var(--muted);
+        }
+
+        .spike-btn:hover {
+            background: rgba(125, 133, 144, 0.15);
+            color: var(--text);
+        }
+
+        /* 급등 강조 */
+        .spike-btn.spike-up {
+            border-color: rgba(38, 166, 154, 0.5);
+            background: rgba(38, 166, 154, 0.1);
+            color: var(--up);
+        }
+
+        .spike-btn.spike-up:hover {
+            background: rgba(38, 166, 154, 0.2);
+        }
+
+        /* 급락 강조 */
+        .spike-btn.spike-down {
+            border-color: rgba(239, 83, 80, 0.5);
+            background: rgba(239, 83, 80, 0.1);
+            color: var(--down);
+        }
+
+        .spike-btn.spike-down:hover {
+            background: rgba(239, 83, 80, 0.2);
+        }
+
+        .spike-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 분석 결과 카드 */
+        .spike-result {
+            margin-top: 8px;
+            padding: 10px;
+            background: #0a0e17;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .spike-result .spike-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: var(--accent);
+            margin-top: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .spike-result .spike-label:first-child {
+            margin-top: 0;
+        }
+
+        .spike-result .spike-value {
+            color: var(--text);
+            margin-top: 2px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <a href="/" class="nav-link">📊 DART</a>
+        <div class="divider"></div>
+        <a href="/context.html" class="nav-link">🧠 CTX</a>
+        <div class="divider"></div>
+        <a href="/us_market.html" class="nav-link">🇺🇸 US</a>
+        <div class="divider"></div>
+        <a href="/archive.html" class="nav-link">📦 ARC</a>
+        <div class="divider"></div>
+        <a href="/predictions.html" class="nav-link">🎯 PRED</a>
+        <div class="divider"></div>
+        <div class="logo">STOCK DASHBOARD</div>
+    </header>
+
+    <!-- STOCK SELECTOR BAR -->
+    <div class="stock-bar" id="stockBar">
+        <div class="loading"><span class="spinner"></span>종목 로딩중...</div>
+    </div>
+
+    <!-- MAIN LAYOUT -->
+    <div class="main">
+        <!-- LEFT: CHART + NEWS + REPORTS -->
+        <div class="content-area" id="contentArea">
+            <div class="empty">👆 상단에서 종목을 선택하세요</div>
+        </div>
+
+        <!-- RIGHT: SIDE PANEL -->
+        <div class="side-panel" id="sidePanel">
+            <div class="empty" style="padding:40px;">종목 선택 시<br>AI 분석·메모·레이어 표시</div>
+        </div>
+    </div>
+
+    <!-- MANAGE STOCKS MODAL -->
+    <div class="manage-overlay" id="manageOverlay">
+        <div class="manage-modal">
+            <div class="modal-header">
+                <span class="modal-title">📋 WATCHLIST MANAGEMENT</span>
+                <button class="modal-close" onclick="closeManagePanel()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="add-form">
+                    <input id="addName" placeholder="종목명 (예: 삼성전자)" />
+                    <input id="addCode" placeholder="종목코드 (예: 005930)" style="width:120px;flex:none;" />
+                    <button onclick="addStock()">+ 추가</button>
+                </div>
+                <div id="manageList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // STATE
+        // ============================================================
+        let watchlist = [];
+        let currentCode = null;
+        let dailyChart = null;
+
+        // ============================================================
+        // INIT: 워치리스트 로드
+        // ============================================================
+        async function init() {
+            try {
+                const resp = await fetch('/api/stocks/watchlist');
+                watchlist = await resp.json();
+            } catch (e) {
+                // fallback: /api/stocks
+                try {
+                    const resp = await fetch('/api/stocks');
+                    const data = await resp.json();
+                    watchlist = data.map ? data : (data.stocks || []);
+                } catch (e2) {
+                    watchlist = [];
+                }
+            }
+            renderStockBar();
+        }
+
+        // ============================================================
+        // STOCK BAR (종목 선택 칩)
+        // ============================================================
+        function renderStockBar() {
+            const bar = document.getElementById('stockBar');
+            if (watchlist.length === 0) {
+                bar.innerHTML = '<div class="empty">워치리스트가 비어있습니다</div>';
+                return;
+            }
+
+            bar.innerHTML = watchlist.map(s => {
+                const changePct = s.changePct || s.change_pct;
+                const isUp = changePct >= 0;
+                const priceStr = s.price ? Number(s.price).toLocaleString() : '';
+                const changeStr = changePct != null ? `${isUp ? '+' : ''}${Number(changePct).toFixed(1)}%` : '';
+                return `
+          <button class="stock-chip ${s.code === currentCode ? 'active' : ''}"
+                  onclick="selectStock('${s.code}', '${s.name}')"
+                  data-code="${s.code}">
+            ${s.name}
+            ${priceStr ? `<span class="price-tag ${isUp ? 'up' : 'dn'}">${priceStr} ${changeStr}</span>` : ''}
+          </button>`;
+            }).join('') + `
+        <button class="manage-btn" onclick="openManagePanel()">⚙️ 관리</button>
+      `;
+        }
+
+        // ============================================================
+        // SELECT STOCK → 데이터 로드
+        // ============================================================
+        async function selectStock(code, name) {
+            currentCode = code;
+            // 칩 상태 업데이트
+            document.querySelectorAll('.stock-chip').forEach(c => {
+                c.classList.toggle('active', c.dataset.code === code);
+            });
+
+            const content = document.getElementById('contentArea');
+            const side = document.getElementById('sidePanel');
+            content.innerHTML = '<div class="loading"><span class="spinner"></span>데이터 로딩중...</div>';
+            side.innerHTML = '<div class="loading"><span class="spinner"></span></div>';
+
+            try {
+                // 병렬로 기업 데이터와 주가 데이터 조회
+                const [priceResp, layersResp] = await Promise.all([
+                    fetch(`/api/stocks/company/${code}/price`),
+                    fetch(`/api/stocks/company/${code}/layers`)
+                ]);
+
+                const priceData = priceResp.ok ? await priceResp.json() : { current: null, daily: [] };
+                const layersData = layersResp.ok ? await layersResp.json() : {};
+
+                renderContent(code, name, priceData, layersData);
+                renderSidePanel(code, name, priceData, layersData);
+            } catch (e) {
+                content.innerHTML = `<div class="empty">⚠️ 데이터 로드 실패: ${e.message}</div>`;
+            }
+        }
+
+        // ============================================================
+        // RENDER CONTENT (차트 + 뉴스 + 리포트)
+        // ============================================================
+        function renderContent(code, name, priceData, layersData) {
+            const content = document.getElementById('contentArea');
+            const current = priceData.current || {};
+            const daily = priceData.daily || [];
+            const news = layersData['뉴스'] || [];
+            const reports = layersData['리포트'] || [];
+
+            const isUp = (current.change || 0) >= 0;
+            const changeColor = isUp ? 'var(--up)' : 'var(--down)';
+            const arrow = isUp ? '▲' : '▼';
+
+            content.innerHTML = `
+        <!-- PRICE HERO -->
+        <div class="card">
+          <div class="price-hero">
+            <span class="price-main" style="color:${changeColor}">
+              ${current.price ? Number(current.price).toLocaleString() : '--'}
+            </span>
+            <span class="price-change" style="color:${changeColor}">
+              ${current.change ? `${arrow} ${Math.abs(current.change).toLocaleString()}` : ''}
+              ${current.change != null ? `(${isUp ? '+' : ''}${current.change}%)` : ''}
+            </span>
+            <span style="font-size:14px;color:var(--muted);font-family:'JetBrains Mono',monospace;">${name}</span>
+            <span style="font-size:11px;color:#555;font-family:'JetBrains Mono',monospace;">${code}</span>
+          </div>
+          <div class="price-meta">
+            <span><span class="label">시가</span>${current.open ? Number(current.open).toLocaleString() : '--'}</span>
+            <span><span class="label">고가</span>${current.high ? Number(current.high).toLocaleString() : '--'}</span>
+            <span><span class="label">저가</span>${current.low ? Number(current.low).toLocaleString() : '--'}</span>
+            <span><span class="label">거래량</span>${current.volume ? Number(current.volume).toLocaleString() : '--'}</span>
+          </div>
+        </div>
+
+        <!-- DAILY CHART (E2) -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📊 일봉 차트 (${daily.length}일)</span>
+            <span style="font-size:9px;color:var(--muted);">${priceData.dailyUpdatedAt ? '갱신: ' + new Date(priceData.dailyUpdatedAt).toLocaleDateString('ko-KR') : ''}</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="dailyCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- NEWS -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📰 관련 뉴스 (${news.length})</span>
+          </div>
+          ${news.length === 0 ? '<div class="empty">관련 뉴스 없음</div>' :
+                    news.slice(-15).reverse().map(n => `
+              <div class="list-item">
+                <div class="item-title">
+                  ${n.cls ? `<span class="item-tag tag-${n.cls}">${n.cls}</span>` : ''}
+                  ${n.importance ? `<span class="item-tag tag-${n.importance}">${n.importance}</span>` : ''}
+                  ${n.link ? `<a href="${n.link}" target="_blank" class="item-link">${n.title}</a>` : n.title}
+                </div>
+                <div class="item-meta">
+                  ${n.category ? `<span>${n.category}</span>` : ''}
+                  ${n.date ? `<span>${new Date(n.date).toLocaleDateString('ko-KR')}</span>` : ''}
+                  ${n.summary ? `<span style="color:var(--text)">${n.summary}</span>` : ''}
+                </div>
+              </div>
+            `).join('')}
+        </div>
+
+        <!-- REPORTS -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📑 리포트 (${reports.length})</span>
+          </div>
+          ${reports.length === 0 ? '<div class="empty">관련 리포트 없음</div>' :
+                    reports.slice(-10).reverse().map(r => `
+              <div class="list-item">
+                <div class="item-title">
+                  ${r.link ? `<a href="${r.link}" target="_blank" class="item-link">${r.title || r.report_nm || '리포트'}</a>` : (r.title || r.report_nm || '리포트')}
+                </div>
+                <div class="item-meta">
+                  ${r.source ? `<span>${r.source}</span>` : ''}
+                  ${r.date ? `<span>${r.date}</span>` : ''}
+                  ${r.target_price ? `<span>TP: ${Number(r.target_price).toLocaleString()}</span>` : ''}
+                </div>
+              </div>
+            `).join('')}
+        </div>
+      `;
+
+            // chart.js 일봉 차트 렌더 (E2)
+            if (daily.length > 0) {
+                renderDailyChart(daily);
+            }
+        }
+
+        // ============================================================
+        // E2: Chart.js 일봉 차트
+        // ============================================================
+        function renderDailyChart(daily) {
+            const ctx = document.getElementById('dailyCanvas').getContext('2d');
+            if (dailyChart) dailyChart.destroy();
+
+            // 봉 색상 결정
+            const labels = daily.map(d => d.date || d.stck_bsop_date || '');
+            const closes = daily.map(d => Number(d.close || d.stck_clpr || 0));
+            const opens = daily.map(d => Number(d.open || d.stck_oprc || 0));
+            const highs = daily.map(d => Number(d.high || d.stck_hgpr || 0));
+            const lows = daily.map(d => Number(d.low || d.stck_lwpr || 0));
+            const volumes = daily.map(d => Number(d.volume || d.acml_vol || 0));
+            const colors = daily.map(d => {
+                const c = Number(d.close || d.stck_clpr || 0);
+                const o = Number(d.open || d.stck_oprc || 0);
+                return c >= o ? '#26a69a' : '#ef5350';
+            });
+
+            // 이동평균선 (5일, 20일)
+            function ma(data, period) {
+                return data.map((_, i) => {
+                    if (i < period - 1) return null;
+                    const slice = data.slice(i - period + 1, i + 1);
+                    return slice.reduce((a, b) => a + b, 0) / period;
+                });
+            }
+
+            const ma5 = ma(closes, 5);
+            const ma20 = ma(closes, 20);
+
+            dailyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: '종가',
+                            type: 'line',
+                            data: closes,
+                            borderColor: '#e6edf3',
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            fill: false,
+                            yAxisID: 'y',
+                            order: 1
+                        },
+                        {
+                            label: 'MA5',
+                            type: 'line',
+                            data: ma5,
+                            borderColor: '#f0c040',
+                            borderWidth: 1,
+                            borderDash: [4, 2],
+                            pointRadius: 0,
+                            fill: false,
+                            yAxisID: 'y',
+                            order: 2
+                        },
+                        {
+                            label: 'MA20',
+                            type: 'line',
+                            data: ma20,
+                            borderColor: '#00d4aa',
+                            borderWidth: 1,
+                            borderDash: [4, 2],
+                            pointRadius: 0,
+                            fill: false,
+                            yAxisID: 'y',
+                            order: 3
+                        },
+                        {
+                            label: '거래량',
+                            data: volumes,
+                            backgroundColor: colors.map(c => c + '44'),
+                            borderColor: colors,
+                            borderWidth: 1,
+                            yAxisID: 'y1',
+                            order: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: true, position: 'top', labels: { color: '#7d8590', font: { size: 9, family: "'JetBrains Mono'" }, boxWidth: 10, padding: 10 } },
+                        tooltip: {
+                            backgroundColor: '#0d1117',
+                            borderColor: '#1c2333',
+                            borderWidth: 1,
+                            titleFont: { family: "'JetBrains Mono'", size: 10 },
+                            bodyFont: { family: "'JetBrains Mono'", size: 10 },
+                            callbacks: {
+                                label: function (ctx) {
+                                    if (ctx.dataset.yAxisID === 'y1') return `거래량: ${Number(ctx.raw).toLocaleString()}`;
+                                    return `${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString()}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#555', font: { size: 8, family: "'JetBrains Mono'" }, maxRotation: 45 }, grid: { color: '#111' } },
+                        y: { position: 'left', ticks: { color: '#7d8590', font: { size: 9, family: "'JetBrains Mono'" }, callback: v => v.toLocaleString() }, grid: { color: '#0f1520' } },
+                        y1: { position: 'right', ticks: { color: '#555', font: { size: 8 }, callback: v => (v / 1000).toFixed(0) + 'K' }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // ============================================================
+        // SIDE PANEL (AI분석 + 레이어 + 메모)
+        // ============================================================
+        function renderSidePanel(code, name, priceData, layersData) {
+            const side = document.getElementById('sidePanel');
+            const ai = layersData['AI분석'] || {};
+            const basicInfo = layersData['기본정보'] || {};
+            const memo = layersData['메모'] || {};
+            const disclosures = layersData['공시'] || [];
+
+            // 센티먼트 색상
+            let sentColor = 'var(--muted)', sentBg = 'rgba(125,133,144,0.15)';
+            if (ai.sentiment === '긍정' || ai.sentiment === 'positive') { sentColor = 'var(--up)'; sentBg = 'rgba(38,166,154,0.15)'; }
+            if (ai.sentiment === '부정' || ai.sentiment === 'negative') { sentColor = 'var(--down)'; sentBg = 'rgba(239,83,80,0.15)'; }
+
+            // 급등락 분석 버튼 스타일 결정
+            const changePct = priceData?.current?.change || 0;
+            const absChange = Math.abs(changePct);
+            let spikeClass = '';  // 기본: 중립 스타일
+            let spikeLabel = '🔍 급등락 원인 분석';
+            if (changePct >= 3) { spikeClass = 'spike-up'; spikeLabel = `🔥 급등 원인 분석 (+${changePct}%)`; }
+            else if (changePct <= -3) { spikeClass = 'spike-down'; spikeLabel = `💥 급락 원인 분석 (${changePct}%)`; }
+
+            side.innerHTML = `
+        <!-- AI 분석 -->
+        <div class="side-section">
+          <div class="side-header">🤖 AI ANALYSIS</div>
+          <div class="side-content">
+            ${ai.sentiment ? `<span class="sentiment-badge" style="color:${sentColor};background:${sentBg}">${ai.sentiment}</span>` : ''}
+            <div class="ai-summary">${ai.latestSummary || '아직 AI 분석 없음'}</div>
+            ${ai.updatedAt ? `<div style="margin-top:6px;font-size:9px;color:#555;">갱신: ${new Date(ai.updatedAt).toLocaleDateString('ko-KR')}</div>` : ''}
+          </div>
+        </div>
+
+        <!-- 급등락 분석 -->
+        <div class="side-section">
+          <div class="side-header">📈 SPIKE ANALYSIS</div>
+          <div class="side-content">
+            <button class="spike-btn ${spikeClass}" id="spikeBtn"
+                    onclick="analyzeSpike('${code}', '${name}', ${changePct})">
+              ${spikeLabel}
+            </button>
+            <div id="spikeResult"></div>
+          </div>
+        </div>
+
+        <!-- 기본 정보 -->
+        <div class="side-section">
+          <div class="side-header">📋 INFO</div>
+          <div class="side-content" style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;">
+            <div>코드: ${code}</div>
+            <div>이름: ${name}</div>
+            ${basicInfo.sector ? `<div>섹터: ${basicInfo.sector}</div>` : ''}
+          </div>
+        </div>
+
+        <!-- 최근 공시 -->
+        <div class="side-section">
+          <div class="side-header">📄 공시 (${disclosures.length})</div>
+          ${disclosures.length === 0 ? '<div class="empty">공시 없음</div>' :
+                    disclosures.slice(-8).reverse().map(d => `
+              <div class="list-item" style="padding:6px 14px;">
+                <div style="font-size:11px;">${d.report_nm || d.title || '공시'}</div>
+                <div style="font-size:9px;color:#555;margin-top:2px;">${d.rcept_dt || d.date || ''}</div>
+              </div>
+            `).join('')}
+        </div>
+
+        <!-- 메모 -->
+        <div class="side-section">
+          <div class="side-header">📝 MEMO</div>
+          <div class="side-content">
+            <textarea id="memoInput" rows="4" style="
+              width:100%;background:#0a0e17;border:1px solid var(--border);border-radius:4px;
+              color:var(--text);font-size:11px;padding:8px;resize:vertical;outline:none;
+              font-family:'Noto Sans KR',sans-serif;
+            " placeholder="종목 메모를 입력하세요...">${memo.notes || ''}</textarea>
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <button onclick="saveMemo('${code}')" style="
+                flex:1;padding:6px;background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);
+                border-radius:4px;color:var(--accent);font-size:10px;cursor:pointer;
+                font-family:'JetBrains Mono',monospace;
+              ">💾 저장</button>
+            </div>
+          </div>
+        </div>
+      `;
+        }
+
+        // ============================================================
+        // 급등락 분석 호출
+        // ============================================================
+        async function analyzeSpike(code, name, changePercent) {
+            const btn = document.getElementById('spikeBtn');
+            const resultDiv = document.getElementById('spikeResult');
+            btn.disabled = true;
+            btn.textContent = '⏳ Gemini 분석 중...';
+            resultDiv.innerHTML = '';
+
+            try {
+                const resp = await fetch('/api/analyze-spike', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, name, changePercent })
+                });
+                const data = await resp.json();
+
+                if (!resp.ok || !data.ok) {
+                    resultDiv.innerHTML = `<div class="spike-result" style="color:var(--down);">
+                        ⚠️ ${data.error || '분석 실패'}</div>`;
+                    return;
+                }
+
+                // 분석 결과 표시
+                const a = data.analysis || {};
+                // 신뢰도 색상
+                let confColor = 'var(--muted)';
+                if (a.confidence === '상') confColor = 'var(--up)';
+                else if (a.confidence === '하') confColor = 'var(--down)';
+                else if (a.confidence === '중') confColor = '#f0c040';
+
+                resultDiv.innerHTML = `
+                    <div class="spike-result">
+                        <div class="spike-label">CAUSE / 원인</div>
+                        <div class="spike-value">${a.cause || '분석 불가'}</div>
+                        <div class="spike-label">OUTLOOK / 전망</div>
+                        <div class="spike-value">${a.outlook || '-'}</div>
+                        <div class="spike-label">RELATED / 관련종목</div>
+                        <div class="spike-value">${a.relatedStocks || '-'}</div>
+                        <div class="spike-label">CONFIDENCE / 신뢰도</div>
+                        <div class="spike-value" style="color:${confColor};">${a.confidence || '-'}</div>
+                        <div style="margin-top:6px;font-size:9px;color:#555;">분석: ${a.analyzedAt ? new Date(a.analyzedAt).toLocaleString('ko-KR') : 'now'}</div>
+                    </div>`;
+            } catch (e) {
+                resultDiv.innerHTML = `<div class="spike-result" style="color:var(--down);">⚠️ 오류: ${e.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔍 급등락 원인 분석';
+            }
+        }
+
+        // ============================================================
+        // MEMO SAVE
+        // ============================================================
+        async function saveMemo(code) {
+            const notes = document.getElementById('memoInput').value;
+            try {
+                await fetch(`/api/stocks/company/${code}/memo`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ notes })
+                });
+            } catch (e) {
+                console.error('메모 저장 실패:', e);
+            }
+        }
+
+        // ============================================================
+        // E3: MANAGE PANEL (종목 추가/삭제)
+        // ============================================================
+        function openManagePanel() {
+            document.getElementById('manageOverlay').classList.add('visible');
+            renderManageList();
+        }
+
+        function closeManagePanel() {
+            document.getElementById('manageOverlay').classList.remove('visible');
+        }
+
+        function renderManageList() {
+            const list = document.getElementById('manageList');
+            list.innerHTML = watchlist.map(s => `
+        <div class="stock-list-item">
+          <div class="stock-info">
+            <span>${s.name}</span>
+            <span class="stock-code">${s.code}</span>
+            ${s.sector ? `<span class="stock-sector">${s.sector}</span>` : ''}
+          </div>
+          <button class="delete-btn" onclick="removeStock('${s.name}')">삭제</button>
+        </div>
+      `).join('');
+        }
+
+        async function addStock() {
+            const name = document.getElementById('addName').value.trim();
+            const code = document.getElementById('addCode').value.trim();
+            if (!name || !code) return alert('종목명과 코드를 모두 입력하세요');
+
+            try {
+                await fetch('/api/stocks/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, code })
+                });
+                document.getElementById('addName').value = '';
+                document.getElementById('addCode').value = '';
+                await init();
+                renderManageList();
+            } catch (e) {
+                alert('추가 실패: ' + e.message);
+            }
+        }
+
+        async function removeStock(name) {
+            if (!confirm(`${name} 을(를) 삭제하시겠습니까?`)) return;
+            try {
+                await fetch('/api/stocks/remove', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                await init();
+                renderManageList();
+            } catch (e) {
+                alert('삭제 실패: ' + e.message);
+            }
+        }
+
+        // ESC 닫기
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeManagePanel();
+        });
+
+        // INIT
+        init();
+    </script>
+
+    <!-- Gemini 채팅 위젯 -->
+    <link rel="stylesheet" href="gemini-chat.css">
+    <script src="gemini-chat.js"></script>
+
+</body>
+
+</html>

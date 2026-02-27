@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>뉴스·공시·리포트 — DART Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden
+        }
+
+        a {
+            color: #58a6ff;
+            text-decoration: none
+        }
+
+        a:hover {
+            text-decoration: underline
+        }
+
+        /* ── 상단 바 ── */
+        .topbar {
+            padding: 10px 20px;
+            border-bottom: 1px solid #30363d;
+            background: #161b22;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0
+        }
+
+        .topbar h1 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #f0f6fc
+        }
+
+        .topbar .back-btn {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+            background: #21262d;
+            color: #8b949e;
+            cursor: pointer;
+            transition: .2s
+        }
+
+        .topbar .back-btn:hover {
+            background: #30363d;
+            color: #f0f6fc
+        }
+
+        .topbar .info {
+            margin-left: auto;
+            font-size: 11px;
+            color: #8b949e
+        }
+
+        /* ── 날짜 탭 ── */
+        .date-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 10px 20px;
+            border-bottom: 1px solid #30363d;
+            background: #0d1117;
+            overflow-x: auto;
+            flex-shrink: 0
+        }
+
+        .date-tab {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            background: #21262d;
+            color: #8b949e;
+            border: 1px solid #30363d;
+            transition: .2s;
+            white-space: nowrap
+        }
+
+        .date-tab:hover {
+            background: #30363d;
+            color: #c9d1d9
+        }
+
+        .date-tab.active {
+            background: #1f6feb;
+            color: #fff;
+            border-color: #1f6feb
+        }
+
+        .date-tab .cnt {
+            background: #ffffff22;
+            padding: 0 6px;
+            border-radius: 8px;
+            margin-left: 4px;
+            font-size: 10px
+        }
+
+        /* ── 컨텐츠 ── */
+        .main {
+            flex: 1;
+            overflow: auto;
+            padding: 16px 20px
+        }
+
+        .main::-webkit-scrollbar {
+            width: 6px
+        }
+
+        .main::-webkit-scrollbar-thumb {
+            background: #30363d;
+            border-radius: 3px
+        }
+
+        /* ── 카테고리 섹션 ── */
+        .section {
+            margin-bottom: 20px
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            border-bottom: 1px solid #21262d;
+            margin-bottom: 8px
+        }
+
+        .section-header h2 {
+            font-size: 14px;
+            font-weight: 600
+        }
+
+        .section-header .badge {
+            font-size: 11px;
+            background: #21262d;
+            color: #8b949e;
+            padding: 2px 8px;
+            border-radius: 10px
+        }
+
+        .cat-news .section-header h2 {
+            color: #58a6ff
+        }
+
+        .cat-dart .section-header h2 {
+            color: #e3b341
+        }
+
+        .cat-reports .section-header h2 {
+            color: #a371f7
+        }
+
+        /* ── 아이템 ── */
+        .feed-item {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #21262d;
+            background: #161b22;
+            margin-bottom: 6px;
+            transition: .15s;
+            cursor: pointer
+        }
+
+        .feed-item:hover {
+            border-color: #30363d;
+            background: #1c2128
+        }
+
+        .feed-item .title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #c9d1d9;
+            margin-bottom: 3px
+        }
+
+        .feed-item .meta {
+            font-size: 11px;
+            color: #8b949e;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap
+        }
+
+        .feed-item .tag {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 500
+        }
+
+        .tag-news {
+            background: #1f6feb22;
+            color: #58a6ff
+        }
+
+        .tag-dart {
+            background: #e3b34122;
+            color: #e3b341
+        }
+
+        .tag-report {
+            background: #a371f722;
+            color: #a371f7
+        }
+
+        .tag-source {
+            background: #21262d;
+            color: #8b949e
+        }
+
+        .empty {
+            text-align: center;
+            color: #484f58;
+            padding: 30px;
+            font-size: 13px
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e
+        }
+
+        /* ── 통계 ── */
+        .stats {
+            display: flex;
+            gap: 10px;
+            padding: 0 20px 6px;
+            flex-shrink: 0
+        }
+
+        .stat {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 8px 14px;
+            text-align: center;
+            flex: 1;
+            max-width: 160px
+        }
+
+        .stat .v {
+            font-size: 20px;
+            font-weight: 700
+        }
+
+        .stat .l {
+            font-size: 10px;
+            color: #8b949e;
+            margin-top: 2px
+        }
+
+        .stat.s-news .v {
+            color: #58a6ff
+        }
+
+        .stat.s-dart .v {
+            color: #e3b341
+        }
+
+        .stat.s-rpt .v {
+            color: #a371f7
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="topbar">
+        <a href="context.html" class="back-btn">← 돌아가기</a>
+        <h1>📰 뉴스 · 공시 · 리포트</h1>
+        <span class="info" id="info">최근 7일 · 매일 갱신</span>
+    </div>
+
+    <div class="stats">
+        <div class="stat s-news">
+            <div class="v" id="total-news">-</div>
+            <div class="l">뉴스</div>
+        </div>
+        <div class="stat s-dart">
+            <div class="v" id="total-dart">-</div>
+            <div class="l">공시</div>
+        </div>
+        <div class="stat s-rpt">
+            <div class="v" id="total-rpt">-</div>
+            <div class="l">리포트</div>
+        </div>
+    </div>
+
+    <div class="date-tabs" id="date-tabs"></div>
+
+    <div class="main" id="main">
+        <div class="loading">데이터 로딩 중...</div>
+    </div>
+
+    <script>
+        const API_KEY = 'dartmonitor-2024';
+        const H = { 'x-api-key': API_KEY };
+        let allFeeds = [];
+        let activeDate = null;
+
+        async function loadFeeds() {
+            try {
+                const r = await fetch('/api/daily-feed?days=7', { headers: H });
+                const d = await r.json();
+                if (!d.ok) throw new Error(d.error);
+                allFeeds = d.feeds;
+                renderTabs();
+                if (allFeeds.length > 0) selectDate(allFeeds[0].date);
+                updateTotals();
+            } catch (e) {
+                document.getElementById('main').innerHTML = `<div class="loading" style="color:#f85149">오류: ${e.message}</div>`;
+            }
+        }
+
+        function renderTabs() {
+            const container = document.getElementById('date-tabs');
+            container.innerHTML = '';
+            const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+            for (const f of allFeeds) {
+                const d = new Date(f.date + 'T00:00:00+09:00');
+                const total = f.news.count + f.dart.count + f.reports.count;
+                const dayName = dayNames[d.getDay()];
+                const label = `${d.getMonth() + 1}/${d.getDate()}(${dayName})`;
+                const tab = document.createElement('div');
+                tab.className = 'date-tab';
+                tab.dataset.date = f.date;
+                tab.innerHTML = `${label}<span class="cnt">${total}</span>`;
+                tab.addEventListener('click', () => selectDate(f.date));
+                container.appendChild(tab);
+            }
+        }
+
+        function selectDate(date) {
+            activeDate = date;
+            document.querySelectorAll('.date-tab').forEach(t => {
+                t.classList.toggle('active', t.dataset.date === date);
+            });
+            const feed = allFeeds.find(f => f.date === date);
+            if (!feed) return;
+            renderFeed(feed);
+        }
+
+        function renderFeed(feed) {
+            const main = document.getElementById('main');
+            let html = '';
+
+            // 뉴스
+            html += `<div class="section cat-news">
+    <div class="section-header"><h2>📰 뉴스</h2><span class="badge">${feed.news.count}건</span></div>`;
+            if (feed.news.items.length === 0) {
+                html += '<div class="empty">이 날짜의 뉴스가 없습니다</div>';
+            } else {
+                for (const n of feed.news.items) {
+                    const title = n.title || n.headline || '(제목 없음)';
+                    const link = n.link || n.url || '#';
+                    const time = n.pubDate || n.date || '';
+                    const cat = n.category ? `<span class="tag tag-news">${n.category}</span>` : '';
+                    const imp = n.importance ? `<span class="tag tag-source">${n.importance}</span>` : '';
+                    html += `<div class="feed-item" onclick="window.open('${link}','_blank')">
+        <div class="title">${esc(title)}</div>
+        <div class="meta">${cat}${imp}<span>${fmtTime(time)}</span></div>
+      </div>`;
+                }
+            }
+            html += '</div>';
+
+            // 공시
+            html += `<div class="section cat-dart">
+    <div class="section-header"><h2>📋 DART 공시</h2><span class="badge">${feed.dart.count}건</span></div>`;
+            if (feed.dart.items.length === 0) {
+                html += '<div class="empty">이 날짜의 공시가 없습니다</div>';
+            } else {
+                for (const d of feed.dart.items) {
+                    const title = d.report_nm || d.title || '(제목 없음)';
+                    const corp = d.corp_name || d.company || '';
+                    const rcpt = d.rcept_no || '';
+                    const link = rcpt ? `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcpt}` : '#';
+                    html += `<div class="feed-item" onclick="window.open('${link}','_blank')">
+        <div class="title"><span class="tag tag-dart">${esc(corp)}</span> ${esc(title)}</div>
+        <div class="meta"><span>${d.rcept_dt || d.date || ''}</span><span>${d.corp_cls || ''}</span></div>
+      </div>`;
+                }
+            }
+            html += '</div>';
+
+            // 리포트
+            html += `<div class="section cat-reports">
+    <div class="section-header"><h2>📊 리포트</h2><span class="badge">${feed.reports.count}건</span></div>`;
+            if (feed.reports.items.length === 0) {
+                html += '<div class="empty">이 날짜의 리포트가 없습니다</div>';
+            } else {
+                for (const r of feed.reports.items) {
+                    const title = r.title || '(제목 없음)';
+                    const link = r.link || r.url || '#';
+                    const src = r._source || r.source || '';
+                    html += `<div class="feed-item" onclick="window.open('${link}','_blank')">
+        <div class="title">${esc(title)}</div>
+        <div class="meta"><span class="tag tag-report">${esc(src)}</span><span>${r.date || r.pubDate || ''}</span></div>
+      </div>`;
+                }
+            }
+            html += '</div>';
+
+            main.innerHTML = html;
+        }
+
+        function updateTotals() {
+            let tn = 0, td = 0, tr = 0;
+            for (const f of allFeeds) { tn += f.news.count; td += f.dart.count; tr += f.reports.count; }
+            document.getElementById('total-news').textContent = tn;
+            document.getElementById('total-dart').textContent = td;
+            document.getElementById('total-rpt').textContent = tr;
+        }
+
+        function esc(s) {
+            if (!s) return '';
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function fmtTime(t) {
+            if (!t) return '';
+            try {
+                const d = new Date(t);
+                if (isNaN(d)) return t;
+                return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            } catch (e) { return t; }
+        }
+
+        loadFeeds();
+    </script>
+<script>
+    window.geminiChatContext = { page: 'news', role: '뉴스 분석', description: '수집된 뉴스와 리포트를 분석하고 시장 동향을 파악하는 역할' };
+    </script>
+</body>
+
+</html>

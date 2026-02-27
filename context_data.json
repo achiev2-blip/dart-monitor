@@ -1,0 +1,72 @@
+{
+  "_meta": {
+    "version": "2.0",
+    "lastUpdated": "2026-02-20",
+    "updatedBy": "구름이",
+    "description": "종목별 대화 맥락 저장소"
+  },
+  "market": {
+    "pinned": true,
+    "lastDate": "2026-02-20",
+    "kospi": 5677.25,
+    "kospiChange": 3.09,
+    "kospiUp": true,
+    "note": "사상 최고치. 코스닥 매수사이드카 발동. 설 연휴 대기수요 압축 방출.",
+    "keyInsights": [
+      "코스피 7,900 목표가 증권가 등장. 한미 증시 디커플링 뚜렷.",
+      "IEEPA 판결 2/21 새벽 — 무효 75% 전망."
+    ],
+    "nextAction": "2/23 장전: IEEPA 판결 결과 확인 → 외인 수급 방향 점검",
+    "history": []
+  },
+  "stocks": [
+    {
+      "code": "005930",
+      "name": "삼성전자",
+      "pinned": true,
+      "lastDate": "2026-02-20",
+      "price": 190000,
+      "change": 4.86,
+      "isHigh52": true,
+      "context": "250일 신고가. 외인·기관 쌍매도 속 개인 주도 상승. HBM4 출하 모멘텀.",
+      "events": [
+        {
+          "id": "e1",
+          "title": "IEEPA 판결",
+          "timing": "2/21(토) 새벽 KST",
+          "probability": "무효 75%",
+          "status": "대기중",
+          "scenarios": [
+            { "type": "A. 전면무효", "prob": "40%", "val": "+4~7%", "note": "관세 소멸. 심리적 최대 호재" },
+            { "type": "B. 부분무효", "prob": "30%", "val": "±1~2%", "note": "해석 복잡. 단기 혼조" },
+            { "type": "C. 전면합헌", "prob": "25%", "val": "-2~4%", "note": "외인 저점매수 가능성" },
+            { "type": "D. 연기", "prob": "5%", "val": "±0%", "note": "무영향. HBM 자체동력" }
+          ]
+        }
+      ],
+      "keyInsights": [
+        "외인-715만주·기관-347만주 쌍매도에도 신고가. 개인 주도.",
+        "HBM4 상업 출하(Bloomberg 2/12) + 램마겟돈 내러티브 핵심 모멘텀.",
+        "2/23 월요일: 외인 첫 30분 수급이 개인심리 결정."
+      ],
+      "nextAction": "2/23 장전: 판결 결과 확인 → 외인 수급 방향 → 시나리오 대조",
+      "history": []
+    },
+    {
+      "code": "000660",
+      "name": "SK하이닉스",
+      "pinned": false,
+      "lastDate": "2026-02-19",
+      "price": 0,
+      "change": 0,
+      "isHigh52": false,
+      "context": "HBM4 수혜 최대 수혜주. 삼성전자와 동반 모멘텀.",
+      "events": [],
+      "keyInsights": [
+        "엔비디아 GTC 2026(3월) 앞두고 HBM 공급 협의 주목."
+      ],
+      "nextAction": "GTC 2026 발표 후 수급 확인",
+      "history": []
+    }
+  ]
+}

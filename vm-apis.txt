@@ -1,0 +1,35 @@
+/api/backup/list → HTTP 404
+/api/backup/status → HTTP 404
+/api/state/save → HTTP 200
+{
+  "ok": true,
+  "state": {
+    "model": "Pro Lite",
+    "round": 1,
+    "cooldown": false,
+    "lastWork": 1771940637100
+  }
+}
+/api/collection/status → HTTP 200
+{
+  "isPaused": false,
+  "pausedAt": null,
+  "timeSlot": "market",
+  "timeSlotLabel": "📊 장중(09~16시)",
+  "intervals": {
+    "WiseReport": "600초",
+    "미래에셋": "600초",
+    "하나증권": "600초",
+    "네이버": "900초"
+  },
+  "hour": 14
+}
+/api/memory → HTTP 200
+{
+  "rss": "86MB",
+  "heapUsed": "26MB",
+  "heapTotal": "33MB",
+  "limit": "500MB",
+  "warningCount": 0,
+  "uptime": "29분"
+}

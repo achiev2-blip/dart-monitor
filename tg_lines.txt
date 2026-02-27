@@ -1,0 +1,51 @@
+279: var TG_USERS=(function(){
+289: function saveTgUsers(){localStorage.setItem('dart_tg_users',JSON.stringify(TG_USERS))}
+290: var TG_BOT_TOKEN=(TG_USERS[0]&&TG_USERS[0].token)||'';
+291: var TG_CHAT_ID=(TG_USERS[0]&&TG_USERS[0].chatId)||'';
+575: checkNewAlerts(cached);
+592: checkNewAlerts(items);
+600: var sentItems = {};
+603: fetch('/api/sent').then(function(r){return r.json()}).then(function(d){
+604: if(d&&typeof d==='object'){sentItems=d;console.log('[TG] 전송이력 복원: '+Object.keys(sentItems)
+608: function syncSentItems(key){
+610: fetch('/api/sent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.str
+613: function checkNewAlerts(items){
+614: if(!TG_USERS.length)return;
+618: if(sentItems[it.no])continue;
+619: sentItems[it.no]=true;
+638: sendTelegram(lines.join('\n'),function(err){
+641: for(var k=0;k<newAlerts.length;k++){syncSentItems(newAlerts[k].no)}
+1092: if(isWatchlistRelated(item)&&!sentItems['news_'+item.link]){
+1093: sentItems['news_'+item.link]=true;
+1138: if(!TG_USERS.length)return;
+1154: sendTelegram(lines.join('\n'),function(err){
+1157: syncSentItems('news_'+item.link);
+1358: if(!sentItems[sentKey]){
+1360: sentItems[sentKey]=true;
+1373: if(!TG_USERS.length)return;
+1396: sendTelegram(lines.join('\n'),function(err){
+1399: syncSentItems('rpt_'+r.corp+'|'+r.broker+'|'+r.date);
+1488: function sendTelegramTo(tk,ci,text,cb){
+1502: function sendTelegram(text,cb){
+1503: sendTelegramAll(text,cb);
+1505: function sendTelegramAll(text,cb){
+1506: if(!TG_USERS.length){if(cb)cb(new Error('등록된 사용자 없음'));return}
+1507: var sent=0,fail=0,tot=TG_USERS.length,i=0;
+1510: var u=TG_USERS[i];i++;
+1511: sendTelegramTo(u.token,u.chatId,text,function(e){
+1526: if(!label)label='사용자'+(TG_USERS.length+1);
+1527: for(var i=0;i<TG_USERS.length;i++){if(TG_USERS[i].chatId===chatId&&TG_USERS[i].token===tok
+1528: TG_USERS.push({token:token,chatId:chatId,label:label});
+1537: if(idx<0||idx>=TG_USERS.length)return;
+1538: if(!confirm(TG_USERS[idx].label+' - 삭제하시겠습니까?'))return;
+1539: TG_USERS.splice(idx,1);saveTgUsers();
+1544: if(idx<0||idx>=TG_USERS.length)return;
+1545: var u=TG_USERS[idx];
+1548: sendTelegramTo(u.token,u.chatId,'📊 DART 공시 모니터 연결 테스트\n✅ '+u.label+'\n⏰ '+new Date().toLo
+1560: sendTelegramTo(token,chatId,'📊 DART 공시 모니터 연결 테스트\n✅ 정상 작동 중\n⏰ '+new Date().toLocaleStri
+1569: if(!TG_USERS.length){el.innerHTML='<div style="font-size:.8em;color:var(--text-dim);paddin
+1570: var h='<div style="font-size:.85em;color:var(--tg);font-weight:600;margin-bottom:6px">📋 등
+1571: for(var i=0;i<TG_USERS.length;i++){
+1572: var u=TG_USERS[i];
+1604: sendTelegramAll(msg,function(err,result){
+1606: else{st.textContent='✅ '+items.length+'건 전송 완료 ('+result.sent+'/'+TG_USERS.length+'명)';st.

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /api/claude
+Disallow: /api/dart
+Disallow: /api/gemini

@@ -47,11 +47,12 @@
             overflow: hidden;
         }
 
-        /* TOP BAR — index.html 기준 높이 통일 */
+        /* TOP BAR */
         .topbar {
             background: var(--bg2);
             border-bottom: 1px solid var(--border);
-            padding: 12px 20px;
+            padding: 0 18px;
+            height: 42px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -1641,23 +1642,18 @@
                 <div class="live-dot"></div>구름&nbsp;·&nbsp;CONTEXT TRACKER
             </div>
             <div class="nav-icons">
-                <!-- 네비게이션 — index.html과 동일 스타일 (CTX 제외, 현재 페이지) -->
-                <a href="/"
-                    style="text-decoration:none;background:#0d1a2e;color:#64b5f6;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="DART 공시 모니터">📊 DART</a>
-                <a href="/us_market.html"
-                    style="text-decoration:none;background:#1a1a2e;color:#fff;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="미국시장">🇺🇸 US</a>
-                <a href="/stocks.html"
-                    style="text-decoration:none;background:#0d2818;color:#26a69a;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="종목 대시보드">📈 STOCK</a>
-                <a href="/archive.html"
-                    style="text-decoration:none;background:#1a1a0d;color:#f0c040;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="아카이브 뷰어">📦 ARC</a>
-                <a href="/predictions.html"
-                    style="text-decoration:none;background:#1a0d1a;color:#c084fc;font-size:.7em;padding:4px 10px;border-radius:4px;letter-spacing:1px"
-                    title="예측 트래커">🎯 PRED</a>
-                <!-- 기존 유틸리티 아이콘 유지 -->
+                <a class="nav-icon" href="/">📋<span class="nav-tooltip">DART
+                        모니터</span></a>
+                <a class="nav-icon" href="/us_market.html">🇺🇸<span class="nav-tooltip">미국
+                        증시</span></a>
+                <a class="nav-icon" href="/stocks.html">📈<span class="nav-tooltip">종목
+                        대시보드</span></a>
+                <a class="nav-icon" href="/archive.html">📦<span class="nav-tooltip">아카이브
+                        뷰어</span></a>
+                <a class="nav-icon" href="/predictions.html">🎯<span class="nav-tooltip">예측
+                        트래커</span></a>
+                <a class="nav-icon" href="/context.html">⌂<span class="nav-tooltip">CONTEXT
+                        TRACKER 홈</span></a>
                 <a class="nav-icon" id="tg-btn" href="#" onclick="sendToTelegram(); return false;">✈<span
                         class="nav-tooltip">텔레그램으로 전송</span></a>
                 <a class="nav-icon" href="/data-viewer.html" target="_blank">📁<span class="nav-tooltip">데이터
@@ -1783,7 +1779,7 @@
                 </div>
                 <div class="rp-section">
                     <div class="rp-header">
-                        <div class="rp-title"><span class="tag ai">AI</span> 컨텍스트 ��태</div><button class="btn-sm"
+                        <div class="rp-title"><span class="tag ai">AI</span> 컨텍스트 상태</div><button class="btn-sm"
                             onclick="loadRightMarket()">초기화</button>
                     </div>
                     <div class="ctx-body" id="ctx-status-body">
@@ -2088,7 +2084,7 @@
                 body.innerHTML = Object.keys(intervals).map(function (key) {
                     return '<div class="gm-row"><span class="gm-model">' + key + ' <span style="font-size:10px;color:var(--text3)">' + intervals[key] + '</span></span>'
                         + '<div class="gm-status"><div class="gm-dot ' + (c.isPaused ? 'warn' : 'ok') + '"></div><span style="color:' + (c.isPaused ? 'var(--yellow)' : 'var(--green)') + ';font-size:10px">' + (c.isPaused ? '일시정지' : '활성') + '</span></div></div>';
-                }).join('') || '<div class="gm-row"><span class="gm-model" style="color:var(--text3)">상�� 없음</span></div>';
+                }).join('') || '<div class="gm-row"><span class="gm-model" style="color:var(--text3)">상태 없음</span></div>';
             });
             // 사용량 바 — 종목/뉴스/리포트 데이터 현황
             api('GET', '/api/system/status').then(function (s) {
@@ -2165,7 +2161,7 @@
             var mcap = price.marketCap ? (price.marketCap > 10000 ? (price.marketCap / 10000).toFixed(1) + '조' : price.marketCap.toLocaleString() + '억') : '—';
             var foreign = price.foreignRatio ? price.foreignRatio + '%' : '—';
 
-            // 수급 (investors ���열의 첫 번째 = 최근일)
+            // 수급 (investors 배열의 첫 번째 = 최근일)
             var inv0 = (investors && investors.length > 0) ? investors[0] : {};
             var buyForeign = inv0.foreignNet || 0;  // 백만 단위
             var buyInst = inv0.instNet || 0;
@@ -2682,6 +2678,11 @@
         // 초기 로드
         loadAllData();
     </script>
+    <link rel="stylesheet" href="gemini-chat.css"><script>
+    window.geminiChatContext = { page: 'context', role: '컨텍스트 관리', description: '종목별 투자 컨텍스트와 시나리오를 관리하는 역할' };
+    </script>
+
+    <script src="gemini-chat.js"></script>
 </body>
 
 </html>

@@ -1,0 +1,12 @@
+﻿=== ZIP 검증 ===
+크기: 9045 bytes
+  public/gemini-chat.js: 11120 bytes
+  public/gemini-chat.css: 5752 bytes
+  apply-chat-widget.js: 11916 bytes
+
+=== 해제+비교 ===
+  gemini-chat.js: MATCH
+  gemini-chat.css: MATCH
+  apply-chat-widget.js: MATCH
+
+=== ALL PASS ===

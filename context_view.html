@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>구름 · CONTEXT TRACKER</title>
+<style>
+  :root {
+    --bg: #111518;
+    --bg2: #181d22;
+    --bg3: #1c2128;
+    --border: #2a3240;
+    --border2: #3a5070;
+    --blue: #7ab0d4;
+    --text: #ccd8e0;
+    --text2: #a8c0cc;
+    --text3: #7a90a0;
+    --green: #6bbf8a;
+    --yellow: #d4a84b;
+    --orange: #c89040;
+    --red: #c06060;
+    --pin: #c89040;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', 'Courier New', monospace;
+    font-size: 15px;
+    min-height: 100vh;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 10px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .title { font-size: 13px; color: var(--blue); letter-spacing: 3px; font-weight: 700; }
+  .topbar-right { display: flex; align-items: center; gap: 14px; }
+  .refresh-timer { font-size: 12px; color: var(--text3); letter-spacing: 1px; }
+  .topbar-date { font-size: 12px; color: var(--text3); }
+
+  /* TABS */
+  .tabs-wrap {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 20px;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+  .tabs-wrap::-webkit-scrollbar { height: 3px; }
+  .tabs-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .tab {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text3);
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    font-family: inherit;
+    transition: all 0.15s;
+    margin-right: 6px;
+  }
+  .tab:hover { border-color: var(--border2); color: var(--text2); }
+  .tab.active { background: var(--bg3); border-color: var(--border2); color: var(--blue); }
+  .tab .pin-icon { font-size: 11px; color: var(--pin); }
+
+  /* MAIN */
+  .main { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+
+  /* CARD */
+  .card { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 16px; }
+  .card-label { font-size: 12px; color: var(--blue); letter-spacing: 3px; margin-bottom: 12px; }
+
+  /* STOCK HEADER */
+  .stock-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+  }
+  .stock-left { display: flex; flex-direction: column; gap: 4px; }
+  .stock-name-row { display: flex; align-items: center; gap: 10px; }
+  .stock-name { font-size: 20px; font-weight: 700; color: #e2ecf8; }
+  .stock-code { font-size: 12px; color: var(--text3); }
+  .high52-badge {
+    font-size: 11px; padding: 2px 6px; border-radius: 3px;
+    background: #d4a84b22; color: var(--yellow); border: 1px solid #d4a84b44;
+  }
+  .stock-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .stock-price { font-size: 26px; font-weight: 700; color: var(--yellow); }
+  .stock-chg { font-size: 14px; font-weight: 700; }
+  .stock-date { font-size: 12px; color: var(--text3); }
+
+  /* PIN BTN */
+  .pin-btn {
+    font-size: 12px; padding: 3px 10px; border-radius: 3px; cursor: pointer;
+    font-family: inherit; transition: all 0.15s;
+    border: 1px solid var(--border); background: transparent; color: var(--text3);
+  }
+  .pin-btn.pinned { border-color: var(--pin); color: var(--pin); background: #c8904022; }
+  .pin-btn:hover { border-color: var(--pin); color: var(--pin); }
+
+  /* CONTEXT */
+  .context-text { font-size: 13px; color: var(--text2); line-height: 1.8; margin-bottom: 4px; }
+
+  /* 2COL */
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* MARKET CARD */
+  .market-num-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .market-num { font-size: 30px; font-weight: 700; color: #e2ecf8; letter-spacing: -1px; }
+  .market-chg { font-size: 15px; font-weight: 700; }
+  .market-sub { font-size: 12px; color: var(--text3); margin-bottom: 10px; letter-spacing: 1px; }
+
+  /* EVENTS */
+  .events-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .event-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 5px; padding: 12px; cursor: pointer; transition: all 0.15s;
+  }
+  .event-card:hover, .event-card.active { background: #1e2d45; border-color: var(--border2); }
+  .event-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .event-title { font-size: 14px; font-weight: 700; color: #c8d8f0; }
+  .event-badge { font-size: 11px; padding: 2px 6px; border-radius: 2px; white-space: nowrap; margin-left: 4px; }
+  .event-timing { font-size: 12px; color: var(--text3); margin-bottom: 4px; }
+  .event-prob { font-size: 12px; color: var(--orange); margin-bottom: 8px; }
+  .event-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+  .event-btn {
+    font-size: 11px; padding: 2px 6px; border-radius: 2px;
+    background: transparent; cursor: pointer; font-family: inherit; transition: all 0.1s;
+  }
+
+  /* SCENARIOS */
+  .scenarios { background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 14px; margin-top: 12px; }
+  .scenarios-label { font-size: 12px; color: var(--blue); letter-spacing: 2px; margin-bottom: 12px; }
+  .scenarios-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .scenario-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 12px; }
+  .sc-type { font-size: 13px; font-weight: 700; color: #c8d8f0; margin-bottom: 4px; }
+  .sc-prob { font-size: 12px; color: var(--orange); margin-bottom: 4px; }
+  .sc-val { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .sc-note { font-size: 12px; color: #7a90a0; line-height: 1.6; }
+
+  /* INSIGHTS */
+  .insights-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .insights-list { display: flex; flex-direction: column; gap: 7px; }
+  .insight-item {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: var(--bg); border-left: 2px solid var(--border2);
+    border-radius: 0 4px 4px 0; padding: 8px 12px;
+  }
+  .insight-num { font-size: 12px; color: var(--border2); flex-shrink: 0; margin-top: 2px; }
+  .insight-text { font-size: 13px; color: #a0b8c8; line-height: 1.7; flex: 1; }
+  .insight-del { font-size: 12px; color: var(--text3); cursor: pointer; flex-shrink: 0; padding: 0 2px; }
+  .insight-del:hover { color: var(--red); }
+
+  .add-btn {
+    font-size: 12px; padding: 4px 10px; border-radius: 3px;
+    background: #1e2d45; border: 1px solid var(--border2);
+    color: var(--blue); cursor: pointer; font-family: inherit;
+  }
+  .add-form { display: flex; gap: 8px; margin-top: 10px; }
+  .add-input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border2);
+    border-radius: 3px; padding: 6px 10px; color: var(--text);
+    font-size: 13px; outline: none; font-family: inherit;
+  }
+  .save-btn {
+    background: #1e2d45; border: 1px solid var(--border2); color: var(--blue);
+    border-radius: 3px; padding: 6px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+
+  /* NEXT ACTION */
+  .next-action {
+    background: #1a1808; border: 1px solid #c8904033;
+    border-radius: 6px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .na-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 6px var(--orange); flex-shrink: 0; }
+  .na-label { font-size: 11px; color: var(--orange); letter-spacing: 2px; margin-bottom: 3px; }
+  .na-text { font-size: 14px; color: var(--text); }
+
+  /* HISTORY */
+  .history-item {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 10px 14px; margin-bottom: 6px;
+  }
+  .history-date { font-size: 12px; color: var(--text3); margin-bottom: 4px; }
+  .history-text { font-size: 13px; color: var(--text2); line-height: 1.7; }
+
+  .c-green { color: var(--green); }
+  .c-red { color: var(--red); }
+  .c-yellow { color: var(--yellow); }
+  .c-orange { color: var(--orange); }
+  .c-blue { color: var(--blue); }
+  .c-gray { color: #475569; }
+
+  .empty { text-align: center; color: var(--text3); padding: 40px; font-size: 13px; letter-spacing: 2px; }
+  .no-data { font-size: 13px; color: var(--text3); padding: 10px 0; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="dot"></div>
+    <span class="title">구름 · CONTEXT TRACKER</span>
+  </div>
+  <div class="topbar-right">
+    <span class="refresh-timer" id="refreshTimer"></span>
+    <span class="topbar-date" id="topbarDate"></span>
+  </div>
+</div>
+
+<div class="tabs-wrap" id="tabsWrap"></div>
+<div class="main" id="main"></div>
+
+<script>
+// ============================================================
+// 데이터 — 구름이가 이 부분을 직접 수정합니다
+// ============================================================
+let DATA = {
+  "_meta": {
+    "version": "2.0",
+    "lastUpdated": "2026-02-20",
+    "updatedBy": "구름이",
+    "description": "종목별 대화 맥락 저장소"
+  },
+  "market": {
+    "pinned": true,
+    "lastDate": "2026-02-20",
+    "kospi": 5677.25,
+    "kospiChange": 3.09,
+    "kospiUp": true,
+    "note": "사상 최고치. 코스닥 매수사이드카 발동. 설 연휴 대기수요 압축 방출.",
+    "keyInsights": [
+      "코스피 7,900 목표가 증권가 등장. 한미 증시 디커플링 뚜렷.",
+      "IEEPA 판결 2/21 새벽 — 무효 75% 전망."
+    ],
+    "nextAction": "2/23 장전: IEEPA 판결 결과 확인 → 외인 수급 방향 점검",
+    "history": []
+  },
+  "stocks": [
+    {
+      "code": "005930",
+      "name": "삼성전자",
+      "pinned": true,
+      "lastDate": "2026-02-20",
+      "price": 190000,
+      "change": 4.86,
+      "isHigh52": true,
+      "context": "250일 신고가. 외인·기관 쌍매도 속 개인 주도 상승. HBM4 출하 모멘텀.",
+      "events": [
+        {
+          "id": "e1",
+          "title": "IEEPA 판결",
+          "timing": "2/21(토) 새벽 KST",
+          "probability": "무효 75%",
+          "status": "대기중",
+          "scenarios": [
+            { "type": "A. 전면무효", "prob": "40%", "val": "+4~7%", "note": "관세 소멸. 심리적 최대 호재" },
+            { "type": "B. 부분무효", "prob": "30%", "val": "±1~2%", "note": "해석 복잡. 단기 혼조" },
+            { "type": "C. 전면합헌", "prob": "25%", "val": "-2~4%", "note": "외인 저점매수 가능성" },
+            { "type": "D. 연기", "prob": "5%", "val": "±0%", "note": "무영향. HBM 자체동력" }
+          ]
+        }
+      ],
+      "keyInsights": [
+        "외인-715만주·기관-347만주 쌍매도에도 신고가. 개인 주도.",
+        "HBM4 상업 출하(Bloomberg 2/12) + 램마겟돈 내러티브 핵심 모멘텀.",
+        "2/23 월요일: 외인 첫 30분 수급이 개인심리 결정."
+      ],
+      "nextAction": "2/23 장전: 판결 결과 확인 → 외인 수급 방향 → 시나리오 대조",
+      "history": []
+    },
+    {
+      "code": "000660",
+      "name": "SK하이닉스",
+      "pinned": false,
+      "lastDate": "2026-02-19",
+      "price": 0,
+      "change": 0,
+      "isHigh52": false,
+      "context": "HBM4 수혜 최대 수혜주. 삼성전자와 동반 모멘텀.",
+      "events": [],
+      "keyInsights": [
+        "엔비디아 GTC 2026(3월) 앞두고 HBM 공급 협의 주목."
+      ],
+      "nextAction": "GTC 2026 발표 후 수급 확인",
+      "history": []
+    }
+  ]
+};
+
+let activeTab = "market";
+let activeEvent = null;
+let addingInsight = false;
+
+const STATUS_COLOR = {
+  "대기중": "#c89040", "완료": "#6bbf8a", "예정": "#506070",
+  "무효판결": "#6bbf8a", "합헌판결": "#c06060"
+};
+const STATUS_LIST = ["대기중", "완료", "무효판결", "합헌판결", "예정"];
+
+
+
+function getStatusColor(s) { return STATUS_COLOR[s] || "#506070"; }
+
+function valColor(v) {
+  if (!v) return "var(--yellow)";
+  if (v.startsWith("+")) return "var(--green)";
+  if (v.startsWith("-")) return "var(--red)";
+  return "var(--yellow)";
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render() {
+  if (!DATA) return;
+  renderTabs();
+  if (activeTab === "market") renderMarket();
+  else renderStock(activeTab);
+  document.getElementById("topbarDate").textContent = DATA._meta?.lastUpdated || "";
+}
+
+function renderTabs() {
+  const pinned = [];
+  const unpinned = [];
+
+  // market 탭
+  if (DATA.market.pinned) pinned.push({ id: "market", name: "📊 MARKET", pinned: true });
+  else unpinned.push({ id: "market", name: "📊 MARKET", pinned: false });
+
+  // 종목 탭
+  (DATA.stocks || []).forEach(s => {
+    const item = { id: s.code, name: s.name, pinned: s.pinned };
+    if (s.pinned) pinned.push(item);
+    else unpinned.push(item);
+  });
+
+  const allTabs = [...pinned, ...unpinned];
+  document.getElementById("tabsWrap").innerHTML = allTabs.map(t => `
+    <button class="tab ${activeTab === t.id ? "active" : ""}" onclick="switchTab('${t.id}')">
+      ${t.pinned ? '<span class="pin-icon">★</span>' : ""}
+      ${t.name}
+    </button>
+  `).join("");
+}
+
+function renderMarket() {
+  const m = DATA.market;
+  const chgClass = m.kospiUp ? "c-green" : "c-red";
+  const chgStr = (m.kospiUp ? "+" : "") + m.kospiChange + "%";
+
+  const insightItems = (m.keyInsights || []).map((ins, i) => `
+    <div class="insight-item">
+      <span class="insight-num">${String(i+1).padStart(2,"0")}</span>
+      <span class="insight-text">${ins}</span>
+      <span class="insight-del" onclick="removeInsight('market',${i})">✕</span>
+    </div>`).join("") || '<div class="no-data">인사이트 없음</div>';
+
+  const addForm = addingInsight ? `
+    <div class="add-form">
+      <input class="add-input" id="newInsightInput" placeholder="새 인사이트 입력 후 Enter..."
+        onkeydown="if(event.key==='Enter')addInsight('market')">
+      <button class="save-btn" onclick="addInsight('market')">저장</button>
+    </div>` : "";
+
+  const historyHtml = (m.history || []).length ? (m.history || []).slice(-5).reverse().map(h => `
+    <div class="history-item">
+      <div class="history-date">${h.date}</div>
+      <div class="history-text">${h.note}</div>
+    </div>`).join("") : '<div class="no-data">보관된 히스토리 없음</div>';
+
+  document.getElementById("main").innerHTML = `
+    <div class="row2">
+      <div class="card">
+        <div class="card-label">MARKET</div>
+        <div class="market-num-row">
+          <span class="market-num">${(m.kospi||0).toLocaleString()}</span>
+          <span class="market-chg ${chgClass}">${chgStr}</span>
+        </div>
+        <div class="market-sub">KOSPI · ${m.lastDate||""}</div>
+        <div class="context-text">${m.note||""}</div>
+      </div>
+      <div class="card">
+        <div class="card-label">NEXT ACTION</div>
+        <div class="na-text" style="font-size:14px;line-height:1.8">${m.nextAction||"없음"}</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="insights-head">
+        <div class="card-label" style="margin:0">KEY INSIGHTS</div>
+        <button class="add-btn" onclick="toggleAddInsight()">+ ADD</button>
+      </div>
+      <div class="insights-list">${insightItems}</div>
+      ${addForm}
+    </div>
+    <div class="card">
+      <div class="card-label">HISTORY</div>
+      ${historyHtml}
+    </div>`;
+
+  if (addingInsight) setTimeout(() => { const i = document.getElementById("newInsightInput"); if(i) i.focus(); }, 50);
+}
+
+function renderStock(code) {
+  const s = DATA.stocks.find(x => x.code === code);
+  if (!s) return;
+
+  const chgClass = s.change >= 0 ? "c-green" : "c-red";
+  const chgStr = (s.change >= 0 ? "+" : "") + s.change + "%";
+
+  // events
+  const evCards = (s.events || []).map(ev => {
+    const sc = getStatusColor(ev.status);
+    return `
+      <div class="event-card ${activeEvent === ev.id ? "active" : ""}" onclick="toggleEvent('${ev.id}')">
+        <div class="event-head">
+          <span class="event-title">${ev.title}</span>
+          <span class="event-badge" style="background:${sc}22;color:${sc};border:1px solid ${sc}33">${ev.status}</span>
+        </div>
+        <div class="event-timing">${ev.timing||""}</div>
+        <div class="event-prob">${ev.probability||""}</div>
+        <div class="event-btns" onclick="event.stopPropagation()">
+          ${STATUS_LIST.map(st => {
+            const c = getStatusColor(st);
+            return `<button class="event-btn" style="border:1px solid ${c}44;color:${c};background:${ev.status===st?c+"33":"transparent"}"
+              onclick="updateStatus('${code}','${ev.id}','${st}')">${st}</button>`;
+          }).join("")}
+        </div>
+      </div>`;
+  }).join("") || '<div class="no-data">이벤트 없음</div>';
+
+  let scenarioHtml = "";
+  if (activeEvent) {
+    const ev = (s.events||[]).find(e => e.id === activeEvent);
+    if (ev?.scenarios?.length) {
+      scenarioHtml = `
+        <div class="scenarios">
+          <div class="scenarios-label">${ev.title} · SCENARIOS</div>
+          <div class="scenarios-grid">
+            ${ev.scenarios.map(sc => `
+              <div class="scenario-card">
+                <div class="sc-type">${sc.type}</div>
+                <div class="sc-prob">확률 ${sc.prob}</div>
+                <div class="sc-val" style="color:${valColor(sc.val)}">${sc.val}</div>
+                <div class="sc-note">${sc.note}</div>
+              </div>`).join("")}
+          </div>
+        </div>`;
+    }
+  }
+
+  const insightItems = (s.keyInsights || []).map((ins, i) => `
+    <div class="insight-item">
+      <span class="insight-num">${String(i+1).padStart(2,"0")}</span>
+      <span class="insight-text">${ins}</span>
+      <span class="insight-del" onclick="removeInsight('${code}',${i})">✕</span>
+    </div>`).join("") || '<div class="no-data">인사이트 없음</div>';
+
+  const addForm = addingInsight ? `
+    <div class="add-form">
+      <input class="add-input" id="newInsightInput" placeholder="새 인사이트 입력 후 Enter..."
+        onkeydown="if(event.key==='Enter')addInsight('${code}')">
+      <button class="save-btn" onclick="addInsight('${code}')">저장</button>
+    </div>` : "";
+
+  const historyHtml = (s.history || []).length ? (s.history||[]).slice(-5).reverse().map(h => `
+    <div class="history-item">
+      <div class="history-date">${h.date}</div>
+      <div class="history-text">${h.note}</div>
+    </div>`).join("") : '<div class="no-data">보관된 히스토리 없음</div>';
+
+  document.getElementById("main").innerHTML = `
+    <div class="card">
+      <div class="stock-header">
+        <div class="stock-left">
+          <div class="stock-name-row">
+            <span class="stock-name">${s.name}</span>
+            <span class="stock-code">${s.code}</span>
+            ${s.isHigh52 ? '<span class="high52-badge">52주 신고가 ★</span>' : ""}
+          </div>
+          <div class="context-text" style="margin-top:6px">${s.context||""}</div>
+        </div>
+        <div class="stock-right">
+          ${s.price ? `<span class="stock-price">${s.price.toLocaleString()}</span>` : ""}
+          ${s.change ? `<span class="stock-chg ${chgClass}">${chgStr}</span>` : ""}
+          <span class="stock-date">${s.lastDate||""}</span>
+          <button class="pin-btn ${s.pinned?"pinned":""}" onclick="togglePin('${code}')">
+            ${s.pinned ? "★ 고정됨" : "☆ 고정"}
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">EVENTS</div>
+      <div class="events-grid">${evCards}</div>
+      ${scenarioHtml}
+    </div>
+    <div class="card">
+      <div class="insights-head">
+        <div class="card-label" style="margin:0">KEY INSIGHTS</div>
+        <button class="add-btn" onclick="toggleAddInsight()">+ ADD</button>
+      </div>
+      <div class="insights-list">${insightItems}</div>
+      ${addForm}
+    </div>
+    <div class="next-action">
+      <div class="na-dot"></div>
+      <div>
+        <div class="na-label">NEXT ACTION</div>
+        <div class="na-text">${s.nextAction||"없음"}</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">HISTORY</div>
+      ${historyHtml}
+    </div>`;
+
+  if (addingInsight) setTimeout(() => { const i = document.getElementById("newInsightInput"); if(i) i.focus(); }, 50);
+}
+
+// ============================================================
+// 액션
+// ============================================================
+function switchTab(id) {
+  activeTab = id; activeEvent = null; addingInsight = false; render();
+}
+function toggleEvent(id) {
+  activeEvent = activeEvent === id ? null : id; render();
+}
+function togglePin(code) {
+  const s = DATA.stocks.find(x => x.code === code);
+  if (s) { s.pinned = !s.pinned; render(); }
+}
+function updateStatus(code, eid, status) {
+  const s = DATA.stocks.find(x => x.code === code);
+  if (s) {
+    const ev = s.events.find(e => e.id === eid);
+    if (ev) { ev.status = status; render(); }
+  }
+}
+function toggleAddInsight() { addingInsight = !addingInsight; render(); }
+function addInsight(target) {
+  const inp = document.getElementById("newInsightInput");
+  if (!inp || !inp.value.trim()) return;
+  if (target === "market") {
+    DATA.market.keyInsights = DATA.market.keyInsights || [];
+    DATA.market.keyInsights.push(inp.value.trim());
+  } else {
+    const s = DATA.stocks.find(x => x.code === target);
+    if (s) { s.keyInsights = s.keyInsights || []; s.keyInsights.push(inp.value.trim()); }
+  }
+  addingInsight = false; render();
+}
+function removeInsight(target, idx) {
+  if (target === "market") { DATA.market.keyInsights.splice(idx, 1); }
+  else { const s = DATA.stocks.find(x => x.code === target); if(s) s.keyInsights.splice(idx,1); }
+  render();
+}
+
+// ============================================================
+// 자동 새로고침 (30초)
+// ============================================================
+let countdown = 30;
+setInterval(() => {
+  const el = document.getElementById("refreshTimer");
+  if (el) el.textContent = `↻ ${countdown}s`;
+  countdown--;
+  if (countdown < 0) location.reload();
+}, 1000);
+
+// 초기 렌더
+render();
+</script>
+</body>
+</html>

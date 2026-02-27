@@ -1,0 +1,204 @@
+/**
+ * DART 모니터 — 데이터 뷰어 API
+ * 
+ * GET /api/data-tree     — data/ 폴더 트리 구조
+ * GET /api/data-file     — 특정 JSON 파일 읽기 (보안: data/ 내부만)
+ * GET /api/daily-feed    — 뉴스/공시/리포트 일별 조회 (최근 7일)
+ */
+const express = require('express');
+const router = express.Router();
+const fs = require('fs');
+const path = require('path');
+const config = require('../config');
+
+const DATA_DIR = config.DATA_DIR;
+
+// ── 보안: data/ 하위인지 검증 ──
+function isSafePath(target) {
+    const resolved = path.resolve(target);
+    return resolved.startsWith(path.resolve(DATA_DIR));
+}
+
+// ── 폴더 트리 (재귀, 최대 depth 3) ──
+function buildTree(dir, depth = 0, maxDepth = 3) {
+    if (depth > maxDepth) return [];
+    try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        return entries
+            .filter(e => !e.name.startsWith('.'))
+            .sort((a, b) => {
+                if (a.isDirectory() && !b.isDirectory()) return -1;
+                if (!a.isDirectory() && b.isDirectory()) return 1;
+                return a.name.localeCompare(b.name);
+            })
+            .map(e => {
+                const full = path.join(dir, e.name);
+                const rel = path.relative(DATA_DIR, full).replace(/\\/g, '/');
+                if (e.isDirectory()) {
+                    const children = buildTree(full, depth + 1, maxDepth);
+                    return { name: e.name, path: rel, type: 'dir', children, count: children.length };
+                } else {
+                    const stat = fs.statSync(full);
+                    return {
+                        name: e.name, path: rel, type: 'file',
+                        size: stat.size,
+                        modified: stat.mtime.toISOString()
+                    };
+                }
+            });
+    } catch (e) { return []; }
+}
+
+// GET /api/data-tree
+router.get('/data-tree', (req, res) => {
+    try {
+        const tree = buildTree(DATA_DIR, 0, 3);
+        const totalFiles = countFiles(tree);
+        res.json({ ok: true, root: 'data/', tree, totalFiles });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+function countFiles(nodes) {
+    let c = 0;
+    for (const n of nodes) {
+        if (n.type === 'file') c++;
+        else if (n.children) c += countFiles(n.children);
+    }
+    return c;
+}
+
+// GET /api/data-file?path=companies/005930/price.json
+router.get('/data-file', (req, res) => {
+    const relPath = req.query.path;
+    if (!relPath) return res.status(400).json({ error: 'path 필수' });
+
+    const full = path.join(DATA_DIR, relPath);
+    if (!isSafePath(full)) return res.status(403).json({ error: '접근 불가' });
+    if (!fs.existsSync(full)) return res.status(404).json({ error: '파일 없음' });
+
+    try {
+        const stat = fs.statSync(full);
+        if (stat.isDirectory()) return res.status(400).json({ error: '디렉토리입니다' });
+        if (stat.size > 2 * 1024 * 1024) return res.status(413).json({ error: '파일이 너무 큽니다 (2MB 초과)' });
+
+        const content = fs.readFileSync(full, 'utf-8');
+        let parsed;
+        try { parsed = JSON.parse(content); } catch (e) { parsed = content; }
+        res.json({
+            ok: true, path: relPath,
+            size: stat.size, modified: stat.mtime.toISOString(),
+            content: parsed
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// 날짜 문자열 → YYYY-MM-DD 정규화
+function toDateStr(raw) {
+    if (!raw) return '';
+    // YY.MM.DD 형식 (예: "26.02.20")
+    if (/^\d{2}\.\d{2}\.\d{2}$/.test(raw)) {
+        const [yy, mm, dd] = raw.split('.');
+        return `20${yy}-${mm}-${dd}`;
+    }
+    // YYYYMMDD 형식
+    if (/^\d{8}$/.test(raw)) {
+        return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+    }
+    // YYYY-MM-DD 이미 정규화된 형식
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) {
+        return raw.slice(0, 10);
+    }
+    // RFC 2822 등 기타 형식 → Date 파싱
+    try {
+        const d = new Date(raw);
+        if (!isNaN(d)) {
+            // KST 오프셋 (+9시간) 적용
+            const kst = new Date(d.getTime() + 9 * 3600000);
+            return kst.toISOString().slice(0, 10);
+        }
+    } catch (e) { }
+    return '';
+}
+
+// GET /api/daily-feed?days=7 — 최근 N일 뉴스/공시/리포트 일별 집계
+router.get('/daily-feed', (req, res) => {
+    const days = Math.min(parseInt(req.query.days) || 7, 14);
+    try {
+        const result = { ok: true, days, feeds: [] };
+
+        // 뉴스
+        const newsPath = path.join(DATA_DIR, 'news.json');
+        let allNews = [];
+        if (fs.existsSync(newsPath)) {
+            try { allNews = JSON.parse(fs.readFileSync(newsPath, 'utf-8')); } catch (e) { }
+            if (!Array.isArray(allNews)) {
+                allNews = allNews.items || allNews.news || [];
+            }
+        }
+
+        // 리포트 (소스별 합산)
+        const reportSources = ['reports_naver', 'reports_hana', 'reports_mirae', 'reports_wisereport'];
+        let allReports = [];
+        for (const src of reportSources) {
+            const fp = path.join(DATA_DIR, `${src}.json`);
+            if (fs.existsSync(fp)) {
+                try {
+                    let items = JSON.parse(fs.readFileSync(fp, 'utf-8'));
+                    if (!Array.isArray(items)) items = items.items || [];
+                    allReports = allReports.concat(items.map(r => ({ ...r, _source: src.replace('reports_', '') })));
+                } catch (e) { }
+            }
+        }
+
+        // DART 공시 파일들
+        let allDart = [];
+        const dartFiles = fs.readdirSync(DATA_DIR).filter(f => f.startsWith('dart_') && f.endsWith('.json'));
+        for (const df of dartFiles) {
+            try {
+                const d = JSON.parse(fs.readFileSync(path.join(DATA_DIR, df), 'utf-8'));
+                const items = d.list || d.items || (Array.isArray(d) ? d : []);
+                allDart = allDart.concat(items.map(i => ({ ...i, _file: df })));
+            } catch (e) { }
+        }
+
+        // 날짜별 그룹핑 (최근 N일)
+        const now = new Date();
+        for (let i = 0; i < days; i++) {
+            const d = new Date(now);
+            d.setDate(d.getDate() - i);
+            const dateStr = d.toISOString().slice(0, 10);
+
+            const dayNews = allNews.filter(n => {
+                const nd = n.pubDate || n.date || n.createdAt || '';
+                return toDateStr(nd) === dateStr;
+            });
+
+            const dayReports = allReports.filter(r => {
+                const rd = r.date || r.pubDate || r.createdAt || '';
+                return toDateStr(rd) === dateStr;
+            });
+
+            const dayDart = allDart.filter(dd => {
+                const ddt = dd.rcept_dt || dd.date || '';
+                return toDateStr(ddt) === dateStr;
+            });
+
+            result.feeds.push({
+                date: dateStr,
+                news: { count: dayNews.length, items: dayNews.slice(0, 50) },
+                reports: { count: dayReports.length, items: dayReports.slice(0, 50) },
+                dart: { count: dayDart.length, items: dayDart.slice(0, 50) }
+            });
+        }
+
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
+module.exports = router;

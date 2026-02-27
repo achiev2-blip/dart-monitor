@@ -1,0 +1,28 @@
+# 모든 소스코드 파일 접근 차단 — VM에서만 작업할 것
+# Antigravity가 로컬 파일을 직접 수정하지 못하도록 차단
+
+# 전체 소스코드
+*.js
+*.json
+*.html
+*.css
+*.env
+*.bat
+*.sh
+
+# 설정 파일
+package.json
+package-lock.json
+
+# 디렉토리 전체 차단
+routes/
+crawlers/
+services/
+public/
+views/
+data/
+node_modules/
+
+# 워크플로우 파일은 열어둠 (작업 지침 참고용)
+!.agent/
+!.agents/

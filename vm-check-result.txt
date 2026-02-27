@@ -1,0 +1,79 @@
+=== VM 서버 상태 비교 ===
+시각: 2026-02-24T14:03:40.234Z
+
+--- 1. /api/status ---
+HTTP 200
+{
+  "uptime": 1236.364778227,
+  "news": 1000,
+  "reports": 447,
+  "reportsBySource": {
+    "WiseReport": 200,
+    "미래에셋": 21,
+    "하나증권": 26,
+    "현대차증권": 0,
+    "네이버": 200
+  },
+  "sentItems": 475,
+  "memory": "25MB",
+  "isPaused": false,
+  "pausedAt": null,
+  "timestamp": "2026-02-24T14:03:40.941Z"
+}
+
+--- 2. /api/gemini/status ---
+HTTP 200
+{
+  "current": "Pro Lite",
+  "round": 1,
+  "cooldown": false,
+  "status": "1회차 강등 중",
+  "lastWork": "2026. 2. 24. 오후 1:43:57",
+  "models": [
+    {
+      "label": "Pro Flash",
+      "id": "gemini-2.0-flash",
+      "active": false
+    },
+    {
+      "label": "Pro Lite",
+      "id": "gemini-2.0-flash-lite",
+      "active": true
+    },
+    {
+      "label": "Free Flash",
+      "id": "gemini-1.5-flash",
+      "active": false
+    },
+    {
+      "label": "Free 8B",
+      "id": "gemini-1.5-flash-8b",
+      "active": false
+    }
+  ]
+}
+
+--- 3. /gemini-chat.js ---
+HTTP 404 → NOT FOUND
+
+--- 4. /gemini-chat.css ---
+HTTP 404 → NOT FOUND
+
+--- 5. index.html gemini-chat 참조 ---
+gemini-chat.js 참조: NO
+gemini-chat.css 참조: NO
+
+--- 6. /api/gemini/chat 엔드포인트 테스트 ---
+HTTP 401
+{
+  "ok": false,
+  "error": "인증 필요: x-api-key 헤더를 확인하세요."
+}
+
+--- 7. stocks.html gemini-chat 참조 ---
+gemini-chat.js 참조: NO
+gemini-chat.css 참조: NO
+
+--- 8. context.html gemini-chat 참조 ---
+gemini-chat.js 참조: NO
+gemini-chat.css 참조: NO
