@@ -1157,6 +1157,7 @@ function updateClaudeSummary(app) {
         console.log(`[Claude/DC] 갱신: ${dc.prices.length}종목 ${(dc.news || []).length}뉴스 ${(dc.reports || []).length}리포트 (${sizeKB}KB)`);
     } catch (e) {
         console.error(`[Claude/DC] 갱신 실패: ${e.message}`);
+        console.error(`[Claude/DC] 스택:`, e.stack);
     }
 }
 
