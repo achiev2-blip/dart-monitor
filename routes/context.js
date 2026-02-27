@@ -980,6 +980,116 @@ router.get('/claude', async (req, res) => {
     }
 });
 // ============================================================
+// Claude 경량 서브라우트 — 개별 데이터 직접 접근 (독립 터널)
+// ============================================================
+
+// 뉴스 읽기 — 서버 메모리의 storedNews 접근
+router.get('/claude/news', (req, res) => {
+    const storedNews = req.app.locals.storedNews || [];
+    const limit = parseInt(req.query.limit) || 30;
+    // 최신 뉴스 역순 정렬
+    const recent = storedNews.slice(-limit).reverse().map(n => ({
+        title: n.title,
+        source: n.source,
+        date: n.date,
+        link: n.link,
+        cls: n.aiCls || '',
+        importance: n.aiImportance || '',
+        category: n.aiCategory || '',
+        stocks: n.aiStocks || '',
+        summary: n.aiSummary || ''
+    }));
+    const digest = loadContext('news_digest.json') || { latest: null };
+    console.log(`[Claude] NEWS 읽기 — ${recent.length}건`);
+    res.json({ ok: true, ai: 'claude', news: recent, digest: digest.latest, total: storedNews.length });
+});
+
+// 한투 토큰 읽기 — hantoo_token.json 파일 접근
+router.get('/claude/token', (req, res) => {
+    const tokenData = loadJSON('hantoo_token.json', null);
+    console.log('[Claude] TOKEN 읽기');
+    res.json({ ok: true, ai: 'claude', token: tokenData });
+});
+
+// 현재가 읽기 — 워치리스트 전체 종목 현재가
+router.get('/claude/prices', (req, res) => {
+    const watchlist = hantoo.getWatchlist();
+    const stockPrices = hantoo.getStockPrices();
+    const prices = watchlist.map(s => {
+        const p = stockPrices[s.code];
+        let afterHours = null;
+        try { afterHours = companyData?.getPrice(s.code)?.afterHours || p?.afterHours || null; } catch (e) { }
+        return {
+            code: s.code,
+            name: s.name,
+            sector: s.sector || '',
+            price: p?.current?.price || p?.price || s.price || null,
+            change: p?.current?.change || p?.change || null,
+            changePct: p?.changePct || null,
+            volume: p?.current?.volume || p?.volume || null,
+            high: p?.current?.high || null,
+            low: p?.current?.low || null,
+            open: p?.current?.open || null,
+            afterHours
+        };
+    });
+    console.log(`[Claude] PRICES 읽기 — ${prices.length}종목`);
+    res.json({ ok: true, ai: 'claude', prices, count: prices.length });
+});
+
+// DART 공시 조회 — 오늘 공시 목록
+router.get('/claude/dart', async (req, res) => {
+    try {
+        const now = new Date();
+        const kst = new Date(now.getTime() + 9 * 3600000);
+        const yyyymmdd = kst.getUTCFullYear().toString() +
+            String(kst.getUTCMonth() + 1).padStart(2, '0') +
+            String(kst.getUTCDate()).padStart(2, '0');
+        const dartRes = await axios.get('https://opendart.fss.or.kr/api/list.json', {
+            params: {
+                crtfc_key: config.DART_API_KEY,
+                bgn_de: req.query.date || yyyymmdd,
+                end_de: req.query.date || yyyymmdd,
+                page_count: 100
+            }, timeout: 8000
+        });
+        const disclosures = dartRes.data?.list || [];
+        // 포트폴리오 관련만 필터링 (선택)
+        let filtered = disclosures;
+        if (req.query.filter === 'portfolio') {
+            const names = hantoo.getWatchlist().map(s => s.name);
+            filtered = disclosures.filter(d =>
+                names.some(n => d.corp_name === n || d.corp_name?.includes(n) || n.includes(d.corp_name))
+            );
+        }
+        console.log(`[Claude] DART 읽기 — 전체:${disclosures.length}건 필터:${filtered.length}건`);
+        res.json({ ok: true, ai: 'claude', disclosures: filtered, total: disclosures.length, date: yyyymmdd });
+    } catch (e) {
+        console.warn(`[Claude] DART 조회 실패: ${e.message}`);
+        res.json({ ok: true, ai: 'claude', disclosures: [], error: e.message });
+    }
+});
+
+// 매크로 경제 데이터 읽기
+router.get('/claude/macro', (req, res) => {
+    const overseas = loadJSON('overseas.json', { latest: null });
+    const result = {
+        current: macro?.getCurrent() || null,
+        impact: macro?.getMarketImpactSummary() || null,
+        overseas: overseas.latest
+    };
+    console.log('[Claude] MACRO 읽기');
+    res.json({ ok: true, ai: 'claude', macro: result });
+});
+
+// 해외 시장 데이터 읽기
+router.get('/claude/overseas', (req, res) => {
+    const overseas = loadJSON('overseas.json', { latest: null, history: [] });
+    console.log('[Claude] OVERSEAS 읽기');
+    res.json({ ok: true, ai: 'claude', overseas: overseas.latest, history: (overseas.history || []).slice(0, 5) });
+});
+
+// ============================================================
 // Claude Summary — 사전 캐시 (메모리 상주, 호출 시 즉시 반환)
 // ============================================================
 

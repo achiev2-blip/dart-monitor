@@ -500,26 +500,10 @@ app.use('/api', backupRoute.router);
 app.use('/api', require('./routes/system'));
 app.use('/api', contextModule.router);
 app.use('/api', require('./routes/macro'));
-// AI 듀얼 공간 라우트 등록 (gemini + claude)
+// AI Gemini 공간 라우트 등록 (Claude는 context.js 전용 터널 사용)
 const { createAiRoutes } = require('./routes/ai-space');
 app.use('/api', createAiRoutes('gemini'));
-console.log('[BOOT] gemini 라우트 등록 완료, claude 등록 시작...');
-try {
-  app.use('/api', createAiRoutes('claude'));   // Claude 경량 서브라우트 — context.js 뒤에 등록 (순서 중요)
-  console.log('[BOOT] claude 라우트 등록 완료 ✅');
-  // 디버그: claude 라우트 개수 확인
-  let claudeCount = 0;
-  app._router.stack.forEach(layer => {
-    if (layer.name === 'router' && layer.handle && layer.handle.stack) {
-      layer.handle.stack.forEach(r => {
-        if (r.route && r.route.path && r.route.path.includes('claude')) claudeCount++;
-      });
-    }
-  });
-  console.log(`[BOOT] Express에 등록된 claude 라우트: ${claudeCount}개`);
-} catch (e) {
-  console.error('[BOOT] claude 라우트 등록 실패 ❌:', e.message);
-}
+// Claude 서브라우트는 context.js에 직접 등록 — 독립 터널 (ai-space.js 경유하지 않음)
 app.use('/api', require('./routes/predictions'));
 app.use('/api', require('./routes/data-viewer'));
 app.use('/api', require('./routes/archive'));  // 아카이브 조회 (독립 모듈)
