@@ -507,6 +507,16 @@ console.log('[BOOT] gemini 라우트 등록 완료, claude 등록 시작...');
 try {
   app.use('/api', createAiRoutes('claude'));   // Claude 경량 서브라우트 — context.js 뒤에 등록 (순서 중요)
   console.log('[BOOT] claude 라우트 등록 완료 ✅');
+  // 디버그: claude 라우트 개수 확인
+  let claudeCount = 0;
+  app._router.stack.forEach(layer => {
+    if (layer.name === 'router' && layer.handle && layer.handle.stack) {
+      layer.handle.stack.forEach(r => {
+        if (r.route && r.route.path && r.route.path.includes('claude')) claudeCount++;
+      });
+    }
+  });
+  console.log(`[BOOT] Express에 등록된 claude 라우트: ${claudeCount}개`);
 } catch (e) {
   console.error('[BOOT] claude 라우트 등록 실패 ❌:', e.message);
 }
