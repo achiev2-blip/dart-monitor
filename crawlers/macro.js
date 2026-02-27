@@ -105,6 +105,11 @@ const YAHOO_SYMBOLS = {
     // ── AI/서버 테마 ──
     arm: { symbol: 'ARM', name: 'ARM Holdings', category: 'ai_theme' },
     smci: { symbol: 'SMCI', name: 'Super Micro', category: 'ai_theme' },
+    // ── AI/반도체 대표주 (포트폴리오 핵심) ──
+    nvda: { symbol: 'NVDA', name: 'NVIDIA', category: 'ai_semi' },
+    amd: { symbol: 'AMD', name: 'AMD', category: 'ai_semi' },
+    mu: { symbol: 'MU', name: '마이크론', category: 'ai_semi' },
+    avgo: { symbol: 'AVGO', name: '브로드컴', category: 'ai_semi' },
     // ── 원자재 ──
     gold: { symbol: 'GC=F', name: '금 선물', category: 'commodity' },
     oil: { symbol: 'CL=F', name: 'WTI 원유', category: 'commodity' }
@@ -298,6 +303,14 @@ async function fetchAllMacro() {
                 smci: yahooData.smci || null
             },
 
+            // AI/반도체 대표주 (NVDA, AMD, MU, AVGO)
+            aiSemi: {
+                nvda: yahooData.nvda || null,
+                amd: yahooData.amd || null,
+                mu: yahooData.mu || null,
+                avgo: yahooData.avgo || null
+            },
+
             // 기타
             vixDetail: yahooData.vix || null,
             gold: yahooData.gold || null,
@@ -419,6 +432,10 @@ function saveDailySnapshot() {
         klac: currentMacro.semiEquip?.klac?.price || null,
         arm: currentMacro.aiTheme?.arm?.price || null,
         smci: currentMacro.aiTheme?.smci?.price || null,
+        nvda: currentMacro.aiSemi?.nvda?.price || null,
+        amd: currentMacro.aiSemi?.amd?.price || null,
+        mu: currentMacro.aiSemi?.mu?.price || null,
+        avgo: currentMacro.aiSemi?.avgo?.price || null,
         gold: currentMacro.gold?.price || null,
         oil: currentMacro.oil?.price || null
     });
