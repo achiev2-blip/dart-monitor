@@ -708,10 +708,11 @@ server = app.listen(PORT, () => {
     console.error(`  ❌ Context 자동 등록 실패: ${e.message}`);
   }
 
-  // Claude Summary 초기 빌드 (10초 딜레이 — 한투 첫 배치 완료 대기)
+  // Claude 데이터센터 주기 갱신 (1분마다 — 첫 실행은 15초 딜레이)
   setTimeout(() => {
     contextModule.updateClaudeSummary(app);
-  }, 10000);
+    setInterval(() => contextModule.updateClaudeSummary(app), 60000);
+  }, 15000);
 
   // 매크로 데이터 수집
   console.log('  🌍 매크로 데이터 수집 시작...');
