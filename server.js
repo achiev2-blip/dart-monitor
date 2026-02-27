@@ -503,8 +503,13 @@ app.use('/api', require('./routes/macro'));
 // AI 듀얼 공간 라우트 등록 (gemini + claude)
 const { createAiRoutes } = require('./routes/ai-space');
 app.use('/api', createAiRoutes('gemini'));
-app.use('/api', createAiRoutes('claude'));   // Claude 경량 서브라우트 — context.js 뒤에 등록 (순서 중요)
-
+console.log('[BOOT] gemini 라우트 등록 완료, claude 등록 시작...');
+try {
+  app.use('/api', createAiRoutes('claude'));   // Claude 경량 서브라우트 — context.js 뒤에 등록 (순서 중요)
+  console.log('[BOOT] claude 라우트 등록 완료 ✅');
+} catch (e) {
+  console.error('[BOOT] claude 라우트 등록 실패 ❌:', e.message);
+}
 app.use('/api', require('./routes/predictions'));
 app.use('/api', require('./routes/data-viewer'));
 app.use('/api', require('./routes/archive'));  // 아카이브 조회 (독립 모듈)
