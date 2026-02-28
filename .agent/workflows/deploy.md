@@ -17,7 +17,32 @@ description: GCP VM에 코드 배포하는 방법
 gcloud compute ssh instance-20260223-054504 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b
 ```
 
-## 소규모 변경 (파일 1~2개)
+## 기본 배포 (Git Push → VM Pull)
+
+> ⚡ 가장 간단한 배포 방법. 새 대화창에서도 이 방법을 사용할 것.
+
+1. 로컬에서 커밋 & 푸시:
+// turbo
+```powershell
+cd d:\dart-monitor\dart-monitor
+git add -A
+git commit -m "변경 설명"
+git push origin master
+```
+
+2. VM에서 pull & 재시작:
+```powershell
+// turbo
+gcloud compute ssh instance-20260223-054504 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b -- "cd ~/dart-monitor && git pull && pm2 restart dart-monitor"
+```
+
+3. 헬스체크:
+// turbo
+```powershell
+curl http://34.22.94.45:3000/api/status
+```
+
+## 소규모 변경 (파일 1~2개, 직접 수정)
 
 1. VM SSH 열기: `vm-ssh.bat` 더블클릭 또는 터미널에서:
 // turbo

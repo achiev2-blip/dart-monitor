@@ -1055,10 +1055,12 @@ function updateClaudeSummary(app) {
             };
         });
 
-        // 매크로 (상태)
+        // 매크로 (상태 + 히스토리)
+        // 챗봇 엔드테이블 완성 시 ai-space.js:776의 직접 읽기 제거 가능 (방식A)
         dc.macro = {
-            current: macro.getCurrent(),
-            impact: macro.getMarketImpactSummary()
+            current: macro.getCurrent(),              // 실시간 16개 항목
+            impact: macro.getMarketImpactSummary(),    // 시장 영향 분석
+            history: loadJSON(path.join(macro.MACRO_DIR, 'history.json'), [])  // 일별 히스토리 (365일 FIFO)
         };
 
         // 토큰 (상태)
@@ -1152,6 +1154,49 @@ function updateClaudeSummary(app) {
 
         // 하위 호환: claudeSummary도 동일 참조
         app.locals.claudeSummary = dc;
+
+        // ── 서머리 파일 생성 (DC→서머리 구조) ──
+        // DC에 모인 데이터에서 요약을 추출하여 hantoo_summary.json 저장
+        // Claude 진입점: 서머리(개요) → 부족하면 DC(상세)
+        try {
+            const macroData = dc.macro?.current || {};
+            const summary = {
+                updatedAt: dc.timestamp,
+                // 지수
+                index: dc.index || null,
+                // 투자자 동향
+                investor: dc.investor || null,
+                // 전체 종목 가격 요약
+                stocks: (dc.prices || []).map(s => ({
+                    name: s.name, code: s.code, sector: s.sector || '',
+                    price: s.price, change: s.change, changePct: s.changePct || null,
+                    volume: s.volume
+                })),
+                stockCount: (dc.prices || []).length,
+                // 매크로 16개 요약 (가격만)
+                macro: {
+                    sp500: macroData.sp500?.price || null,
+                    nasdaq: macroData.nasdaq?.price || null,
+                    sox: macroData.sox?.price || null,
+                    us10y: macroData.us10y?.price || null,
+                    dxy: macroData.dxy?.price || null,
+                    vix: macroData.vix?.price || null,
+                    nvda: macroData.nvda?.price || null,
+                    amd: macroData.amd?.price || null,
+                    mu: macroData.mu?.price || null,
+                    lrcx: macroData.lrcx?.price || null,
+                    klac: macroData.klac?.price || null,
+                    arm: macroData.arm?.price || null,
+                    smci: macroData.smci?.price || null,
+                    avgo: macroData.avgo?.price || null,
+                    usdkrw: macroData.usdkrw?.price || null,
+                    gold: macroData.gold?.price || null
+                }
+            };
+            saveJSON('hantoo_summary.json', summary);
+        } catch (e) {
+            console.warn(`[Claude/DC] 서머리 파일 생성 실패: ${e.message}`);
+        }
 
         const sizeKB = Math.round(JSON.stringify(dc).length / 1024);
         console.log(`[Claude/DC] 갱신: ${dc.prices.length}종목 ${(dc.news || []).length}뉴스 ${(dc.reports || []).length}리포트 (${sizeKB}KB)`);

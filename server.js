@@ -711,7 +711,7 @@ server = app.listen(PORT, () => {
   // Claude 데이터센터 주기 갱신 (1분마다 — 첫 실행은 15초 딜레이)
   setTimeout(() => {
     contextModule.updateClaudeSummary(app);
-    setInterval(() => contextModule.updateClaudeSummary(app), 60000);
+    setInterval(() => contextModule.updateClaudeSummary(app), 300000);  // 5분마다 DC 갱신 + 서머리 파일
   }, 15000);
 
   // 매크로 데이터 수집
@@ -720,10 +720,14 @@ server = app.listen(PORT, () => {
   setInterval(() => {
     macro.fetchAllMacro().catch(e => console.error(`[매크로] 수집 실패: ${e.message}`));
     const kstHour = new Date(Date.now() + 9 * 3600000).getUTCHours();
+    const kstMin = new Date(Date.now() + 9 * 3600000).getUTCMinutes();
     if (kstHour === 6) {
       macro.verifyClosingPrices().catch(e => console.error(`[매크로] 종가 검증 실패: ${e.message}`));
+      // KST 06:10 — 일별 히스토리 저장 (365일 FIFO)
+      if (kstMin >= 10 && kstMin < 40) {
+        macro.saveDailyHistory();
+      }
     }
-    if (kstHour === 3) macro.cleanOldDaily();
   }, 1800000);
 
   // 예측 피드백 루프

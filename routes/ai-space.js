@@ -713,36 +713,33 @@ function createAiRoutes(aiName) {
             // 워치리스트 매칭 + 사용자 키워드 합산
             const mentionedCompanies = [...new Set([...watchMatches, ...userKeywords])];
 
-            // 한투 수집 주가 요약 (hantoo_summary.json 파일 읽기 — 모듈 의존 없음)
+            // 한투 데이터 — DC(claudeDataCenter)에서 읽기
+            // DC 경로: /api/claude/summary (전체) 또는 ?section=prices/macro 등 개별 조회
             try {
-                const summaryPath = path.join(DATA_DIR, 'hantoo_summary.json');
-                if (fs.existsSync(summaryPath)) {
-                    const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf-8'));
-                    // 지수 정보
-                    if (summary.index) {
-                        const idx = summary.index;
-                        if (idx.kospi) serverContext += `\nKOSPI: ${idx.kospi.price || '?'} (${idx.kospi.changePct || '?'}%)`;
-                        if (idx.kosdaq) serverContext += ` / KOSDAQ: ${idx.kosdaq.price || '?'} (${idx.kosdaq.changePct || '?'}%)`;
-                        serverContext += '\n';
+                const dc = req.app.locals.claudeDataCenter || {};
+
+                // 지수 정보 (KOSPI / KOSDAQ)
+                if (dc.index) {
+                    const idx = dc.index;
+                    if (idx.kospi) serverContext += `\nKOSPI: ${idx.kospi.price || '?'} (${idx.kospi.changePct || '?'}%)`;
+                    if (idx.kosdaq) serverContext += ` / KOSDAQ: ${idx.kosdaq.price || '?'} (${idx.kosdaq.changePct || '?'}%)`;
+                    serverContext += '\n';
+                }
+                // 투자자 동향
+                if (dc.investor) {
+                    const inv = dc.investor;
+                    serverContext += `[투자자·KOSPI] 외인 ${inv.foreign > 0 ? '+' : ''}${inv.foreign}억 / 기관 ${inv.institution > 0 ? '+' : ''}${inv.institution}억 (${inv.date})\n`;
+                    if (inv.kosdaq) {
+                        serverContext += `[투자자·KOSDAQ] 외인 ${inv.kosdaq.foreign > 0 ? '+' : ''}${inv.kosdaq.foreign}억 / 기관 ${inv.kosdaq.institution > 0 ? '+' : ''}${inv.kosdaq.institution}억\n`;
                     }
-                    // 투자자 동향
-                    if (summary.investor) {
-                        const inv = summary.investor;
-                        serverContext += `[투자자·KOSPI] 외인 ${inv.foreign > 0 ? '+' : ''}${inv.foreign}억 / 기관 ${inv.institution > 0 ? '+' : ''}${inv.institution}억 (${inv.date})\n`;
-                        // KOSDAQ 투자자 동향 (있을 때만)
-                        if (inv.kosdaq) {
-                            serverContext += `[투자자·KOSDAQ] 외인 ${inv.kosdaq.foreign > 0 ? '+' : ''}${inv.kosdaq.foreign}억 / 기관 ${inv.kosdaq.institution > 0 ? '+' : ''}${inv.kosdaq.institution}억\n`;
-                        }
-                    }
-                    // 종목별 가격 요약
-                    if (summary.stocks && summary.stocks.length > 0) {
-                        const priceList = summary.stocks.map(s => {
-                            let line = `${s.name}(${s.code}): ${s.price || '?'}원 ${s.change || ''}%`;
-                            if (s.foreignNet) line += ` 외인:${s.foreignNet > 0 ? '+' : ''}${s.foreignNet}주`;
-                            return line;
-                        }).join('\n');
-                        serverContext += `\n[워치리스트 주가 (${summary.stocks.length}종목)]\n${priceList}\n`;
-                    }
+                }
+                // 종목별 가격 요약
+                if (dc.prices && dc.prices.length > 0) {
+                    const priceList = dc.prices.map(s => {
+                        let line = `${s.name}(${s.code}): ${s.price || '?'}원 ${s.changePct || ''}%`;
+                        return line;
+                    }).join('\n');
+                    serverContext += `\n[워치리스트 주가 (${dc.prices.length}종목)]\n${priceList}\n`;
                 }
             } catch (e) { }
 
@@ -773,24 +770,17 @@ function createAiRoutes(aiName) {
                 }
             } catch (e) { }
 
-            // ── 1) DART 공시 로드 + 필터 ──
+            // ── 공시/뉴스/매크로/리포트 — DC(claudeDataCenter)에서 읽기 ──
+            // TODO [방식A]: DC에 챗봇 엔드테이블이 완성되면 이 섹션 전체 삭제
+            // 현재는 DC에서 읽어서 프롬프트에 직접 주입 (방식B — 과도기)
+            // DC 갱신: context.js updateClaudeSummary() (1분마다)
             try {
-                const dartFiles = fs.readdirSync(DATA_DIR)
-                    .filter(f => f.startsWith('dart_') && f.endsWith('.json'))
-                    .sort().reverse().slice(0, 5);
+                const dc = req.app.locals.claudeDataCenter || {};
 
-                let disclosures = [];
-                for (const df of dartFiles) {
-                    try {
-                        const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, df), 'utf-8'));
-                        const items = data.list || data.items || (Array.isArray(data) ? data : []);
-                        disclosures.push(...items);
-                    } catch (e) { }
-                }
-
+                // 1) DART 공시 — DC에서 읽기
+                const disclosures = dc.disclosures || [];
                 if (disclosures.length > 0) {
                     if (mentionedCompanies.length > 0) {
-                        // 질문에 언급된 기업 공시만 필터
                         const filtered = disclosures.filter(d =>
                             mentionedCompanies.some(n => d.corp_name?.includes(n) || n.includes(d.corp_name))
                         );
@@ -801,42 +791,29 @@ function createAiRoutes(aiName) {
                             serverContext += `\n[${mentionedCompanies.join(',')} 관련 공시 (${filtered.length}건)]\n${summary}\n`;
                         }
                     } else {
-                        // 기업 지정 없으면 최신 30건 요약
                         const summary = disclosures.slice(0, 30).map(d =>
                             `${d.corp_name || '?'}: ${d.report_nm || '?'} (${d.rcept_dt || '?'})`
                         ).join('\n');
                         serverContext += `\n[DART 공시 최신 30건 (전체 ${disclosures.length}건)]\n${summary}\n`;
                     }
                 }
-            } catch (e) { }
 
-            // ── 2) 뉴스 로드 + 필터 ──
-            try {
-                let allNews = req.app.locals.storedNews || [];
-                if (allNews.length === 0) {
-                    try {
-                        const newsFile = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'news.json'), 'utf-8'));
-                        allNews = Array.isArray(newsFile) ? newsFile : (newsFile.items || newsFile.news || []);
-                    } catch (e) { }
-                }
-
+                // 2) 뉴스 — DC에서 읽기
+                const allNews = dc.news || [];
                 if (allNews.length > 0) {
                     if (mentionedCompanies.length > 0) {
-                        // 질문에 언급된 기업 뉴스만 필터
                         const filtered = allNews.filter(n =>
                             mentionedCompanies.some(name =>
-                                (n.title || '').includes(name) || (n.content || '').includes(name)
+                                (n.title || '').includes(name) || (n.summary || '').includes(name)
                             )
                         );
                         if (filtered.length > 0) {
-                            const sorted = filtered.sort((a, b) => (b.date || b.pubDate || '').localeCompare(a.date || a.pubDate || ''));
-                            const summary = sorted.slice(0, 50).map(n =>
-                                `${n.title || '?'} (${n.source || '?'}, ${n.date || n.pubDate || '?'})`
+                            const summary = filtered.slice(0, 50).map(n =>
+                                `${n.title || '?'} (${n.source || '?'}, ${n.date || '?'})`
                             ).join('\n');
-                            serverContext += `\n[${mentionedCompanies.join(',')} 관련 뉴스 (${filtered.length}건 중 최신 50건)]\n${summary}\n`;
+                            serverContext += `\n[${mentionedCompanies.join(',')} 관련 뉴스 (${filtered.length}건)]\n${summary}\n`;
                         }
                     } else {
-                        // 기업 지정 없으면 최신 30건
                         const recent = allNews.slice(-30).reverse();
                         const summary = recent.map(n =>
                             `${n.title || '?'} (${n.source || '?'})`
@@ -844,48 +821,35 @@ function createAiRoutes(aiName) {
                         serverContext += `\n[최신 뉴스 30건 (전체 ${allNews.length}건)]\n${summary}\n`;
                     }
                 }
-            } catch (e) { }
 
-            // ── 3) 매크로 지표 (항상 포함) ──
-            try {
-                const macro = req.app.locals.macro;
-                if (macro && macro.getCurrent) {
-                    const current = macro.getCurrent();
-                    if (current) {
-                        let ms = '';
-                        if (current.vix) ms += `VIX: ${current.vix.price || '?'}\n`;
-                        if (current.fear) ms += `공포탐욕: ${current.fear.price || current.fear.value || '?'}\n`;
-                        if (current.usdkrw) ms += `USD/KRW: ${current.usdkrw.price || '?'}\n`;
-                        if (current.us10y) ms += `미국10년물금리: ${current.us10y.price || '?'}%\n`;
-                        if (ms) serverContext += `\n[매크로 지표]\n${ms}`;
-                    }
+                // 3) 매크로 — DC에서 읽기
+                const macroData = dc.macro?.current;
+                if (macroData) {
+                    let ms = '';
+                    if (macroData.vix) ms += `VIX: ${macroData.vix.price || '?'}\n`;
+                    if (macroData.usdkrw) ms += `USD/KRW: ${macroData.usdkrw.price || '?'}\n`;
+                    if (macroData.us10y) ms += `미국10년물금리: ${macroData.us10y.price || '?'}%\n`;
+                    if (ms) serverContext += `\n[매크로 지표]\n${ms}`;
                 }
-            } catch (e) { }
 
-            // ── 4) 리포트 로드 + 필터 ──
-            try {
-                const reportStores = req.app.locals.reportStores || {};
-                const allReports = [];
-                Object.values(reportStores).forEach(items => allReports.push(...items));
+                // 4) 리포트 — DC에서 읽기
+                const allReports = dc.reports || [];
                 if (allReports.length > 0) {
                     if (mentionedCompanies.length > 0) {
-                        // 질문에 언급된 기업 리포트만 필터
                         const filtered = allReports.filter(r =>
                             mentionedCompanies.some(name =>
-                                (r.title || '').includes(name) || (r.corp || '').includes(name)
+                                (r.title || '').includes(name) || (r.stock || '').includes(name)
                             )
                         );
                         if (filtered.length > 0) {
-                            const sorted = filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-                            const summary = sorted.slice(0, 20).map(r =>
-                                `${r.title || '?'} (${r.source || r.broker || '?'}, ${r.date || '?'})`
+                            const summary = filtered.slice(0, 20).map(r =>
+                                `${r.title || '?'} (${r.broker || '?'}, ${r.date || '?'})`
                             ).join('\n');
                             serverContext += `\n[${mentionedCompanies.join(',')} 관련 리포트 (${filtered.length}건)]\n${summary}\n`;
                         }
                     } else {
-                        const sorted = allReports.sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 10);
-                        const summary = sorted.map(r =>
-                            `${r.title || '?'} (${r.source || r.broker || '?'})`
+                        const summary = allReports.slice(0, 10).map(r =>
+                            `${r.title || '?'} (${r.broker || '?'})`
                         ).join('\n');
                         serverContext += `\n[최신 리포트 상위 10건]\n${summary}\n`;
                     }

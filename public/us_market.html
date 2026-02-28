@@ -683,7 +683,25 @@
         `;
         cell.appendChild(header);
 
-        // 위젯 영역
+        // ── US10Y: TradingView 위젯 제한 → 백엔드 API 값 직접 표시 ──
+        if (c.id === 'us10y') {
+          const wrap = document.createElement('div');
+          wrap.className = 'widget-wrap';
+          wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;';
+          wrap.innerHTML = `
+            <div style="font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:700;color:var(--text)" id="us10yPrice">--</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:14px;" id="us10yChange">--</div>
+            <div style="font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace" id="us10yTime">Yahoo ^TNX · 30분 갱신</div>
+          `;
+          cell.appendChild(wrap);
+          grid.appendChild(cell);
+          // US10Y API 값 로드 시작
+          loadUS10Y();
+          setInterval(loadUS10Y, 30000); // 30초마다 갱신
+          return;
+        }
+
+        // 위젯 영역 (TradingView — US10Y 외 모든 심볼)
         const wrap = document.createElement('div');
         wrap.className = 'widget-wrap';
         const container = document.createElement('div');
@@ -718,6 +736,33 @@
       });
 
       updateGridLayout();
+    }
+
+    // ── US10Y 값 API에서 직접 로드 (Yahoo ^TNX — /api/macro/quote 프록시) ──
+    async function loadUS10Y() {
+      try {
+        const resp = await fetch('/api/macro/quote?symbols=%5ETNX');
+        if (!resp.ok) return;
+        const json = await resp.json();
+        const us10yRaw = json.data?.['%5ETNX'] || json.data?.['^TNX'];
+        if (!us10yRaw) return;
+        const el = document.getElementById('us10yPrice');
+        const chgEl = document.getElementById('us10yChange');
+        const timeEl = document.getElementById('us10yTime');
+        if (!el) return;
+        const price = us10yRaw.price || us10yRaw.regularMarketPrice;
+        const pct = us10yRaw.changePct || us10yRaw.regularMarketChangePercent || 0;
+        if (!price) return;
+        el.textContent = Number(price).toFixed(3) + '%';
+        const isUp = pct >= 0;
+        chgEl.textContent = `${isUp ? '▲' : '▼'} ${isUp ? '+' : ''}${Number(pct).toFixed(2)}%`;
+        chgEl.style.color = isUp ? 'var(--up)' : 'var(--down)';
+        // 갱신 시각
+        const now = new Date();
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        timeEl.textContent = `Yahoo ^TNX · ${h}:${m} 갱신`;
+      } catch (e) { /* 무시 */ }
     }
 
     // 보이는 차트 수에 따라 그리드 레이아웃 자동 조정
@@ -940,14 +985,10 @@
       statusEl.style.color = 'var(--muted)';
 
       try {
-        // 서버에 수동 수집 트리거 (이미 30분 타이머로 자동 수집 중)
-        const resp = await fetch('/api/macro/fetch', { method: 'POST' });
-        if (resp.ok) {
-          statusEl.textContent = '✅ 매크로 데이터 갱신 완료!';
-          statusEl.style.color = 'var(--up)';
-        } else {
-          throw new Error('HTTP ' + resp.status);
-        }
+        // 수동 수집 트리거 제거 — 30분 타이머로 자동 수집 중
+        // /api/macro/fetch 호출은 중복 크롤링이므로 삭제됨
+        statusEl.textContent = '✅ 매크로 데이터는 30분마다 자동 갱신됩니다';
+        statusEl.style.color = 'var(--up)';
       } catch (e) {
         // 폴백: /api/overseas 시도
         try {
@@ -1013,9 +1054,9 @@
     updateClock();
     setInterval(updateClock, 1000);
   </script>
-<script>
+  <script>
     window.geminiChatContext = { page: 'us_market', role: '미국 시장 분석', description: '미국 주식시장 동향과 한국 시장 영향을 분석하는 역할' };
-    </script>
+  </script>
 </body>
 
 </html>

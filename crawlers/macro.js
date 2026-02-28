@@ -90,16 +90,10 @@ const YAHOO_SYMBOLS = {
     vix: { symbol: '^VIX', name: 'VIX 공포지수', category: 'index' },
     sp500: { symbol: '^GSPC', name: 'S&P 500', category: 'index' },
     nasdaq: { symbol: '^IXIC', name: 'NASDAQ', category: 'index' },
-    dow: { symbol: '^DJI', name: '다우존스', category: 'index' },
     dxy: { symbol: 'DX-Y.NYB', name: '달러 인덱스(DXY)', category: 'index' },
-    // ── 선물 (G3: 미국 선물 야간) ──
-    nasdaqFuture: { symbol: 'NQ=F', name: '나스닥100 선물', category: 'futures' },
-    sp500Future: { symbol: 'ES=F', name: 'S&P500 선물', category: 'futures' },
-    dowFuture: { symbol: 'YM=F', name: '다우 선물', category: 'futures' },
-    // ── 채권 (⭐ 외인 유출입 핵심) ──
+    // ── 채권 ──
     us10y: { symbol: '^TNX', name: '미국 10년물 금리', category: 'bond' },
     // ── 반도체 장비 (⭐ 포트폴리오 직결) ──
-    // 한미반도체·테크윙 선행지표
     lrcx: { symbol: 'LRCX', name: '램리서치', category: 'semi_equip' },
     klac: { symbol: 'KLAC', name: 'KLA Corp', category: 'semi_equip' },
     // ── AI/서버 테마 ──
@@ -111,8 +105,7 @@ const YAHOO_SYMBOLS = {
     mu: { symbol: 'MU', name: '마이크론', category: 'ai_semi' },
     avgo: { symbol: 'AVGO', name: '브로드컴', category: 'ai_semi' },
     // ── 원자재 ──
-    gold: { symbol: 'GC=F', name: '금 선물', category: 'commodity' },
-    oil: { symbol: 'CL=F', name: 'WTI 원유', category: 'commodity' }
+    gold: { symbol: 'GC=F', name: '금 선물', category: 'commodity' }
 };
 
 /**
@@ -275,20 +268,11 @@ async function fetchAllMacro() {
             vix: yahooData.vix || null,
             usdkrw: usdkrw,
 
-            // 미국 지수
+            // 미국 지수 (sox는 최상위에 저장 — 중복 방지)
             indices: {
                 sp500: yahooData.sp500 || null,
                 nasdaq: yahooData.nasdaq || null,
-                dow: yahooData.dow || null,
-                sox: yahooData.sox || null,
                 dxy: yahooData.dxy || null
-            },
-
-            // 선물
-            futures: {
-                nasdaq: yahooData.nasdaqFuture || null,
-                sp500: yahooData.sp500Future || null,
-                dow: yahooData.dowFuture || null
             },
 
             // ⭐ 반도체 장비 (포트폴리오 직결 — 한미반도체·테크윙 선행지표)
@@ -311,10 +295,8 @@ async function fetchAllMacro() {
                 avgo: yahooData.avgo || null
             },
 
-            // 기타
-            vixDetail: yahooData.vix || null,
+            // 기타 (vixDetail 삭제 — vix와 중복)
             gold: yahooData.gold || null,
-            oil: yahooData.oil || null,
             us10y: yahooData.us10y || null,
 
             // 데이터 상태: 장중 수집은 preliminary, 마감 후는 confirmed
@@ -332,8 +314,7 @@ async function fetchAllMacro() {
         // 5. 급변 감지 (±2% 이상)
         checkAndAlertChanges(prevMacro, currentMacro);
 
-        // 6. 일별 히스토리 갱신
-        saveDailySnapshot();
+        // 6. 일별 히스토리는 KST 06:10에만 저장 (saveDailyHistory)
 
         const symbols = Object.keys(yahooData).filter(k => !yahooData[k]?.error).length;
         console.log(`[매크로] 수집 완료: ${symbols}개 심볼 (${currentMacro.fetchDuration})`);
@@ -407,61 +388,55 @@ function checkAndAlertChanges(prev, curr) {
 }
 
 // ============================================================
-// 일별 스냅샷 저장
+// 일별 히스토리 저장 (KST 06:10에 1회만 호출)
 // ============================================================
-function saveDailySnapshot() {
+// 목적: 매일 확정 종가를 히스토리에 기록 (365일 FIFO)
+// 파일: macro/history.json — 단일 파일에 날짜별 1건씩
+// 항목: 유저 지정 16개만 (dow, oil, 선물 제외)
+// ============================================================
+function saveDailyHistory() {
     const today = getKSTDate();
-    const fp = path.join(DAILY_DIR, `${today}.json`);
+    const fp = path.join(MACRO_DIR, 'history.json');
 
-    // 기존 데이터 로드 (하루에 여러번 수집 → 누적)
-    const existing = loadJSON(fp, { date: today, snapshots: [] });
+    // 기존 히스토리 로드
+    const history = loadJSON(fp, []);
 
-    existing.snapshots.push({
-        time: new Date().toISOString(),
-        sox: currentMacro.sox?.price || null,
-        vix: currentMacro.vix?.price || null,
-        usdkrw: currentMacro.usdkrw?.price || null,
+    // 같은 날짜가 이미 있으면 덮어쓰기
+    const existingIdx = history.findIndex(h => h.date === today);
+    const entry = {
+        date: today,
+        // 유저 지정 16개 항목
         sp500: currentMacro.indices?.sp500?.price || null,
         nasdaq: currentMacro.indices?.nasdaq?.price || null,
-        dow: currentMacro.indices?.dow?.price || null,
-        dxy: currentMacro.indices?.dxy?.price || null,
-        nasdaqFut: currentMacro.futures?.nasdaq?.price || null,
-        sp500Fut: currentMacro.futures?.sp500?.price || null,
+        sox: currentMacro.sox?.price || null,
         us10y: currentMacro.us10y?.price || null,
+        dxy: currentMacro.indices?.dxy?.price || null,
+        vix: currentMacro.vix?.price || null,
+        nvda: currentMacro.aiSemi?.nvda?.price || null,
+        amd: currentMacro.aiSemi?.amd?.price || null,
+        mu: currentMacro.aiSemi?.mu?.price || null,
         lrcx: currentMacro.semiEquip?.lrcx?.price || null,
         klac: currentMacro.semiEquip?.klac?.price || null,
         arm: currentMacro.aiTheme?.arm?.price || null,
         smci: currentMacro.aiTheme?.smci?.price || null,
-        nvda: currentMacro.aiSemi?.nvda?.price || null,
-        amd: currentMacro.aiSemi?.amd?.price || null,
-        mu: currentMacro.aiSemi?.mu?.price || null,
         avgo: currentMacro.aiSemi?.avgo?.price || null,
-        gold: currentMacro.gold?.price || null,
-        oil: currentMacro.oil?.price || null
-    });
+        usdkrw: currentMacro.usdkrw?.price || null,
+        gold: currentMacro.gold?.price || null
+    };
 
-    // 하루 최대 100개 스냅샷
-    if (existing.snapshots.length > 100) {
-        existing.snapshots = existing.snapshots.slice(-100);
+    if (existingIdx >= 0) {
+        history[existingIdx] = entry;
+    } else {
+        history.push(entry);
     }
 
-    saveJSON(fp, existing);
-}
+    // 365일 FIFO — 1년 초과 시 가장 오래된 것 삭제
+    while (history.length > 365) {
+        history.shift();
+    }
 
-// ============================================================
-// 오래된 daily 파일 정리 (30일 초과 삭제)
-// ============================================================
-function cleanOldDaily() {
-    try {
-        const files = fs.readdirSync(DAILY_DIR).filter(f => f.endsWith('.json')).sort();
-        if (files.length > 30) {
-            const toDelete = files.slice(0, files.length - 30);
-            for (const f of toDelete) {
-                fs.unlinkSync(path.join(DAILY_DIR, f));
-            }
-            console.log(`[매크로] 오래된 daily 데이터 ${toDelete.length}건 삭제`);
-        }
-    } catch (e) { /* skip */ }
+    saveJSON(fp, history);
+    console.log(`[매크로] 일별 히스토리 저장: ${today} (총 ${history.length}일)`);
 }
 
 // ============================================================
@@ -529,20 +504,6 @@ function getMarketImpactSummary() {
                 affectedSectors: pct > 0 ? ['자동차', '조선'] : ['내수']
             });
             // 원화 약세는 수출기업에 호재이나 외국인 매도에 악재 → 중립적
-        }
-    }
-
-    // 나스닥 선물 → 다음날 코스피 방향
-    if (currentMacro.futures?.nasdaq?.changePct) {
-        const pct = currentMacro.futures.nasdaq.changePct;
-        if (Math.abs(pct) > 0.5) {
-            impact.signals.push({
-                indicator: '나스닥선물',
-                value: `${pct > 0 ? '+' : ''}${pct}%`,
-                impact: pct > 0 ? '내일 코스피 상승 시그널' : '내일 코스피 하락 우려',
-                affectedSectors: ['전체', 'IT', '반도체']
-            });
-            if (pct > 0) bullCount++; else bearCount++;
         }
     }
 
@@ -704,24 +665,18 @@ async function verifyClosingPrices() {
         currentMacro.dataStatus = 'confirmed';
         currentMacro.sox = yahooData.sox || currentMacro.sox;
         currentMacro.vix = yahooData.vix || currentMacro.vix;
+        // indices에서 sox/dow 제거 + dxy 누락 수정
         currentMacro.indices = {
             sp500: yahooData.sp500 || currentMacro.indices?.sp500,
             nasdaq: yahooData.nasdaq || currentMacro.indices?.nasdaq,
-            dow: yahooData.dow || currentMacro.indices?.dow,
-            sox: yahooData.sox || currentMacro.indices?.sox
-        };
-        currentMacro.futures = {
-            nasdaq: yahooData.nasdaqFuture || currentMacro.futures?.nasdaq,
-            sp500: yahooData.sp500Future || currentMacro.futures?.sp500,
-            dow: yahooData.dowFuture || currentMacro.futures?.dow
+            dxy: yahooData.dxy || currentMacro.indices?.dxy
         };
         currentMacro.usdkrw = usdkrw || currentMacro.usdkrw;
         currentMacro.updatedAt = new Date().toISOString();
         currentMacro.closingVerifiedAt = new Date().toISOString();
         saveJSON(path.join(MACRO_DIR, 'current.json'), currentMacro);
 
-        // daily에도 confirmed 스냅샷 추가
-        saveDailySnapshot();
+        // 일별 히스토리는 별도 타이머 (KST 06:10)에서 저장
 
         if (corrections.length > 0) {
             console.log(`[매크로] ⚠️ 확정 종가 교정 ${corrections.length}건:`);
@@ -756,7 +711,8 @@ module.exports = {
     getCurrent,
     getAlerts,
     getMarketImpactSummary,
-    cleanOldDaily,
+    cleanOldDaily: () => { },  // 하위호환 — 더 이상 사용하지 않음
+    saveDailyHistory,         // KST 06:10 일별 히스토리 저장
     MACRO_DIR,
     DAILY_DIR
 };
