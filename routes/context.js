@@ -1118,7 +1118,7 @@ function updateClaudeSummary(app) {
                     _aiSummary: d._aiSummary || ''
                 }));
         } catch (e) {
-            // dart 파일 읽기 실패 — 무시
+            console.warn(`[Claude/DC] dart 파일 읽기 실패: ${e.message}`);
         }
 
         // 메타 정보
@@ -1184,7 +1184,7 @@ function updateClaudeSummary(app) {
         }
 
         const sizeKB = Math.round(JSON.stringify(dc).length / 1024);
-        console.log(`[Claude/DC] 갱신: ${dc.prices.length}종목 ${(dc.news || []).length}뉴스 ${(dc.reports || []).length}리포트 (${sizeKB}KB)`);
+        console.log(`[Claude/DC] 갱신: ${dc.prices.length}종목 ${(dc.news || []).length}뉴스 ${(dc.reports || []).length}리포트 ${(dc.disclosures || []).length}공시 (${sizeKB}KB)`);
     } catch (e) {
         console.error(`[Claude/DC] 갱신 실패: ${e.message}`);
         console.error(`[Claude/DC] 스택:`, e.stack);
