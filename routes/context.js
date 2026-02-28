@@ -1061,40 +1061,38 @@ function updateClaudeSummary(app) {
                 .slice(0, DC_REPORT_CAP);
         }
 
-        // ── 공시 데이터: 오늘 전부 + 최소 20건 유지 (이전 날짜 폴백) ──
+        // ── 공시 데이터: 오늘 것만 + 없으면 최신 날짜 1개만 폴백 ──
         const kstNow = new Date(new Date().getTime() + 9 * 3600000);
         const yyyymmdd = kstNow.getUTCFullYear().toString() +
             String(kstNow.getUTCMonth() + 1).padStart(2, '0') +
             String(kstNow.getUTCDate()).padStart(2, '0');
         const dartDir = path.join(config.DATA_DIR);
-        const MIN_DISCLOSURES = 30;
         try {
-            // 모든 dart 파일을 날짜 역순으로 정렬
             const allDartFiles = fs.readdirSync(dartDir)
                 .filter(f => f.startsWith('dart_') && f.endsWith('.json'))
-                .sort().reverse();  // 최신 날짜부터
+                .sort().reverse();  // 최신부터
+
+            // 오늘 파일만 필터
+            const todayFiles = allDartFiles.filter(f => f.startsWith(`dart_${yyyymmdd}`));
+            let filesToRead = todayFiles;
+
+            // 오늘 없으면 → 가장 최근 날짜 파일만 (최소한의 폴백)
+            if (filesToRead.length === 0 && allDartFiles.length > 0) {
+                const latestDate = allDartFiles[0].match(/dart_(\d{8})/)?.[1];
+                if (latestDate) {
+                    filesToRead = allDartFiles.filter(f => f.startsWith(`dart_${latestDate}`));
+                }
+            }
 
             let allDisclosures = [];
-            let todayCount = 0;
-
-            for (const f of allDartFiles) {
+            for (const f of filesToRead) {
                 try {
                     const data = JSON.parse(fs.readFileSync(path.join(dartDir, f), 'utf-8'));
                     if (data.list && Array.isArray(data.list)) {
-                        const isToday = f.startsWith(`dart_${yyyymmdd}`);
-                        if (isToday) {
-                            // 오늘 공시: 전부 추가
-                            allDisclosures.push(...data.list);
-                            todayCount += data.list.length;
-                        } else if (allDisclosures.length < MIN_DISCLOSURES) {
-                            // 이전 날짜: 20건 채울 때까지만
-                            const need = MIN_DISCLOSURES - allDisclosures.length;
-                            allDisclosures.push(...data.list.slice(0, need));
-                        }
+                        allDisclosures.push(...data.list);
                     }
                 } catch (e) { /* 손상된 파일 무시 */ }
-                // 오늘 다 읽고 20건 이상이면 중단
-                if (allDisclosures.length >= MIN_DISCLOSURES && todayCount > 0) break;
+                if (allDisclosures.length >= 30) break;  // 30건이면 충분
             }
 
             // 중복 제거 (rcept_no 기준) + 캡 적용
@@ -1135,53 +1133,7 @@ function updateClaudeSummary(app) {
         // 하위 호환: claudeSummary도 동일 참조
         app.locals.claudeSummary = dc;
 
-        // ── 서머리 파일 생성 (DC→서머리 구조) ──
-        // DC에 모인 데이터에서 요약을 추출하여 hantoo_summary.json 저장
-        // Claude 진입점: 서머리(개요) → 부족하면 DC(상세)
-        try {
-            const macroData = dc.macro?.current || {};
-            const summary = {
-                updatedAt: dc.timestamp,
-                // 지수
-                index: dc.index || null,
-                // 투자자 동향
-                investor: dc.investor || null,
-                // 전체 종목 가격 요약
-                stocks: (dc.prices || []).map(s => ({
-                    name: s.name, code: s.code, sector: s.sector || '',
-                    price: s.price, change: s.change, changePct: s.changePct || null,
-                    volume: s.volume
-                })),
-                stockCount: (dc.prices || []).length,
-                // 매크로 16개 요약 (getCurrent() 중첩 구조에 맞춤)
-                macro: {
-                    sp500: macroData.indices?.sp500?.price || null,
-                    nasdaq: macroData.indices?.nasdaq?.price || null,
-                    dxy: macroData.indices?.dxy?.price || null,
-                    sox: macroData.sox?.price || null,
-                    us10y: macroData.us10y?.price || null,
-                    vix: macroData.vix?.price || null,
-                    nvda: macroData.aiSemi?.nvda?.price || null,
-                    amd: macroData.aiSemi?.amd?.price || null,
-                    mu: macroData.aiSemi?.mu?.price || null,
-                    avgo: macroData.aiSemi?.avgo?.price || null,
-                    lrcx: macroData.semiEquip?.lrcx?.price || null,
-                    klac: macroData.semiEquip?.klac?.price || null,
-                    arm: macroData.aiTheme?.arm?.price || null,
-                    smci: macroData.aiTheme?.smci?.price || null,
-                    usdkrw: macroData.usdkrw?.price || null,
-                    gold: macroData.gold?.price || null
-                },
-                // 공시 (최신 날짜 전부 + 30건 미만이면 이전 날짜 보충)
-                disclosures: (dc.disclosures || []).map(d => ({
-                    corp_name: d.corp_name, report_nm: d.report_nm,
-                    rcept_dt: d.rcept_dt, _aiCls: d._aiCls || '', _aiSummary: d._aiSummary || ''
-                }))
-            };
-            saveJSON('hantoo_summary.json', summary);
-        } catch (e) {
-            console.warn(`[Claude/DC] 서머리 파일 생성 실패: ${e.message}`);
-        }
+
 
         const sizeKB = Math.round(JSON.stringify(dc).length / 1024);
         console.log(`[Claude/DC] 갱신: ${dc.prices.length}종목 ${(dc.news || []).length}뉴스 ${(dc.reports || []).length}리포트 ${(dc.disclosures || []).length}공시 (${sizeKB}KB)`);

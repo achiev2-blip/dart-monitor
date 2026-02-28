@@ -239,29 +239,7 @@ function cleanOldData() {
     console.log(`[보존규칙] 뉴스AI캐시 ${naRemoved}건 삭제 (30일 경과), 잔여 ${Object.keys(newsAiCache).length}건`);
   }
 
-  // 5. dart_*.json — 7일 이상 된 DART 캐시 파일 삭제
-  const dartCutoff = new Date(kst);
-  dartCutoff.setDate(dartCutoff.getDate() - 7);
-  const dartCutoffStr = dartCutoff.getUTCFullYear().toString() +
-    String(dartCutoff.getUTCMonth() + 1).padStart(2, '0') +
-    String(dartCutoff.getUTCDate()).padStart(2, '0');
-  try {
-    const files = fs.readdirSync(config.DATA_DIR).filter(f => f.startsWith('dart_') && f.endsWith('.json'));
-    let dartRemoved = 0;
-    for (const f of files) {
-      const match = f.match(/dart_(\d{8})_/);
-      if (match && match[1] < dartCutoffStr) {
-        fs.unlinkSync(path.join(config.DATA_DIR, f));
-        dartRemoved++;
-      }
-    }
-    if (dartRemoved > 0) {
-      totalCleaned += dartRemoved;
-      console.log(`[보존규칙] DART캐시 ${dartRemoved}파일 삭제 (7일 경과)`);
-    }
-  } catch (e) {
-    console.warn(`[보존규칙] DART 정리 실패: ${e.message}`);
-  }
+  // 5. dart_*.json — dart-scheduler.js로 분리됨
 
   // 6. 소스별 리포트 — 30일 보존 (companies/{code}/reports.json이 장기 보관)
   const reportCutoff = new Date(kst);
@@ -340,13 +318,9 @@ gemini.init({
 });
 
 // ============================================================
-// KEY2 공시 분석기 초기화 (독립 모듈)
+// DART 스케줄러 (공시 분석 + DC 갱신 + 보존규칙 — 분리 모듈)
 // ============================================================
-const dartAnalyzer = require('./services/dart-analyzer');
-dartAnalyzer.init({
-  geminiKeyNews: config.GEMINI_KEY_NEWS || process.env.GEMINI_KEY_NEWS,
-  intervalMs: 600000  // 10분 간격
-});
+const dartScheduler = require('./services/dart-scheduler');
 // ============================================================
 // Gemini API (프록시)
 // ============================================================
@@ -760,11 +734,8 @@ server = app.listen(PORT, () => {
     console.error(`  ❌ Context 자동 등록 실패: ${e.message}`);
   }
 
-  // Claude 데이터센터 주기 갱신 (1분마다 — 첫 실행은 15초 딜레이)
-  setTimeout(() => {
-    contextModule.updateClaudeSummary(app);
-    setInterval(() => contextModule.updateClaudeSummary(app), 300000);  // 5분마다 DC 갱신 + 서머리 파일
-  }, 15000);
+  // DART 스케줄러 시작 (공시분석 + DC 갱신 + 보존규칙)
+  dartScheduler.start(app, contextModule);
 
   // 뉴스 자동 수집 (10분)
   console.log('  📰 뉴스 자동 수집 타이머 시작 (10분 간격)');
