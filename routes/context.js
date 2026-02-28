@@ -1107,7 +1107,7 @@ function updateClaudeSummary(app) {
             String(kstNow.getUTCMonth() + 1).padStart(2, '0') +
             String(kstNow.getUTCDate()).padStart(2, '0');
         const dartDir = path.join(config.DATA_DIR);
-        const MIN_DISCLOSURES = 20;
+        const MIN_DISCLOSURES = 30;
         try {
             // 모든 dart 파일을 날짜 역순으로 정렬
             const allDartFiles = fs.readdirSync(dartDir)
@@ -1212,8 +1212,8 @@ function updateClaudeSummary(app) {
                     usdkrw: macroData.usdkrw?.price || null,
                     gold: macroData.gold?.price || null
                 },
-                // 공시 요약 (최신 20건)
-                disclosures: (dc.disclosures || []).slice(0, 20).map(d => ({
+                // 공시 (최신 날짜 전부 + 30건 미만이면 이전 날짜 보충)
+                disclosures: (dc.disclosures || []).map(d => ({
                     corp_name: d.corp_name, report_nm: d.report_nm,
                     rcept_dt: d.rcept_dt, _aiCls: d._aiCls || '', _aiSummary: d._aiSummary || ''
                 }))
