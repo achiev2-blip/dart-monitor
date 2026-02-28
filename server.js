@@ -95,6 +95,49 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ============================================================
+// 메모리 모니터링 (1분마다 기록, 최대 60건 = 1시간)
+// ============================================================
+const memHistory = [];
+function recordMemory() {
+  const mem = process.memoryUsage();
+  const dc = app.locals.claudeDataCenter || {};
+  const entry = {
+    time: new Date(Date.now() + 9 * 3600000).toISOString().slice(11, 19),  // HH:MM:SS KST
+    rss: Math.round(mem.rss / 1024 / 1024),          // MB
+    heap: Math.round(mem.heapUsed / 1024 / 1024),     // MB
+    heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
+    external: Math.round(mem.external / 1024 / 1024),
+    dc: {
+      news: (dc.news || []).length,
+      reports: (dc.reports || []).length,
+      disclosures: (dc.disclosures || []).length,
+      prices: (dc.prices || []).length,
+      dcSize: Math.round(JSON.stringify(dc).length / 1024)  // KB
+    }
+  };
+  memHistory.push(entry);
+  if (memHistory.length > 60) memHistory.shift();
+}
+setInterval(recordMemory, 60000);
+setTimeout(recordMemory, 5000);  // 5초 후 첫 기록
+
+app.get('/api/memory', (req, res) => {
+  const mem = process.memoryUsage();
+  const dc = app.locals.claudeDataCenter || {};
+  res.json({
+    current: {
+      rss: Math.round(mem.rss / 1024 / 1024) + 'MB',
+      heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + 'MB',
+      heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + 'MB',
+      external: Math.round(mem.external / 1024 / 1024) + 'MB',
+      dcSize: Math.round(JSON.stringify(dc).length / 1024) + 'KB'
+    },
+    history: memHistory,
+    uptime: Math.round(process.uptime()) + 's'
+  });
+});
+
+// ============================================================
 // 데이터 저장소 초기화
 // ============================================================
 // storedNews는 news-dc.js가 소유 (init에서 app.locals에 주입)

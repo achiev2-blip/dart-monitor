@@ -30,10 +30,10 @@ git commit -m "변경 설명"
 git push origin master
 ```
 
-2. VM에서 pull & 재시작:
+2. VM에서 pull & 재시작 (로컬 변경 무시):
 ```powershell
 // turbo
-gcloud compute ssh instance-20260223-054504 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b -- "cd ~/dart-monitor && git pull && pm2 restart dart-monitor"
+gcloud compute ssh instance-20260223-054504 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b --command="cd ~/dart-monitor && git stash && git checkout . && git pull && pm2 restart dart-monitor"
 ```
 
 3. 헬스체크:
