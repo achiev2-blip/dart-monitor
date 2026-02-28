@@ -931,7 +931,7 @@ router.get('/claude', async (req, res) => {
             timestamp: new Date().toISOString(),
             date: yyyymmdd,
             summary: {
-                totalDisclosures: disclosures.length,
+                totalDisclosures: dcFull?.disclosures?.length || 0,
                 portfolioDisclosures: filteredDisclosures.length,
                 totalNews: storedNews.length,
                 filteredNews: filteredNews.length,

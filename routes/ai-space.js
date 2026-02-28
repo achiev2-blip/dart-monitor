@@ -154,10 +154,8 @@ function createAiRoutes(aiName) {
             read: {
                 'GET /api/claude': '한방 조회 — 뉴스+공시+리포트+가격+매크로 전부 포함 (핵심 엔드포인트)',
                 'GET /api/claude/ctx': '시장 요약 + 종목 컨텍스트 + commands',
-                'GET /api/claude/news?limit=N': '최신 뉴스 (기본 30건, 읽기 전용)',
-                'GET /api/claude/reports?limit=N': '리서치 리포트 (기본 30건, 읽기 전용)',
                 'GET /api/claude/prices': '전 종목 현재가/등락률 (읽기 전용)',
-                'GET /api/claude/summary': 'DC 서머리 (지수+종목+뉴스+리포트+공시 통합)',
+                'GET /api/claude/summary': 'DC 서머리 — 지수+종목+뉴스+리포트+공시 통합 (파일 기반)',
                 'GET /api/claude/macro': '매크로 지표 — VIX, 환율, 국채금리 등 (읽기 전용)',
                 'GET /api/claude/overseas': '미국시장 지표 (읽기 전용)',
                 'GET /api/claude/commands': '미완료 사용자 명령 목록',
