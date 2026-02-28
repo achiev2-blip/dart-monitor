@@ -9,7 +9,7 @@
 | **Zone** | `asia-northeast3-b` |
 | **인스턴스** | `instance-20260223-054504` |
 | **API 키** | `dartmonitor-2024` |
-| **프로젝트 경로** | `/home/achiev2/dart-monitor/` |
+| **프로젝트 경로** | `/home/user/dart-monitor/` |
 | **홈페이지** | `http://34.22.94.45/?api_key=dartmonitor-2024` |
 | **CTX 페이지** | `http://34.22.94.45/context.html` |
 
@@ -104,13 +104,13 @@ gcloud compute ssh instance-20260223-054504 --project=gen-lang-client-0289807056
 
 ```powershell
 # VM → 로컬 다운로드
-gcloud compute scp instance-20260223-054504:/home/achiev2/dart-monitor/routes/ai-space.js "d:\dart-monitor\dart-monitor\routes\ai-space.js" --project=gen-lang-client-0289807056 --zone=asia-northeast3-b
+gcloud compute scp instance-20260223-054504:/home/user/dart-monitor/routes/ai-space.js "d:\dart-monitor\dart-monitor\routes\ai-space.js" --project=gen-lang-client-0289807056 --zone=asia-northeast3-b
 
 # 로컬 → VM 업로드
 gcloud compute scp "d:\dart-monitor\dart-monitor\파일명" instance-20260223-054504:/tmp/파일명 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b
 
 # 디렉토리 통째 (--recurse)
-gcloud compute scp --recurse instance-20260223-054504:/home/achiev2/dart-monitor/routes/ "d:\dart-monitor\dart-monitor\routes\" --project=gen-lang-client-0289807056 --zone=asia-northeast3-b
+gcloud compute scp --recurse instance-20260223-054504:/home/user/dart-monitor/routes/ "d:\dart-monitor\dart-monitor\routes\" --project=gen-lang-client-0289807056 --zone=asia-northeast3-b
 ```
 
 ---
@@ -119,10 +119,10 @@ gcloud compute scp --recurse instance-20260223-054504:/home/achiev2/dart-monitor
 
 ```powershell
 # 1. 로컬에서 파일 수정 후 SCP 업로드
-gcloud compute scp "로컬경로" instance-20260223-054504:/home/achiev2/dart-monitor/대상경로 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b
+gcloud compute scp "로컬경로" instance-20260223-054504:/home/user/dart-monitor/대상경로 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b
 
 # 2. VM에서 PM2 재시작
-gcloud compute ssh instance-20260223-054504 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b --command="cd /home/achiev2/dart-monitor && sudo pm2 restart dart-monitor"
+gcloud compute ssh instance-20260223-054504 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b --command="cd /home/user/dart-monitor && sudo pm2 restart dart-monitor"
 
 # 3. 검증
 Invoke-RestMethod "http://34.22.94.45/api/status?api_key=dartmonitor-2024"
@@ -138,7 +138,7 @@ gcloud compute scp "d:\dart-monitor\dart-monitor\patch.js" instance-20260223-054
 gcloud compute ssh instance-20260223-054504 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b --command="sudo node /tmp/patch.js"
 
 # 3. PM2 재시작
-gcloud compute ssh instance-20260223-054504 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b --command="cd /home/achiev2/dart-monitor && sudo pm2 restart dart-monitor"
+gcloud compute ssh instance-20260223-054504 --project=gen-lang-client-0289807056 --zone=asia-northeast3-b --command="cd /home/user/dart-monitor && sudo pm2 restart dart-monitor"
 ```
 
 ---
