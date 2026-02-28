@@ -460,18 +460,35 @@
     }
 
     .spinner {
-      display: inline-block;
-      width: 24px;
-      height: 24px;
-      border: 3px solid var(--border);
-      border-top-color: var(--tab-active);
-      border-radius: 50%;
-      animation: spin .8s linear infinite
+      width: 120px;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 0 auto
     }
 
-    @keyframes spin {
-      to {
-        transform: rotate(360deg)
+    .spinner::after {
+      content: '';
+      display: block;
+      width: 40%;
+      height: 100%;
+      background: var(--tab-active);
+      border-radius: 2px;
+      animation: slide 1.2s ease-in-out infinite
+    }
+
+    @keyframes slide {
+      0% {
+        transform: translateX(-100%)
+      }
+
+      50% {
+        transform: translateX(200%)
+      }
+
+      100% {
+        transform: translateX(-100%)
       }
     }
 

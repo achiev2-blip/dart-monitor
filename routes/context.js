@@ -638,7 +638,7 @@ router.get('/claude/summary', (req, res) => {
             return res.json({ ok: false, error: `알 수 없는 섹션: ${section}` });
         }
         // 이벤트 데이터는 읽으면 지움
-        if (['news', 'reports', 'disclosures'].includes(section)) {
+        if (['news', 'reports'].includes(section)) {
             const result = { ok: true, ai: 'claude', section, data: sectionData, _meta: dc._meta };
             dc[section] = [];  // 읽고 지움
             dc._meta[section + 'Count'] = 0;
@@ -664,10 +664,9 @@ router.get('/claude/summary', (req, res) => {
     const response = JSON.parse(JSON.stringify(dc));  // 딥 카피
     dc.news = [];          // 읽고 지움
     dc.reports = [];       // 읽고 지움
-    dc.disclosures = [];   // 읽고 지움
+    // dc.disclosures는 상태 데이터 — 유지
     dc._meta.newsCount = 0;
     dc._meta.reportCount = 0;
-    dc._meta.disclosureCount = 0;
     dc._meta.lastReadAt = new Date().toISOString();
     console.log(`[Claude/DC] 전체 읽기 — 이벤트 초기화`);
     res.json(response);
