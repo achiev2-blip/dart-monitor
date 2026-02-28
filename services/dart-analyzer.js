@@ -1,10 +1,10 @@
 /**
- * DART 공시 분석기 — KEY2 독립 모듈
- * 역할: 새 공시를 읽고 호재/악재/중립 분류 + 한줄 요약 생성
+ * DART 공시 수집 + 분석기 — KEY2 독립 모듈
+ * 역할: (1) DART API에서 오늘 공시 자동 수집 → dart_*.json 저장
+ *       (2) 새 공시를 읽고 호재/악재/중립 분류 + 한줄 요약 생성
  * 키: GEMINI_KEY_NEWS (공시 분석 전용)
  * 트리거: 주기적 실행 (10분마다)
- * 읽기: data/dart_*.json
- * 쓰기: data/dart_*.json (_aiCls, _aiSummary 필드 추가)
+ * 읽기/쓰기: data/dart_*.json
  */
 
 const fs = require('fs');
@@ -22,10 +22,17 @@ if (!base.endsWith('models/')) base += 'models/';
 const GEMINI_BASE = base;
 const MODEL = 'gemini-2.5-flash';
 
-// 분석 상태 추적
+// DART API 설정
+const DART_API_KEY = config.DART_API_KEY;
+const DART_API_BASE = 'https://opendart.fss.or.kr/api/list.json';
+const MAX_PAGES = 5;
+
+// 상태 추적
 let isAnalyzing = false;
 let lastAnalyzedAt = null;
+let lastCollectedAt = null;
 let totalAnalyzed = 0;
+let totalCollected = 0;
 
 /**
  * 초기화 — server.js에서 호출
@@ -63,7 +70,10 @@ async function analyzeDartFiles(apiKey) {
     isAnalyzing = true;
 
     try {
-        // 오늘 날짜의 dart 파일만 읽기
+        // [STEP 1] 오늘 공시 자동 수집 (DART API → 파일 저장)
+        await collectDartToday();
+
+        // [STEP 2] 오늘 날짜의 dart 파일만 읽기
         const today = getToday();
         const dartFiles = fs.readdirSync(DATA_DIR)
             .filter(f => f.startsWith(`dart_${today}`) && f.endsWith('.json'))
@@ -233,11 +243,65 @@ function sleep(ms) {
 /**
  * 분석 상태 조회
  */
+/**
+ * DART API에서 오늘 공시 수집 → dart_*.json 저장
+ */
+async function collectDartToday() {
+    if (!DART_API_KEY) return;
+
+    const today = getToday();
+    const kstNow = new Date(Date.now() + 9 * 3600000);
+    const kstHour = kstNow.getUTCHours();
+
+    // 영업시간 외엔 수집 안 함 (KST 08~19시만)
+    if (kstHour < 8 || kstHour >= 19) return;
+
+    let totalItems = 0;
+    let newPages = 0;
+
+    for (let p = 1; p <= MAX_PAGES; p++) {
+        try {
+            const url = `${DART_API_BASE}?crtfc_key=${DART_API_KEY}&bgn_de=${today}&end_de=${today}&page_no=${p}&page_count=100`;
+            const resp = await axios.get(url, { timeout: 15000 });
+
+            if (resp.data && resp.data.list && resp.data.list.length > 0) {
+                resp.data._fetchedAt = new Date().toISOString();
+                resp.data._collectedAt = new Date().toISOString();
+
+                // 파일에 저장
+                const fileName = `dart_${today}_p${p}.json`;
+                const filePath = path.join(DATA_DIR, fileName);
+                fs.writeFileSync(filePath, JSON.stringify(resp.data, null, 2), 'utf-8');
+
+                totalItems += resp.data.list.length;
+                newPages++;
+
+                // 마지막 페이지면 중단
+                if (resp.data.list.length < 100) break;
+            } else {
+                break; // 빈 결과 → 더 이상 페이지 없음
+            }
+        } catch (e) {
+            console.error(`[공시수집] p${p} 실패: ${e.message}`);
+            break;
+        }
+    }
+
+    if (totalItems > 0) {
+        totalCollected += totalItems;
+        lastCollectedAt = new Date().toISOString();
+        const kstStr = kstNow.toISOString().replace('T', ' ').slice(0, 19);
+        console.log(`[공시수집] ${kstStr} KST ${today} 수집완료: ${totalItems}건 ${newPages}페이지`);
+    }
+}
+
 function getStatus() {
     return {
         isAnalyzing,
         lastAnalyzedAt,
-        totalAnalyzed
+        lastCollectedAt,
+        totalAnalyzed,
+        totalCollected
     };
 }
 
