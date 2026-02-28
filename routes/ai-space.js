@@ -713,35 +713,8 @@ function createAiRoutes(aiName) {
             // 워치리스트 매칭 + 사용자 키워드 합산
             const mentionedCompanies = [...new Set([...watchMatches, ...userKeywords])];
 
-            // 한투 데이터 — DC(claudeDataCenter)에서 읽기
-            // DC 경로: /api/claude/summary (전체) 또는 ?section=prices/macro 등 개별 조회
-            try {
-                const dc = req.app.locals.claudeDataCenter || {};
-
-                // 지수 정보 (KOSPI / KOSDAQ)
-                if (dc.index) {
-                    const idx = dc.index;
-                    if (idx.kospi) serverContext += `\nKOSPI: ${idx.kospi.price || '?'} (${idx.kospi.changePct || '?'}%)`;
-                    if (idx.kosdaq) serverContext += ` / KOSDAQ: ${idx.kosdaq.price || '?'} (${idx.kosdaq.changePct || '?'}%)`;
-                    serverContext += '\n';
-                }
-                // 투자자 동향
-                if (dc.investor) {
-                    const inv = dc.investor;
-                    serverContext += `[투자자·KOSPI] 외인 ${inv.foreign > 0 ? '+' : ''}${inv.foreign}억 / 기관 ${inv.institution > 0 ? '+' : ''}${inv.institution}억 (${inv.date})\n`;
-                    if (inv.kosdaq) {
-                        serverContext += `[투자자·KOSDAQ] 외인 ${inv.kosdaq.foreign > 0 ? '+' : ''}${inv.kosdaq.foreign}억 / 기관 ${inv.kosdaq.institution > 0 ? '+' : ''}${inv.kosdaq.institution}억\n`;
-                    }
-                }
-                // 종목별 가격 요약
-                if (dc.prices && dc.prices.length > 0) {
-                    const priceList = dc.prices.map(s => {
-                        let line = `${s.name}(${s.code}): ${s.price || '?'}원 ${s.changePct || ''}%`;
-                        return line;
-                    }).join('\n');
-                    serverContext += `\n[워치리스트 주가 (${dc.prices.length}종목)]\n${priceList}\n`;
-                }
-            } catch (e) { }
+            // [제거됨] 한투 데이터(지수/투자자/종목) — DC에서 읽던 코드 삭제
+            // 추후 CTX 위치리스트에서 가져오도록 재구현 예정
 
             // 특정 종목 컨텍스트 (context 파라미터로 종목코드 전달 시)
             if (context && context.code) {
@@ -770,91 +743,8 @@ function createAiRoutes(aiName) {
                 }
             } catch (e) { }
 
-            // ── 공시/뉴스/매크로/리포트 — DC(claudeDataCenter)에서 읽기 ──
-            // TODO [방식A]: DC에 챗봇 엔드테이블이 완성되면 이 섹션 전체 삭제
-            // 현재는 DC에서 읽어서 프롬프트에 직접 주입 (방식B — 과도기)
-            // DC 갱신: context.js updateClaudeSummary() (1분마다)
-            try {
-                const dc = req.app.locals.claudeDataCenter || {};
-
-                // 1) DART 공시 — DC에서 읽기
-                const disclosures = dc.disclosures || [];
-                if (disclosures.length > 0) {
-                    if (mentionedCompanies.length > 0) {
-                        const filtered = disclosures.filter(d =>
-                            mentionedCompanies.some(n => d.corp_name?.includes(n) || n.includes(d.corp_name))
-                        );
-                        if (filtered.length > 0) {
-                            const summary = filtered.slice(0, 50).map(d =>
-                                `${d.corp_name}: ${d.report_nm || '?'} (${d.rcept_dt || '?'})${d._aiCls ? ' [' + d._aiCls + ']' : ''}`
-                            ).join('\n');
-                            serverContext += `\n[${mentionedCompanies.join(',')} 관련 공시 (${filtered.length}건)]\n${summary}\n`;
-                        }
-                    } else {
-                        const summary = disclosures.slice(0, 30).map(d =>
-                            `${d.corp_name || '?'}: ${d.report_nm || '?'} (${d.rcept_dt || '?'})`
-                        ).join('\n');
-                        serverContext += `\n[DART 공시 최신 30건 (전체 ${disclosures.length}건)]\n${summary}\n`;
-                    }
-                }
-
-                // 2) 뉴스 — DC에서 읽기
-                const allNews = dc.news || [];
-                if (allNews.length > 0) {
-                    if (mentionedCompanies.length > 0) {
-                        const filtered = allNews.filter(n =>
-                            mentionedCompanies.some(name =>
-                                (n.title || '').includes(name) || (n.summary || '').includes(name)
-                            )
-                        );
-                        if (filtered.length > 0) {
-                            const summary = filtered.slice(0, 50).map(n =>
-                                `${n.title || '?'} (${n.source || '?'}, ${n.date || '?'})`
-                            ).join('\n');
-                            serverContext += `\n[${mentionedCompanies.join(',')} 관련 뉴스 (${filtered.length}건)]\n${summary}\n`;
-                        }
-                    } else {
-                        const recent = allNews.slice(-30).reverse();
-                        const summary = recent.map(n =>
-                            `${n.title || '?'} (${n.source || '?'})`
-                        ).join('\n');
-                        serverContext += `\n[최신 뉴스 30건 (전체 ${allNews.length}건)]\n${summary}\n`;
-                    }
-                }
-
-                // 3) 매크로 — DC에서 읽기
-                const macroData = dc.macro?.current;
-                if (macroData) {
-                    let ms = '';
-                    if (macroData.vix) ms += `VIX: ${macroData.vix.price || '?'}\n`;
-                    if (macroData.usdkrw) ms += `USD/KRW: ${macroData.usdkrw.price || '?'}\n`;
-                    if (macroData.us10y) ms += `미국10년물금리: ${macroData.us10y.price || '?'}%\n`;
-                    if (ms) serverContext += `\n[매크로 지표]\n${ms}`;
-                }
-
-                // 4) 리포트 — DC에서 읽기
-                const allReports = dc.reports || [];
-                if (allReports.length > 0) {
-                    if (mentionedCompanies.length > 0) {
-                        const filtered = allReports.filter(r =>
-                            mentionedCompanies.some(name =>
-                                (r.title || '').includes(name) || (r.stock || '').includes(name)
-                            )
-                        );
-                        if (filtered.length > 0) {
-                            const summary = filtered.slice(0, 20).map(r =>
-                                `${r.title || '?'} (${r.broker || '?'}, ${r.date || '?'})`
-                            ).join('\n');
-                            serverContext += `\n[${mentionedCompanies.join(',')} 관련 리포트 (${filtered.length}건)]\n${summary}\n`;
-                        }
-                    } else {
-                        const summary = allReports.slice(0, 10).map(r =>
-                            `${r.title || '?'} (${r.broker || '?'})`
-                        ).join('\n');
-                        serverContext += `\n[최신 리포트 상위 10건]\n${summary}\n`;
-                    }
-                }
-            } catch (e) { }
+            // [제거됨] 공시/뉴스/매크로/리포트 — DC에서 읽던 코드 삭제
+            // 추후 CTX 위치리스트에서 가져오도록 재구현 예정
 
             // ── 프롬프트 조립 ──
             const systemPrompt = `너는 한국 주식시장 전문 AI 어시스턴트 "${aiName}"이다.

@@ -1173,22 +1173,22 @@ function updateClaudeSummary(app) {
                     volume: s.volume
                 })),
                 stockCount: (dc.prices || []).length,
-                // 매크로 16개 요약 (가격만)
+                // 매크로 16개 요약 (getCurrent() 중첩 구조에 맞춤)
                 macro: {
-                    sp500: macroData.sp500?.price || null,
-                    nasdaq: macroData.nasdaq?.price || null,
+                    sp500: macroData.indices?.sp500?.price || null,
+                    nasdaq: macroData.indices?.nasdaq?.price || null,
+                    dxy: macroData.indices?.dxy?.price || null,
                     sox: macroData.sox?.price || null,
                     us10y: macroData.us10y?.price || null,
-                    dxy: macroData.dxy?.price || null,
                     vix: macroData.vix?.price || null,
-                    nvda: macroData.nvda?.price || null,
-                    amd: macroData.amd?.price || null,
-                    mu: macroData.mu?.price || null,
-                    lrcx: macroData.lrcx?.price || null,
-                    klac: macroData.klac?.price || null,
-                    arm: macroData.arm?.price || null,
-                    smci: macroData.smci?.price || null,
-                    avgo: macroData.avgo?.price || null,
+                    nvda: macroData.aiSemi?.nvda?.price || null,
+                    amd: macroData.aiSemi?.amd?.price || null,
+                    mu: macroData.aiSemi?.mu?.price || null,
+                    avgo: macroData.aiSemi?.avgo?.price || null,
+                    lrcx: macroData.semiEquip?.lrcx?.price || null,
+                    klac: macroData.semiEquip?.klac?.price || null,
+                    arm: macroData.aiTheme?.arm?.price || null,
+                    smci: macroData.aiTheme?.smci?.price || null,
                     usdkrw: macroData.usdkrw?.price || null,
                     gold: macroData.gold?.price || null
                 }
