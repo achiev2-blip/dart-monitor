@@ -10,6 +10,7 @@ const companyData = require('../utils/company-data');
 const hantoo = require('../crawlers/hantoo');
 const macro = require('../crawlers/macro');         // 매크로 지표 (getCurrent, getMarketImpactSummary)
 const prediction = require('../utils/prediction'); // 예측 통계 (getStats)
+const claudeDC = require('../services/claude-dc');  // Claude 전용 캐시 (stocksDetail, archive, context)
 const router = express.Router();
 
 const DATA_DIR = config.DATA_DIR;
@@ -827,49 +828,26 @@ router.get('/claude', async (req, res) => {
             .slice(0, 20)
             .map(r => ({ title: r.title, broker: r.broker || r.source, date: r.date, opinion: r.opinion || '', targetPrice: r.targetPrice || '' }));
 
-        // 4. 컨텍스트 데이터
-        const ctxMarket = loadContext('market.json');
-        const ctxCommands = loadContext('commands.json') || [];
+        // 4. 컨텍스트 데이터 — claude-dc 캐시 사용
+        const ctxCache = claudeDC.getContextFiles();
+        const ctxMarket = ctxCache.market;
+        const ctxCommands = ctxCache.commands || [];
         const ctxStocks = getAllStockContextsFull();
 
         // 5. 해외 시장
         const overseas = loadJSON('overseas.json', { latest: null });
 
-        // 6. 아카이브 요약
-        const weeklyDir = path.join(archive.ARCHIVE_DIR, 'weekly');
-        const monthlyDir = path.join(archive.ARCHIVE_DIR, 'monthly');
-        const quarterlyDir = path.join(archive.ARCHIVE_DIR, 'quarterly');
-        const archiveWeekly = fs.existsSync(weeklyDir) ? fs.readdirSync(weeklyDir).filter(f => f.endsWith('.json')).sort().reverse().slice(0, 2).map(f => {
-            try { return JSON.parse(fs.readFileSync(path.join(weeklyDir, f), 'utf-8')); } catch (e) { return null; }
-        }).filter(Boolean) : [];
-        const archiveMonthly = fs.existsSync(monthlyDir) ? fs.readdirSync(monthlyDir).filter(f => f.endsWith('.json')).sort().reverse().slice(0, 1).map(f => {
-            try { return JSON.parse(fs.readFileSync(path.join(monthlyDir, f), 'utf-8')); } catch (e) { return null; }
-        }).filter(Boolean) : [];
-        const archiveQuarterly = fs.existsSync(quarterlyDir) ? fs.readdirSync(quarterlyDir).filter(f => f.endsWith('.json')).sort().reverse().slice(0, 1).map(f => {
-            try { return JSON.parse(fs.readFileSync(path.join(quarterlyDir, f), 'utf-8')); } catch (e) { return null; }
-        }).filter(Boolean) : [];
+        // 6. 아카이브 요약 — claude-dc 캐시 사용 (파일 읽기 0회)
+        const archiveCache = claudeDC.getArchive();
+        const archiveWeekly = archiveCache.weekly;
+        const archiveMonthly = archiveCache.monthly;
+        const archiveQuarterly = archiveCache.quarterly;
 
-        // 7. 뉴스 다이제스트
-        const newsDigestData = loadContext('news_digest.json') || { latest: null };
+        // 7. 뉴스 다이제스트 — claude-dc 캐시 사용
+        const newsDigestData = { latest: ctxCache.newsDigest };
 
-        // D1: 한투 실시간 주가 (afterHours 포함)
-        const realtimePrices = watchlist.map(s => {
-            const p = stockPrices[s.code];
-            const pd = companyData.getPrice(s.code);
-            return {
-                code: s.code,
-                name: s.name,
-                sector: s.sector || '',
-                price: p?.current?.price || p?.price || s.price || null,
-                change: p?.current?.change || p?.change || null,
-                changePct: p?.changePct || null,
-                volume: p?.current?.volume || p?.volume || null,
-                high: p?.current?.high || p?.high || null,
-                low: p?.current?.low || p?.low || null,
-                open: p?.current?.open || p?.open || null,
-                afterHours: pd.afterHours || p?.afterHours || null
-            };
-        });
+        // D1: 한투 실시간 주가 — claude-dc 캐시 사용 (파일 읽기 0회)
+        const realtimePrices = claudeDC.getRealtimePrices();
 
         // D2: 카테고리별 뉴스
         const newsCategories = {};
@@ -887,27 +865,8 @@ router.get('/claude', async (req, res) => {
             });
         });
 
-        // D3: 종목별 일봉 + 리포트
-        const stocksDetail = {};
-        watchlist.forEach(s => {
-            try {
-                const priceData = companyData.getPrice(s.code);
-                const layersData = companyData.getLayers(s.code);
-                stocksDetail[s.code] = {
-                    name: s.name,
-                    daily: (priceData.daily || []).slice(-5),  // 5일 일봉 (토큰 절약)
-                    afterHours: priceData.afterHours || null,
-                    recentReportsCount: (layersData.리포트 || []).length,
-                    recentNews: (layersData.뉴스 || []).slice(-5).map(n => ({
-                        title: n.title, cls: n.cls, category: n.category, date: n.date
-                    })),
-                    aiSummary: layersData.AI분석?.latestSummary || '',
-                    sentiment: layersData.AI분석?.sentiment || '',
-                    // 당일 인트라데이 틱 수
-                    intradayCount: companyData.getTodayIntraday(s.code).length
-                };
-            } catch (e) { }
-        });
+        // D3: 종목별 일봉 + 리포트 — claude-dc 캐시 사용 (파일 읽기 0회)
+        const stocksDetail = claudeDC.getStocksDetail();
 
         // 응답
         const pendingCmds = ctxCommands.filter(c => !c.done);

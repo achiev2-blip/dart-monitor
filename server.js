@@ -332,6 +332,7 @@ const dartDC = require('./services/dart-dc');
 const reportsDC = require('./services/reports-dc');
 const usDC = require('./services/us-dc');
 const newsDC = require('./services/news-dc');
+const claudeDC = require('./services/claude-dc');
 // ============================================================
 // Gemini API (프록시)
 // ============================================================
@@ -707,6 +708,9 @@ server = app.listen(PORT, () => {
 
   // 뉴스 전용 DC 시작 (수집 + AI분류 + DC 관리)
   newsDC.init(app);
+
+  // Claude 전용 DC 시작 (stocksDetail + archive + context 캐시)
+  claudeDC.init(app);
 
   // 매크로 데이터 수집
   console.log('  🌍 매크로 데이터 수집 시작...');
