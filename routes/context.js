@@ -517,15 +517,9 @@ router.get('/claude/market', async (req, res) => {
         const recentNews = storedNews.slice(-100).reverse();
         const filteredNews = filterByPortfolio(recentNews, ['title', 'summary', 'corp'], hantoo).slice(0, 10);
 
-        // DART 공시
-        let disclosures = [];
-        try {
-            const dartRes = await axios.get('https://opendart.fss.or.kr/api/list.json', {
-                params: { crtfc_key: DART_API_KEY, bgn_de: yyyymmdd, end_de: yyyymmdd, page_count: 100 },
-                timeout: 8000
-            });
-            disclosures = filterByPortfolio(dartRes.data?.list || [], ['corp_name', 'report_nm'], hantoo);
-        } catch (e) { console.warn(`[Claude/market] DART 실패: ${e.message}`); }
+        // DART 공시 — DC에서 읽기
+        const dc = req.app.locals.claudeDataCenter;
+        const disclosures = filterByPortfolio(dc?.disclosures || [], ['corp_name', 'report_nm'], hantoo);
 
         // 매크로 + 해외 + 컨텍스트
         const overseas = loadJSON('overseas.json', { latest: null });
@@ -746,27 +740,11 @@ router.get('/claude', async (req, res) => {
                 console.warn(`[Claude API] 컨센서스 조회 실패: ${e.message}`);
             }
 
-            // 2. 종목별 DART 공시
-            let stockDisclosures = [];
-            try {
-                const dartRes = await axios.get(
-                    'https://opendart.fss.or.kr/api/list.json',
-                    {
-                        params: {
-                            crtfc_key: DART_API_KEY,
-                            bgn_de: yyyymmdd,
-                            end_de: yyyymmdd,
-                            page_count: 100
-                        }, timeout: 8000
-                    }
-                );
-                const allDisc = dartRes.data?.list || [];
-                stockDisclosures = allDisc.filter(d =>
-                    d.corp_name === targetName || d.corp_name?.includes(targetName) || targetName.includes(d.corp_name)
-                );
-            } catch (e) {
-                console.warn(`[Claude API] DART 조회 실패: ${e.message}`);
-            }
+            // 2. 종목별 DART 공시 — DC에서 필터
+            const dcData = req.app.locals.claudeDataCenter;
+            const stockDisclosures = (dcData?.disclosures || []).filter(d =>
+                d.corp_name === targetName || d.corp_name?.includes(targetName) || targetName.includes(d.corp_name)
+            );
 
             // 3. storedNews에서도 해당 종목 뉴스 검색 (layers에 없을 수 있는 최신 뉴스)
             const recentStockNews = storedNews.filter(n => {
@@ -845,26 +823,9 @@ router.get('/claude', async (req, res) => {
         // 전체 모드 (기존): ?code 없이 호출
         // =============================================
 
-        // 1. 오늘 DART 공시
-        let disclosures = [];
-        try {
-            const dartRes = await axios.get(
-                'https://opendart.fss.or.kr/api/list.json',
-                {
-                    params: {
-                        crtfc_key: DART_API_KEY,
-                        bgn_de: yyyymmdd,
-                        end_de: yyyymmdd,
-                        page_count: 100
-                    }, timeout: 8000
-                }
-            );
-            disclosures = dartRes.data?.list || [];
-        } catch (e) {
-            console.warn(`[Claude API] DART 조회 실패: ${e.message}`);
-        }
-
-        const filteredDisclosures = filterByPortfolio(disclosures, ['corp_name', 'report_nm'], hantoo);
+        // 1. 오늘 DART 공시 — DC에서 읽기
+        const dcFull = req.app.locals.claudeDataCenter;
+        const filteredDisclosures = filterByPortfolio(dcFull?.disclosures || [], ['corp_name', 'report_nm'], hantoo);
 
         // 2. 저장된 뉴스 최근 20건
         const recentNews = storedNews.slice(-100).reverse();

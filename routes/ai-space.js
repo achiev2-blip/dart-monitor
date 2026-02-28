@@ -157,7 +157,7 @@ function createAiRoutes(aiName) {
                 'GET /api/claude/news?limit=N': '최신 뉴스 (기본 30건, 읽기 전용)',
                 'GET /api/claude/reports?limit=N': '리서치 리포트 (기본 30건, 읽기 전용)',
                 'GET /api/claude/prices': '전 종목 현재가/등락률 (읽기 전용)',
-                'GET /api/claude/dart': '최신 DART 공시 (읽기 전용)',
+                'GET /api/claude/summary': 'DC 서머리 (지수+종목+뉴스+리포트+공시 통합)',
                 'GET /api/claude/macro': '매크로 지표 — VIX, 환율, 국채금리 등 (읽기 전용)',
                 'GET /api/claude/overseas': '미국시장 지표 (읽기 전용)',
                 'GET /api/claude/commands': '미완료 사용자 명령 목록',
@@ -893,41 +893,7 @@ ${serverContext}`;
         res.json({ ok: true, ai: aiName, prices, count: prices.length });
     });
 
-    // ----------------------------------------------------------
-    // DART — 오늘 DART 공시 조회
-    // ----------------------------------------------------------
-    router.get(`/${aiName}/dart`, requirePermission('ctx', 'read'), async (req, res) => {
-        try {
-            const axios = require('axios');
-            const now = new Date();
-            const kst = new Date(now.getTime() + 9 * 3600000);
-            const yyyymmdd = kst.getUTCFullYear().toString() +
-                String(kst.getUTCMonth() + 1).padStart(2, '0') +
-                String(kst.getUTCDate()).padStart(2, '0');
-            const dartRes = await axios.get('https://opendart.fss.or.kr/api/list.json', {
-                params: {
-                    crtfc_key: config.DART_API_KEY,
-                    bgn_de: req.query.date || yyyymmdd,
-                    end_de: req.query.date || yyyymmdd,
-                    page_count: 100
-                }, timeout: 8000
-            });
-            const disclosures = dartRes.data?.list || [];
-            // 포트폴리오 관련만 필터링 (선택)
-            let filtered = disclosures;
-            if (req.query.filter === 'portfolio') {
-                const names = hantoo.getWatchlist().map(s => s.name);
-                filtered = disclosures.filter(d =>
-                    names.some(n => d.corp_name === n || d.corp_name?.includes(n) || n.includes(d.corp_name))
-                );
-            }
-            console.log(`[AI:${aiName}] DART 읽기 — 전체:${disclosures.length}건 필터:${filtered.length}건`);
-            res.json({ ok: true, ai: aiName, disclosures: filtered, total: disclosures.length, date: yyyymmdd });
-        } catch (e) {
-            console.warn(`[AI:${aiName}] DART 조회 실패: ${e.message}`);
-            res.json({ ok: true, ai: aiName, disclosures: [], error: e.message });
-        }
-    });
+    // [삭제됨] /claude/dart — DC 서머리에 공시 포함되어 중복 제거
 
     // ----------------------------------------------------------
     // MACRO — 매크로 경제 데이터 읽기

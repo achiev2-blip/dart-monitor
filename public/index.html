@@ -1335,22 +1335,35 @@
       function loadData(date) {
         if (clientPaused && !date) return;
         date = date || today();
+        var cached = loadCache(date);
+        // 캐시가 있으면 즉시 표시 (로딩 없음)
+        if (cached && cached.length > 0) {
+          allItems = cached;
+          setStatus(formatDate(date) + ' ' + cached.length + '건');
+          renderCurrent();
+          // 오늘이면 백그라운드 갱신
+          if (date === today()) {
+            fetchAll(date, function (err, items) {
+              if (!err && items && items.length > 0) {
+                allItems = items;
+                saveCache(date, items);
+                setStatus(formatDate(date) + ' ' + items.length + '건');
+                checkNewAlerts(items);
+                renderCurrent();
+              }
+            });
+          }
+          return;
+        }
+        // 캐시 없을 때만 로딩 표시
         setStatus('로딩 중...');
         showLoading();
-        var cached = loadCache(date);
-        if (cached && cached.length > 0 && date !== today()) {
-          allItems = cached;
-          setStatus(formatDate(date) + ' (캐시) ' + cached.length + '건');
-          checkNewAlerts(cached);
-          renderCurrent(); return;
-        }
         fetchAll(date, function (err, items) {
           if (err) {
             serverFailCount++;
             if (serverFailCount >= 3) { setStatus('⚠️ 서버 연결 끊김 — 폴링 중단'); stopPolling() }
             else { setStatus('오류: ' + err.message) }
-            if (cached) { allItems = cached; renderCurrent() }
-            else { showEmpty('서버 연결을 확인하세요') }
+            showEmpty('서버 연결을 확인하세요');
             return;
           }
           serverFailCount = 0;
