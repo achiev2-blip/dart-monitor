@@ -728,7 +728,11 @@ function createAiRoutes(aiName) {
                     // 투자자 동향
                     if (summary.investor) {
                         const inv = summary.investor;
-                        serverContext += `[투자자] 외인 ${inv.foreign > 0 ? '+' : ''}${inv.foreign}억 / 기관 ${inv.institution > 0 ? '+' : ''}${inv.institution}억 (${inv.date})\n`;
+                        serverContext += `[투자자·KOSPI] 외인 ${inv.foreign > 0 ? '+' : ''}${inv.foreign}억 / 기관 ${inv.institution > 0 ? '+' : ''}${inv.institution}억 (${inv.date})\n`;
+                        // KOSDAQ 투자자 동향 (있을 때만)
+                        if (inv.kosdaq) {
+                            serverContext += `[투자자·KOSDAQ] 외인 ${inv.kosdaq.foreign > 0 ? '+' : ''}${inv.kosdaq.foreign}억 / 기관 ${inv.kosdaq.institution > 0 ? '+' : ''}${inv.kosdaq.institution}억\n`;
+                        }
                     }
                     // 종목별 가격 요약
                     if (summary.stocks && summary.stocks.length > 0) {

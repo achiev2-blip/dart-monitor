@@ -260,50 +260,76 @@ async function fetchInvestorWeekly(stockCode) {
 
 // ============================================================
 // 시장 전체 외국인/기관 순매수 — 네이버 크롤링 (단위: 억원)
+// KOSPI + KOSDAQ 둘 다 수집, 기존 반환 구조 유지 (하위호환)
 // ============================================================
-async function fetchMarketInvestor() {
+
+// 네이버 투자자별 순매수 페이지 크롤링 — sosok: '01'(KOSPI), '02'(KOSDAQ)
+async function crawlInvestorPage(sosok) {
     const axios = require('axios');
     const iconv = require('iconv-lite');
 
-    try {
-        // KOSPI 투자자별 순매수 (sosok=01)
-        const url = 'https://finance.naver.com/sise/investorDealTrendDay.naver?sosok=01';
-        const r = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                'Referer': 'https://finance.naver.com/'
-            },
-            timeout: 10000,
-            responseType: 'arraybuffer'
-        });
+    const url = `https://finance.naver.com/sise/investorDealTrendDay.naver?sosok=${sosok}`;
+    const r = await axios.get(url, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+            'Referer': 'https://finance.naver.com/'
+        },
+        timeout: 10000,
+        responseType: 'arraybuffer'
+    });
 
-        const html = iconv.decode(r.data, 'euc-kr');
-        const tableMatch = html.match(/<table[^>]*summary=["']일자별 순매수[\s\S]*?<\/table>/);
-        if (!tableMatch) return null;
+    const html = iconv.decode(r.data, 'euc-kr');
+    const tableMatch = html.match(/<table[^>]*summary=["']일자별 순매수[\s\S]*?<\/table>/);
+    if (!tableMatch) return null;
 
-        const rows = tableMatch[0].match(/<tr[^>]*>[\s\S]*?<\/tr>/g);
-        if (!rows) return null;
+    const rows = tableMatch[0].match(/<tr[^>]*>[\s\S]*?<\/tr>/g);
+    if (!rows) return null;
 
-        // 첫 데이터 행 찾기 (날짜 패턴이 있는 행)
-        for (const row of rows) {
-            const cells = row.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi);
-            if (!cells) continue;
-            const texts = cells.map(c => c.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, '').replace(/,/g, '').trim());
-            // 날짜 형식: 26.02.21
-            if (/\d{2}\.\d{2}\.\d{2}/.test(texts[0])) {
-                // 열: 날짜, 개인, 외국인, 기관계, 기관, 기타법인
-                return {
-                    date: texts[0],                          // 날짜
-                    personal: parseInt(texts[1]) || 0,       // 개인 (억원)
-                    foreign: parseInt(texts[2]) || 0,         // 외국인 (억원)
-                    institution: parseInt(texts[3]) || 0,     // 기관계 (억원)
-                    finance: parseInt(texts[4]) || 0,         // 금융투자 (억원)
-                    other: parseInt(texts[5]) || 0,           // 기타법인 (억원)
-                    updatedAt: new Date().toISOString()
-                };
-            }
+    // 첫 데이터 행 찾기 (날짜 패턴이 있는 행)
+    for (const row of rows) {
+        const cells = row.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi);
+        if (!cells) continue;
+        const texts = cells.map(c => c.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, '').replace(/,/g, '').trim());
+        // 날짜 형식: 26.02.21
+        if (/\d{2}\.\d{2}\.\d{2}/.test(texts[0])) {
+            // 열: 날짜, 개인, 외국인, 기관계, 금융투자, 기타법인
+            return {
+                date: texts[0],                          // 날짜
+                personal: parseInt(texts[1]) || 0,       // 개인 (억원)
+                foreign: parseInt(texts[2]) || 0,         // 외국인 (억원)
+                institution: parseInt(texts[3]) || 0,     // 기관계 (억원)
+                finance: parseInt(texts[4]) || 0,         // 금융투자 (억원)
+                other: parseInt(texts[5]) || 0,           // 기타법인 (억원)
+            };
         }
-        return null;
+    }
+    return null;
+}
+
+// KOSPI + KOSDAQ 투자자 동향 통합 크롤링
+async function fetchMarketInvestor() {
+    try {
+        // KOSPI 크롤링 (기존과 동일)
+        const kospi = await crawlInvestorPage('01');
+        if (!kospi) return null;
+
+        // 기존 반환 구조 유지 (KOSPI 값 = 최상위 필드)
+        const result = {
+            ...kospi,
+            updatedAt: new Date().toISOString()
+        };
+
+        // KOSDAQ 크롤링 추가
+        try {
+            const kosdaq = await crawlInvestorPage('02');
+            if (kosdaq) {
+                result.kosdaq = kosdaq;
+            }
+        } catch (e) {
+            console.warn(`[한투] KOSDAQ 투자자 크롤링 실패 (KOSPI는 성공): ${e.message}`);
+        }
+
+        return result;
     } catch (e) {
         console.warn(`[한투] 시장 투자자 데이터 크롤링 실패: ${e.message}`);
         return null;
@@ -983,7 +1009,7 @@ function scheduleMarketInvestorFetch() {
             // 최대 365일 보관
             if (existing.history.length > 365) existing.history = existing.history.slice(-365);
             saveJSON('macro/market_investor.json', existing);
-            console.log(`[한투] 투자자 저장 완료: 외인 ${mktInv.foreign > 0 ? '+' : ''}${mktInv.foreign}억 / 기관 ${mktInv.institution > 0 ? '+' : ''}${mktInv.institution}억 (누적 ${existing.history.length}일)`);
+            console.log(`[한투] 투자자 저장 완료: KOSPI 외인 ${mktInv.foreign > 0 ? '+' : ''}${mktInv.foreign}억 / 기관 ${mktInv.institution > 0 ? '+' : ''}${mktInv.institution}억${mktInv.kosdaq ? ` | KOSDAQ 외인 ${mktInv.kosdaq.foreign > 0 ? '+' : ''}${mktInv.kosdaq.foreign}억 / 기관 ${mktInv.kosdaq.institution > 0 ? '+' : ''}${mktInv.kosdaq.institution}억` : ''} (누적 ${existing.history.length}일)`);
         } else {
             console.warn('[한투] 투자자 크롤링 실패 — 다음날 재시도');
         }
