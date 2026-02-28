@@ -1101,28 +1101,51 @@ function updateClaudeSummary(app) {
                 .slice(0, DC_REPORT_CAP);
         }
 
-        // ── 공시 데이터: dart_YYYYMMDD_*.json 읽어서 누적 (이벤트) ──
+        // ── 공시 데이터: 오늘 전부 + 최소 20건 유지 (이전 날짜 폴백) ──
         const kstNow = new Date(new Date().getTime() + 9 * 3600000);
         const yyyymmdd = kstNow.getUTCFullYear().toString() +
             String(kstNow.getUTCMonth() + 1).padStart(2, '0') +
             String(kstNow.getUTCDate()).padStart(2, '0');
         const dartDir = path.join(config.DATA_DIR);
+        const MIN_DISCLOSURES = 20;
         try {
-            // 오늘 날짜의 dart 파일 읽기
-            const dartFiles = fs.readdirSync(dartDir)
-                .filter(f => f.startsWith(`dart_${yyyymmdd}`) && f.endsWith('.json'));
-            const allDisclosures = [];
-            for (const f of dartFiles) {
+            // 모든 dart 파일을 날짜 역순으로 정렬
+            const allDartFiles = fs.readdirSync(dartDir)
+                .filter(f => f.startsWith('dart_') && f.endsWith('.json'))
+                .sort().reverse();  // 최신 날짜부터
+
+            let allDisclosures = [];
+            let todayCount = 0;
+
+            for (const f of allDartFiles) {
                 try {
                     const data = JSON.parse(fs.readFileSync(path.join(dartDir, f), 'utf-8'));
                     if (data.list && Array.isArray(data.list)) {
-                        allDisclosures.push(...data.list);
+                        const isToday = f.startsWith(`dart_${yyyymmdd}`);
+                        if (isToday) {
+                            // 오늘 공시: 전부 추가
+                            allDisclosures.push(...data.list);
+                            todayCount += data.list.length;
+                        } else if (allDisclosures.length < MIN_DISCLOSURES) {
+                            // 이전 날짜: 20건 채울 때까지만
+                            const need = MIN_DISCLOSURES - allDisclosures.length;
+                            allDisclosures.push(...data.list.slice(0, need));
+                        }
                     }
                 } catch (e) { /* 손상된 파일 무시 */ }
+                // 오늘 다 읽고 20건 이상이면 중단
+                if (allDisclosures.length >= MIN_DISCLOSURES && todayCount > 0) break;
             }
-            // 중복 제거 (rcept_no 기준)
-            const prevIds = new Set((dc.disclosures || []).map(d => d.rcept_no));
-            const newDisc = allDisclosures.filter(d => d.rcept_no && !prevIds.has(d.rcept_no))
+
+            // 중복 제거 (rcept_no 기준) + 캡 적용
+            const seen = new Set();
+            dc.disclosures = allDisclosures
+                .filter(d => {
+                    if (!d.rcept_no || seen.has(d.rcept_no)) return false;
+                    seen.add(d.rcept_no);
+                    return true;
+                })
+                .slice(0, DC_DISCLOSURE_CAP)
                 .map(d => ({
                     rcept_no: d.rcept_no,
                     corp_name: d.corp_name || '',
@@ -1134,9 +1157,6 @@ function updateClaudeSummary(app) {
                     _aiCls: d._aiCls || '',
                     _aiSummary: d._aiSummary || ''
                 }));
-            if (newDisc.length > 0) {
-                dc.disclosures = [...(dc.disclosures || []), ...newDisc].slice(-DC_DISCLOSURE_CAP);
-            }
         } catch (e) {
             // dart 파일 읽기 실패 — 무시
         }
@@ -1191,7 +1211,12 @@ function updateClaudeSummary(app) {
                     smci: macroData.aiTheme?.smci?.price || null,
                     usdkrw: macroData.usdkrw?.price || null,
                     gold: macroData.gold?.price || null
-                }
+                },
+                // 공시 요약 (최신 20건)
+                disclosures: (dc.disclosures || []).slice(0, 20).map(d => ({
+                    corp_name: d.corp_name, report_nm: d.report_nm,
+                    rcept_dt: d.rcept_dt, _aiCls: d._aiCls || '', _aiSummary: d._aiSummary || ''
+                }))
             };
             saveJSON('hantoo_summary.json', summary);
         } catch (e) {
