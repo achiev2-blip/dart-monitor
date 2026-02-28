@@ -256,6 +256,10 @@ async function collectDartToday() {
     // 영업시간 외엔 수집 안 함 (KST 08~19시만)
     if (kstHour < 8 || kstHour >= 19) return;
 
+    // 주말엔 수집 안 함 (토=6, 일=0)
+    const day = kstNow.getUTCDay();
+    if (day === 0 || day === 6) return;
+
     let totalItems = 0;
     let newPages = 0;
 
