@@ -19,6 +19,7 @@ const path = require('path');
 const config = require('./config');
 const { saveJSON, loadJSON, ensureDataDir } = require('./utils/file-io');
 const companyData = require('./utils/company-data');
+const { NEWS_FETCHERS, isStockRelevant } = require('./crawlers/news');
 const hantoo = require('./crawlers/hantoo');
 const archive = require('./utils/archive');
 const macro = require('./crawlers/macro');
@@ -658,6 +659,57 @@ async function analyzeUnprocessedReportsSafe() {
 }
 
 // ============================================================
+// 뉴스 자동 수집 (10분마다)
+// ============================================================
+async function collectNewsAuto() {
+  if (isPaused) return;
+  try {
+    const results = await Promise.allSettled(
+      NEWS_FETCHERS.map(f => f.fn())
+    );
+
+    let allItems = [];
+    let errors = 0;
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        allItems = allItems.concat(r.value);
+      } else {
+        errors++;
+        console.error(`[뉴스자동] ${NEWS_FETCHERS[i].name} 실패: ${r.reason?.message}`);
+      }
+    });
+
+    // 필터 + 중복제거
+    const relevant = allItems.filter(item => isStockRelevant(item.title));
+    const existingLinks = new Set(storedNews.map(n => n.link));
+    let added = 0;
+    for (const item of relevant) {
+      if (!existingLinks.has(item.link)) {
+        item.collectedAt = new Date().toISOString();
+        storedNews.unshift(item);
+        existingLinks.add(item.link);
+        added++;
+      }
+    }
+    if (storedNews.length > 200) storedNews.splice(200);
+    if (added > 0) {
+      saveJSON('news.json', storedNews);
+      // AI 분류 트리거
+      const unclassified = storedNews.filter(n => !n.aiClassified).slice(0, 20);
+      if (unclassified.length > 0) {
+        gemini.classifyNewsBatch(unclassified, () => hantoo.getWatchlist()).catch(e =>
+          console.error(`[뉴스AI] 자동분류 실패: ${e.message}`)
+        );
+      }
+    }
+    const kstNow = new Date(Date.now() + 9 * 3600000).toISOString().replace('T', ' ').slice(0, 19);
+    console.log(`[뉴스자동] ${kstNow} KST 수집완료: 전체${allItems.length}건 필터${relevant.length}건 신규${added}건 에러${errors}건 (저장${storedNews.length}건)`);
+  } catch (e) {
+    console.error(`[뉴스자동] 수집 실패: ${e.message}`);
+  }
+}
+
+// ============================================================
 // 서버 시작
 // ============================================================
 server = app.listen(PORT, () => {
@@ -713,6 +765,11 @@ server = app.listen(PORT, () => {
     contextModule.updateClaudeSummary(app);
     setInterval(() => contextModule.updateClaudeSummary(app), 300000);  // 5분마다 DC 갱신 + 서머리 파일
   }, 15000);
+
+  // 뉴스 자동 수집 (10분)
+  console.log('  📰 뉴스 자동 수집 타이머 시작 (10분 간격)');
+  setTimeout(() => collectNewsAuto(), 30000);  // 서버 시작 30초 후 1회
+  setInterval(() => collectNewsAuto(), 600000);  // 이후 10분마다
 
   // 매크로 데이터 수집
   console.log('  🌍 매크로 데이터 수집 시작...');

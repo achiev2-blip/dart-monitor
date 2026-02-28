@@ -75,6 +75,7 @@ router.get('/news', async (req, res) => {
         let added = 0;
         for (const item of unique) {
             if (!existingLinks.has(item.link)) {
+                item.collectedAt = new Date().toISOString();
                 storedNews.unshift(item);
                 added++;
             }
