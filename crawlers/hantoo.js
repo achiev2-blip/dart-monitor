@@ -805,41 +805,7 @@ function isAfterHours() {
     return false;
 }
 
-// 한투 수집 데이터 요약 파일 생성 — 챗봇/CTX용 (독립 파일, 모듈 의존 없음)
-function updateSummaryFile() {
-    try {
-        const summary = {
-            updatedAt: new Date().toISOString(),
-            // 지수 정보
-            index: {
-                kospi: indexPrices.kospi || null,
-                kosdaq: indexPrices.kosdaq || null
-            },
-            // 투자자 동향 (장마감 크롤링 데이터)
-            investor: marketInvestor || null,
-            // 종목별 현재가 요약 (20종목 이내)
-            stocks: watchlist.slice(0, 20).map(s => {
-                const p = stockPrices[s.code];
-                if (!p || !p.current) return { name: s.name, code: s.code, data: null };
-                const c = p.current;
-                return {
-                    name: s.name,
-                    code: s.code,
-                    price: c.price || null,
-                    change: c.change || null,
-                    volume: c.volume || null,
-                    foreignNet: c.foreignNetBuy || null,
-                    support: c.support || null,
-                    resistance: c.resistance || null
-                };
-            }).filter(s => s.data !== null || s.price),
-            stockCount: watchlist.length
-        };
-        saveJSON('hantoo_summary.json', summary);
-    } catch (e) {
-        console.warn(`[한투] 요약 파일 생성 실패: ${e.message}`);
-    }
-}
+
 
 // 배치 수집 설정 — 종목수의 1/10씩 나눠서 수집 (1시간에 전 종목 완료)
 let currentBatchIndex = 0;   // 현재 배치 인덱스
@@ -926,8 +892,8 @@ async function fetchBatchStocks() {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[한투] 배치 ${currentBatchIndex + 1}/${totalBatches} 완료: ${success}성공/${fail}실패 (${elapsed}초)`);
 
-    // 배치 완료 — 서머리는 DC(context.js updateClaudeSummary)에서 생성
-    // updateSummaryFile();  // 제거됨: DC→서머리 구조로 변경
+
+
 
     // 다음 배치로 이동 (순환)
     currentBatchIndex = (currentBatchIndex + 1) % totalBatches;

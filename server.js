@@ -19,7 +19,7 @@ const path = require('path');
 const config = require('./config');
 const { saveJSON, loadJSON, ensureDataDir } = require('./utils/file-io');
 const companyData = require('./utils/company-data');
-const { NEWS_FETCHERS, isStockRelevant } = require('./crawlers/news');
+// NEWS_FETCHERS는 news-dc.js가 직접 사용
 const hantoo = require('./crawlers/hantoo');
 const archive = require('./utils/archive');
 const macro = require('./crawlers/macro');
@@ -97,7 +97,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ============================================================
 // 데이터 저장소 초기화
 // ============================================================
-const storedNews = loadJSON('news.json', []);
+// storedNews는 news-dc.js가 소유 (init에서 app.locals에 주입)
 const sentItems = loadJSON('sent_items.json', {});
 const reportCache = loadJSON('report_cache.json', {});
 const reportAiCache = loadJSON('report_ai_cache.json', {});
@@ -155,28 +155,9 @@ function cleanOldData() {
   const kst = new Date(now.getTime() + 9 * 3600000);
   let totalCleaned = 0;
 
-  // 1. 뉴스 메모리 관리 — 24시간 경과 삭제 + 200건 하드캡
-  const newsCutoff = new Date(kst);
-  newsCutoff.setHours(newsCutoff.getHours() - 24);  // 24시간 기준
-  const newsCutoffStr = newsCutoff.toISOString();
-  const newsBefore = storedNews.length;
-  // 24시간 경과 뉴스 삭제
-  for (let i = storedNews.length - 1; i >= 0; i--) {
-    const d = storedNews[i].pubDate || storedNews[i].date;
-    if (d && new Date(d).toISOString() < newsCutoffStr) {
-      storedNews.splice(i, 1);
-    }
-  }
-  // 200건 하드캡 — 초과분은 저장 후 삭제
-  if (storedNews.length > 200) {
-    storedNews.length = 200;
-  }
-  if (storedNews.length < newsBefore) {
-    saveJSON('news.json', storedNews);
-    const removed = newsBefore - storedNews.length;
-    totalCleaned += removed;
-    console.log(`[보존규칙] 뉴스 ${removed}건 삭제 (24시간+200건캡), 잔여 ${storedNews.length}건`);
-  }
+  // 1. 뉴스 보존규칙 — news-dc가 관리
+  const newsDC = require('./services/news-dc');
+  totalCleaned += newsDC.cleanOldNews();
 
   // 2. report_ai_cache.json — 60일 이상 (키: "종목|제목|날짜")
   const aiCacheCutoff = new Date(kst);
@@ -239,7 +220,7 @@ function cleanOldData() {
     console.log(`[보존규칙] 뉴스AI캐시 ${naRemoved}건 삭제 (30일 경과), 잔여 ${Object.keys(newsAiCache).length}건`);
   }
 
-  // 5. dart_*.json — dart-scheduler.js로 분리됨
+  // 5. dart_*.json — dart-dc.js로 분리됨
 
   // 6. 소스별 리포트 — 30일 보존 (companies/{code}/reports.json이 장기 보관)
   const reportCutoff = new Date(kst);
@@ -306,7 +287,7 @@ function findStockCode(corpName) {
   return found ? found.code : null;
 }
 
-console.log(`[복원] 뉴스 ${storedNews.length}건, 리포트 WR:${reportStores.WiseReport.length} 미래에셋:${reportStores['미래에셋'].length} 하나:${reportStores['하나증권'].length} 현대차:${reportStores['현대차증권'].length} 네이버:${reportStores['네이버'].length} (총${totalReportCount()}건), 전송이력 ${Object.keys(sentItems).length}건`);
+console.log(`[복원] 리포트 WR:${reportStores.WiseReport.length} 미래에셋:${reportStores['미래에셋'].length} 하나:${reportStores['하나증권'].length} 현대차:${reportStores['현대차증권'].length} 네이버:${reportStores['네이버'].length} (총${totalReportCount()}건), 전송이력 ${Object.keys(sentItems).length}건`);
 
 // ============================================================
 // Gemini 서비스 초기화
@@ -318,9 +299,12 @@ gemini.init({
 });
 
 // ============================================================
-// DART 스케줄러 (공시 분석 + DC 갱신 + 보존규칙 — 분리 모듈)
+// DART 공시 전용 DC (수집 + 분류 + DC 관리 통합 모듈)
 // ============================================================
-const dartScheduler = require('./services/dart-scheduler');
+const dartDC = require('./services/dart-dc');
+const reportsDC = require('./services/reports-dc');
+const usDC = require('./services/us-dc');
+const newsDC = require('./services/news-dc');
 // ============================================================
 // Gemini API (프록시)
 // ============================================================
@@ -385,7 +369,7 @@ initReports({
 function getCollectedDataForArchive() {
   const watchlist = hantoo.getWatchlist();
   return {
-    news: storedNews,
+    news: (app.locals.storedNews || []),
     reports: Object.values(reportStores).flat(),
     disclosures: [],
     prices: (() => {
@@ -402,7 +386,7 @@ function getCollectedDataForArchive() {
 // ============================================================
 // app.locals에 공유 상태 주입
 // ============================================================
-app.locals.storedNews = storedNews;
+// app.locals.storedNews는 news-dc.init()에서 설정됨
 app.locals.sentItems = sentItems;
 app.locals.reportCache = reportCache;
 app.locals.reportAiCache = reportAiCache;
@@ -632,56 +616,7 @@ async function analyzeUnprocessedReportsSafe() {
   await gemini.analyzeReportBatch(batch);
 }
 
-// ============================================================
-// 뉴스 자동 수집 (10분마다)
-// ============================================================
-async function collectNewsAuto() {
-  if (isPaused) return;
-  try {
-    const results = await Promise.allSettled(
-      NEWS_FETCHERS.map(f => f.fn())
-    );
-
-    let allItems = [];
-    let errors = 0;
-    results.forEach((r, i) => {
-      if (r.status === 'fulfilled') {
-        allItems = allItems.concat(r.value);
-      } else {
-        errors++;
-        console.error(`[뉴스자동] ${NEWS_FETCHERS[i].name} 실패: ${r.reason?.message}`);
-      }
-    });
-
-    // 필터 + 중복제거
-    const relevant = allItems.filter(item => isStockRelevant(item.title));
-    const existingLinks = new Set(storedNews.map(n => n.link));
-    let added = 0;
-    for (const item of relevant) {
-      if (!existingLinks.has(item.link)) {
-        item.collectedAt = new Date().toISOString();
-        storedNews.unshift(item);
-        existingLinks.add(item.link);
-        added++;
-      }
-    }
-    if (storedNews.length > 200) storedNews.splice(200);
-    if (added > 0) {
-      saveJSON('news.json', storedNews);
-      // AI 분류 트리거
-      const unclassified = storedNews.filter(n => !n.aiClassified).slice(0, 20);
-      if (unclassified.length > 0) {
-        gemini.classifyNewsBatch(unclassified, () => hantoo.getWatchlist()).catch(e =>
-          console.error(`[뉴스AI] 자동분류 실패: ${e.message}`)
-        );
-      }
-    }
-    const kstNow = new Date(Date.now() + 9 * 3600000).toISOString().replace('T', ' ').slice(0, 19);
-    console.log(`[뉴스자동] ${kstNow} KST 수집완료: 전체${allItems.length}건 필터${relevant.length}건 신규${added}건 에러${errors}건 (저장${storedNews.length}건)`);
-  } catch (e) {
-    console.error(`[뉴스자동] 수집 실패: ${e.message}`);
-  }
-}
+// collectNewsAuto는 news-dc.js로 이동됨
 
 // ============================================================
 // 서버 시작
@@ -695,7 +630,7 @@ server = app.listen(PORT, () => {
   console.log('  ╚══════════════════════════════════════╝');
   console.log('');
   console.log(`  📁 데이터 경로: ${DATA_DIR}`);
-  console.log(`  📰 저장된 뉴스: ${storedNews.length}건`);
+  console.log(`  📰 저장된 뉴스: news-dc 관리`);
   console.log(`  📊 리포트: WR:${reportStores.WiseReport.length} 미래에셋:${reportStores['미래에셋'].length} 하나:${reportStores['하나증권'].length} 현대차:${reportStores['현대차증권'].length} 네이버:${reportStores['네이버'].length}`);
   console.log(`  🤖 리포트AI 캐시: ${Object.keys(reportAiCache).length}건`);
   console.log(`  🤖 Gemini: ${gemini.GEMINI_MODELS[gemini.currentModelIndex]?.label} (${gemini.fallbackRound}회차)${gemini.isCooldownActive() ? ' [쿨다운중]' : ''}`);
@@ -734,13 +669,17 @@ server = app.listen(PORT, () => {
     console.error(`  ❌ Context 자동 등록 실패: ${e.message}`);
   }
 
-  // DART 스케줄러 시작 (공시분석 + DC 갱신 + 보존규칙)
-  dartScheduler.start(app, contextModule);
+  // DART 공시 전용 DC 시작 (수집 + 분류 + DC 관리)
+  dartDC.init(app);
 
-  // 뉴스 자동 수집 (10분)
-  console.log('  📰 뉴스 자동 수집 타이머 시작 (10분 간격)');
-  setTimeout(() => collectNewsAuto(), 30000);  // 서버 시작 30초 후 1회
-  setInterval(() => collectNewsAuto(), 600000);  // 이후 10분마다
+  // 리포트 전용 DC 시작
+  reportsDC.init(app);
+
+  // US 시장 전용 DC 시작
+  usDC.init(app);
+
+  // 뉴스 전용 DC 시작 (수집 + AI분류 + DC 관리)
+  newsDC.init(app);
 
   // 매크로 데이터 수집
   console.log('  🌍 매크로 데이터 수집 시작...');

@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>공시 연결 구조 전체 지도</title>
+    <title>DART 공시 엔진 — 전체 구조 지도</title>
     <style>
         * {
             margin: 0;
@@ -20,8 +20,14 @@
         h1 {
             text-align: center;
             padding: 18px;
-            font-size: 28px;
+            font-size: 26px;
             color: #feca57;
+        }
+
+        h1 .sub {
+            font-size: 13px;
+            color: #aaa;
+            font-weight: normal;
         }
 
         #controls {
@@ -80,7 +86,7 @@
 </head>
 
 <body>
-    <h1>📊 DART 공시 연결 구조 전체 지도 <span style="font-size:14px;color:#aaa">(마우스 드래그로 이동, 휠로 확대/축소)</span></h1>
+    <h1>📊 DART 공시 엔진 — 전체 구조 지도 <span class="sub">(마우스 드래그 이동, 휠 확대/축소)</span></h1>
     <div id="controls">
         <button onclick="zoomBtn(1.3)">🔍 확대</button>
         <button onclick="zoomBtn(1/1.3)">🔍 축소</button>
@@ -93,6 +99,20 @@ graph TD
     subgraph EXT["🌐 외부 소스"]
         DART_API["DART OpenAPI — 금융감독원<br/>opendart.fss.or.kr"]
         GEMINI_AI["Gemini AI API — KEY2 분류 엔진<br/>gemini-2.5-flash<br/>4단계: 강력호재/호재/악재/일반"]
+    end
+
+    subgraph SERVER["🖥️ server.js — 메인 서버 v3.5"]
+        S_REQUIRE["require dart-scheduler<br/>한 줄로 초기화"]
+        S_CALL["dartScheduler.start<br/>app, contextModule 전달"]
+        S_ROUTE["라우트 등록<br/>app.use — /api — dart.js"]
+        S_1MIN["1분 타이머 setInterval 60s<br/>updateClaudeSummary 호출<br/>메모리 감시 + 쿨다운 체크"]
+    end
+
+    subgraph SCHEDULER["📋 services/dart-scheduler.js — 신규 분리 모듈"]
+        SCH_INIT["start — server.js에서 호출<br/>app, contextModule 전달"]
+        SCH_DA["dart-analyzer.init<br/>KEY2 + 10분 간격"]
+        SCH_DC["DC 갱신 타이머<br/>15초 딜레이 후 시작<br/>이후 5분마다 updateClaudeSummary"]
+        SCH_CLEAN["cleanOldDart<br/>dart_*.json 7일 보존규칙<br/>서버 시작 시 1회 실행"]
     end
 
     subgraph ANALYZER["⚙️ services/dart-analyzer.js — 수집+분류 엔진"]
@@ -108,50 +128,53 @@ graph TD
         DF_AI["AI 분류 필드<br/>_aiCls: 강력호재/호재/악재/일반<br/>_aiSummary: 15자 이내 요약<br/>_fetchedAt: 수집 시각"]
     end
 
-    subgraph SCHEDULER["📋 services/dart-scheduler.js — 신규 분리 모듈"]
-        SCH_INIT["start — server.js에서 호출<br/>app, contextModule 전달"]
-        SCH_DA["dart-analyzer.init<br/>KEY2 + 10분 간격"]
-        SCH_DC["DC 갱신 타이머<br/>15초 딜레이 후 시작<br/>이후 5분마다 updateClaudeSummary"]
-        SCH_CLEAN["cleanOldDart<br/>dart_*.json 7일 보존규칙<br/>서버 시작 시 1회 실행"]
-    end
-
-    subgraph SERVER["🖥️ server.js — 메인 서버"]
-        S_REQUIRE["require dart-scheduler<br/>한 줄로 초기화"]
-        S_CALL["dartScheduler.start<br/>app, contextModule 전달"]
-        S_ROUTE["라우트 등록<br/>app.use — /api — dart.js"]
-    end
-
-    subgraph DC["🧠 routes/context.js — Claude DC"]
-        DC_UPDATE["updateClaudeSummary<br/>5분마다 dart-scheduler에서 호출"]
-        DC_READ["공시 로딩 — 최적화됨<br/>1. 오늘 파일만 필터<br/>2. 없으면 최신 날짜 1개만 폴백<br/>3. 30건에서 중단<br/>4. rcept_no 중복제거"]
-        DC_MEM["dc.disclosures — 메모리<br/>필드: rcept_no, corp_name,<br/>report_nm, rcept_dt,<br/>_aiCls, _aiSummary"]
+    subgraph DC["🧠 routes/context.js — Claude 데이터센터"]
+        DC_UPDATE["updateClaudeSummary — L984<br/>호출자 2곳:<br/>① server.js 1분 타이머<br/>② dart-scheduler 5분 타이머"]
+        DC_STATE["상태 데이터 — 덮어쓰기<br/>prices, macro, token<br/>overseas, index, investor"]
+        DC_EVENT["이벤트 데이터 — 누적<br/>news 100캡, reports 50캡<br/>읽으면 초기화"]
+        DC_DISC["공시 데이터 — 갱신<br/>오늘 우선 + 폴백<br/>30건 중단, rcept_no 중복제거<br/>100캡, _aiCls/_aiSummary 포함"]
+        DC_MEM["app.locals.claudeDataCenter"]
     end
 
     subgraph ROUTE_DART["🔀 routes/dart.js — GET /api/dart — 3단 폴백"]
         RD_ENTRY["GET /api/dart<br/>?date=YYYYMMDD and page=N"]
-        RD_DC["1단계: DC 터널<br/>dc.disclosures에서 날짜 필터"]
-        RD_FILE["2단계: 파일 폴백<br/>dart_date_pN.json 읽기"]
+        RD_DC["1단계: DC 터널<br/>dc.disclosures에서 날짜 필터<br/>없으면 오늘 전체 반환"]
+        RD_FILE["2단계: 파일 폴백<br/>dart_date_pN.json 읽기<br/>3일 이전까지 폴백"]
         RD_API["3단계: DART API 직접 호출"]
+    end
+
+    subgraph CLAUDE_API["📡 Claude API 엔드포인트 — 5가지"]
+        CL_MKT["GET /api/claude/market<br/>뉴스+매크로+공시 ~50KB"]
+        CL_STK["GET /api/claude/stocks<br/>전종목 시세 ~30KB"]
+        CL_RPT["GET /api/claude/reports<br/>최신 리포트 ~30KB"]
+        CL_SUM["GET /api/claude/summary<br/>DC 전체/섹션/종목별<br/>이벤트 읽고 지움"]
+        CL_ALL["GET /api/claude<br/>전체 모드 + 종목상세<br/>?code=005930"]
     end
 
     subgraph FE["🖼️ public/index.html — 프론트엔드"]
         FE_FETCH["fetchAll<br/>GET /api/dart?date=YYYYMMDD"]
-        FE_AI_CLS["AI 분류 우선 매핑<br/>강력호재 → strong_good<br/>호재 → good<br/>악재 → bad<br/>일반 → 키워드 폴백"]
+        FE_POLL["10분 폴링<br/>setInterval 600000"]
+        FE_AI_CLS["AI 분류 우선 매핑<br/>강력호재 → strong_good<br/>호재 → good, 악재 → bad<br/>일반 → 키워드 폴백"]
         FE_KW["classify — 키워드 폴백<br/>AI 분류 없을 때만 사용<br/>KW_GOOD, KW_BAD 등"]
+        FE_AI["analyzeItem<br/>Gemini 개별 분석<br/>POST /api/gemini"]
+        FE_TG["checkNewAlerts<br/>텔레그램 알림"]
         FE_RENDER["renderCurrent<br/>그룹별 카드 표시"]
     end
 
+    %% 수집 흐름
     DART_API -->|"100건/페이지"| CDT
     CDT -->|"dart_*.json 저장"| DF
 
+    %% 분류 흐름
     DF -->|"미분류 스캔"| ADF
     ADF -->|"10건씩 배치"| CB
     CB -->|"프롬프트 전송"| GEMINI_AI
     GEMINI_AI -->|"JSON 분류 결과"| CB
     CB -->|"분류 완료"| SDF
     SDF -->|"_aiCls 머지저장"| DF_AI
-    DF_AI -.->|"같은 파일"| DF
+    DF_AI -.-|"같은 파일"| DF
 
+    %% 서버 → 스케줄러
     S_REQUIRE -->|"require"| SCH_INIT
     S_CALL -->|"start 호출"| SCH_INIT
     SCH_INIT --> SCH_DA
@@ -162,22 +185,42 @@ graph TD
     SCH_CLEAN -->|"7일 경과 삭제"| DF
     S_ROUTE -->|"라우트 등록"| RD_ENTRY
 
-    DF -->|"오늘 파일만 읽기"| DC_READ
-    DC_READ --> DC_UPDATE
-    DC_UPDATE -->|"30건 캡"| DC_MEM
+    %% 서버 1분 타이머
+    S_1MIN -->|"1분마다"| DC_UPDATE
 
+    %% DC 로딩
+    DF -->|"오늘 파일만 읽기"| DC_UPDATE
+    DC_UPDATE --> DC_STATE
+    DC_UPDATE --> DC_EVENT
+    DC_UPDATE --> DC_DISC
+    DC_STATE --> DC_MEM
+    DC_EVENT --> DC_MEM
+    DC_DISC --> DC_MEM
+
+    %% API 라우트
     FE_FETCH -->|"GET /api/dart"| RD_ENTRY
     RD_ENTRY --> RD_DC
     RD_DC -->|"날짜 필터"| DC_MEM
-    RD_DC -.->|"DC 없으면"| RD_FILE
+    RD_DC -.-|"DC 없으면"| RD_FILE
     RD_FILE -->|"파일 읽기"| DF
-    RD_FILE -.->|"파일도 없으면"| RD_API
+    RD_FILE -.-|"파일도 없으면"| RD_API
     RD_API -->|"직접 호출"| DART_API
 
+    %% Claude API → DC
+    DC_MEM --> CL_MKT
+    DC_MEM --> CL_STK
+    DC_MEM --> CL_RPT
+    DC_MEM --> CL_SUM
+    DC_MEM --> CL_ALL
+
+    %% 프론트엔드
+    FE_POLL --> FE_FETCH
     FE_FETCH -->|"_aiCls 확인"| FE_AI_CLS
     FE_AI_CLS -->|"AI 없으면"| FE_KW
     FE_AI_CLS -->|"분류 완료"| FE_RENDER
     FE_KW -->|"키워드 분류"| FE_RENDER
+    FE_AI -->|"POST /api/gemini"| GEMINI_AI
+    FE_FETCH --> FE_TG
 </pre>
         </div>
     </div>

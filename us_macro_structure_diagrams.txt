@@ -1,0 +1,91 @@
+graph TD
+    subgraph 외부 데이터 소스
+        YF["Yahoo Finance v8 API<br/>(15개 심볼)"]
+        NV["네이버 금융<br/>(USD/KRW 환율)"]
+    end
+
+    subgraph "crawlers/macro.js (수집기)"
+        FAM["fetchAllMacro()"]
+        FYQ["fetchYahooQuotes()"]
+        FUSD["fetchUSDKRW()"]
+        MEM["메모리: currentMacro"]
+        CUR["파일: data/macro/current.json"]
+        ALR["파일: data/macro/alerts.json"]
+        HIS["파일: data/macro/history.json"]
+        CLO["파일: data/macro/closing.json"]
+        VCP["verifyClosingPrices()"]
+        SDH["saveDailyHistory()"]
+        GIM["getMarketImpactSummary()"]
+        GC["getCurrent()"]
+    end
+
+    subgraph "server.js (스케줄러)"
+        T30["30분 타이머<br/>setInterval 1800000ms"]
+        T06["KST 06시 검증"]
+        T0610["KST 06:10 히스토리"]
+        INIT["서버 시작 즉시 실행"]
+    end
+
+    subgraph "routes/macro.js (API)"
+        R1["GET /api/macro"]
+        R2["GET /api/macro/alerts"]
+        R3["POST /api/macro/verify"]
+        R4["POST /api/macro/fetch"]
+        R5["GET /api/macro/quote<br/>(Yahoo 프록시)"]
+    end
+
+    subgraph "routes/context.js (Claude DC)"
+        CTX1["GET /api/ctx/claude/chat"]
+        CTX2["updateClaudeSummary()"]
+        CTX3["GET /api/context/claude"]
+    end
+
+    subgraph "public/us_market.html (프론트엔드)"
+        TV["TradingView 차트 그리드<br/>(16개 셀)"]
+        CP["마감종가 패널<br/>(Closing Prices)"]
+        US10["US10Y 전용 표시<br/>(API 직접 호출)"]
+        CHAT["Gemini 챗 컨텍스트"]
+    end
+
+    %% 데이터 수집 흐름
+    YF --> FYQ
+    NV --> FUSD
+    YF -.->|폴백| FUSD
+    FYQ --> FAM
+    FUSD --> FAM
+    FAM --> MEM
+    FAM --> CUR
+    FAM -->|급변 감지| ALR
+
+    %% 스케줄러 흐름
+    INIT --> FAM
+    T30 --> FAM
+    T06 --> VCP
+    T0610 --> SDH
+
+    VCP --> FYQ
+    VCP --> FUSD
+    VCP --> CLO
+    VCP --> CUR
+    SDH --> HIS
+
+    %% API → 수집기
+    R1 --> GC
+    R1 --> GIM
+    R2 -->|getAlerts| MEM
+    R3 --> VCP
+    R4 --> FAM
+    R5 -->|직접 Yahoo 호출| YF
+
+    %% 프론트엔드 → API
+    CP -->|fetchAllPrices| R5
+    US10 -->|loadUS10Y| R5
+    TV -.->|TradingView CDN| YF
+
+    %% Context → 수집기
+    CTX2 --> GC
+    CTX2 --> GIM
+    CTX2 -->|history.json| HIS
+    CTX1 --> GC
+    CTX1 --> GIM
+    CTX3 --> GC

@@ -3,7 +3,6 @@
  * 
  * 기능:
  *  - DART API 프록시 (CORS 해소)
- *  - Gemini AI 프록시
  *  - 뉴스 RSS 수집 (직접 접근, 프록시 불필요)
  *  - 증권사 리포트 수집 (WiseReport + 미래에셋 직접 + 네이버 금융)
  *  - 텔레그램 전송
@@ -20,6 +19,7 @@ const path = require('path');
 const config = require('./config');
 const { saveJSON, loadJSON, ensureDataDir } = require('./utils/file-io');
 const companyData = require('./utils/company-data');
+const { NEWS_FETCHERS, isStockRelevant } = require('./crawlers/news');
 const hantoo = require('./crawlers/hantoo');
 const archive = require('./utils/archive');
 const macro = require('./crawlers/macro');
@@ -155,23 +155,27 @@ function cleanOldData() {
   const kst = new Date(now.getTime() + 9 * 3600000);
   let totalCleaned = 0;
 
-  // 1. news.json — 30일 이상 된 뉴스 삭제 (1000건 캡은 별도 유지)
+  // 1. 뉴스 메모리 관리 — 24시간 경과 삭제 + 200건 하드캡
   const newsCutoff = new Date(kst);
-  newsCutoff.setDate(newsCutoff.getDate() - 30);
+  newsCutoff.setHours(newsCutoff.getHours() - 24);  // 24시간 기준
   const newsCutoffStr = newsCutoff.toISOString();
   const newsBefore = storedNews.length;
-  // pubDate 또는 date 필드로 판단, 없으면 보존
+  // 24시간 경과 뉴스 삭제
   for (let i = storedNews.length - 1; i >= 0; i--) {
     const d = storedNews[i].pubDate || storedNews[i].date;
     if (d && new Date(d).toISOString() < newsCutoffStr) {
       storedNews.splice(i, 1);
     }
   }
+  // 200건 하드캡 — 초과분은 저장 후 삭제
+  if (storedNews.length > 200) {
+    storedNews.length = 200;
+  }
   if (storedNews.length < newsBefore) {
     saveJSON('news.json', storedNews);
     const removed = newsBefore - storedNews.length;
     totalCleaned += removed;
-    console.log(`[보존규칙] 뉴스 ${removed}건 삭제 (30일 경과), 잔여 ${storedNews.length}건`);
+    console.log(`[보존규칙] 뉴스 ${removed}건 삭제 (24시간+200건캡), 잔여 ${storedNews.length}건`);
   }
 
   // 2. report_ai_cache.json — 60일 이상 (키: "종목|제목|날짜")
@@ -308,6 +312,7 @@ function cleanOldData() {
   }
 }
 cleanSentItems();
+cleanOldData();  // 서버 시작 시 뉴스 24시간+200건캡 즉시 적용
 
 // 일시정지 제어
 let isPaused = false;
@@ -334,6 +339,14 @@ gemini.init({
   findStockCode,
 });
 
+// ============================================================
+// KEY2 공시 분석기 초기화 (독립 모듈)
+// ============================================================
+const dartAnalyzer = require('./services/dart-analyzer');
+dartAnalyzer.init({
+  geminiKeyNews: config.GEMINI_KEY_NEWS || process.env.GEMINI_KEY_NEWS,
+  intervalMs: 600000  // 10분 간격
+});
 // ============================================================
 // Gemini API (프록시)
 // ============================================================
@@ -488,19 +501,33 @@ app.use('/api', backupRoute.router);
 app.use('/api', require('./routes/system'));
 app.use('/api', contextModule.router);
 app.use('/api', require('./routes/macro'));
+// AI Gemini 공간 라우트 등록 (Claude는 context.js 전용 터널 사용)
+const { createAiRoutes } = require('./routes/ai-space');
+app.use('/api', createAiRoutes('gemini'));
+// Claude 서브라우트는 context.js에 직접 등록 — 독립 터널 (ai-space.js 경유하지 않음)
 app.use('/api', require('./routes/predictions'));
 app.use('/api', require('./routes/data-viewer'));
 app.use('/api', require('./routes/archive'));  // 아카이브 조회 (독립 모듈)
 
 // ============================================================
-// 프로세스 이벤트 처리
+// 프로세스 이벤트 처리 — server.close()로 포트 해제 (EADDRINUSE 방지)
 // ============================================================
+let server; // app.listen() 리턴값 — 종료 시 포트 해제용
+
 process.on('SIGINT', async () => {
   console.log('[종료] 상태 저장 중...');
   gemini.saveServerState();
   hantoo.stop();
   if (getHyundaiBrowser()) { try { await getHyundaiBrowser().close(); } catch (e) { } }
+  if (server) server.close();
   process.exit();
+});
+
+process.on('SIGTERM', () => {
+  console.log('[종료-TERM] 상태 저장 + 포트 해제 중...');
+  gemini.saveServerState();
+  if (server) server.close();
+  process.exit(0);
 });
 
 process.on('SIGBREAK', () => {
@@ -515,6 +542,7 @@ process.on('exit', () => {
 // ============================================================
 // 주가 알림 콜백
 // ============================================================
+// 한투 주가 수집 시작 (안정화 수정 완료 — 배치 수집 + 장마감 크롤링)
 hantoo.start();
 
 hantoo.onPriceAlert((data) => {
@@ -573,6 +601,7 @@ setInterval(() => {
     lastSentClean = today;
     cleanSentItems();
     cleanOldData();
+    prediction.cleanOldEvaluated();  // ������ �� ������ ���� (500�� �ʰ� ��)
   }
 
   // 매일 02:00 KST 아카이브 사이클
@@ -588,6 +617,9 @@ setInterval(() => {
       triggerUnprocessedAnalysis('쿨다운 해제');
     }
   }
+
+  // Claude Summary 자동 갱신 (메모리 읽기만 — 부담 0)
+  contextModule.updateClaudeSummary(app);
 }, 60000);
 
 // 5분마다 상태 저장
@@ -627,9 +659,60 @@ async function analyzeUnprocessedReportsSafe() {
 }
 
 // ============================================================
+// 뉴스 자동 수집 (10분마다)
+// ============================================================
+async function collectNewsAuto() {
+  if (isPaused) return;
+  try {
+    const results = await Promise.allSettled(
+      NEWS_FETCHERS.map(f => f.fn())
+    );
+
+    let allItems = [];
+    let errors = 0;
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        allItems = allItems.concat(r.value);
+      } else {
+        errors++;
+        console.error(`[뉴스자동] ${NEWS_FETCHERS[i].name} 실패: ${r.reason?.message}`);
+      }
+    });
+
+    // 필터 + 중복제거
+    const relevant = allItems.filter(item => isStockRelevant(item.title));
+    const existingLinks = new Set(storedNews.map(n => n.link));
+    let added = 0;
+    for (const item of relevant) {
+      if (!existingLinks.has(item.link)) {
+        item.collectedAt = new Date().toISOString();
+        storedNews.unshift(item);
+        existingLinks.add(item.link);
+        added++;
+      }
+    }
+    if (storedNews.length > 200) storedNews.splice(200);
+    if (added > 0) {
+      saveJSON('news.json', storedNews);
+      // AI 분류 트리거
+      const unclassified = storedNews.filter(n => !n.aiClassified).slice(0, 20);
+      if (unclassified.length > 0) {
+        gemini.classifyNewsBatch(unclassified, () => hantoo.getWatchlist()).catch(e =>
+          console.error(`[뉴스AI] 자동분류 실패: ${e.message}`)
+        );
+      }
+    }
+    const kstNow = new Date(Date.now() + 9 * 3600000).toISOString().replace('T', ' ').slice(0, 19);
+    console.log(`[뉴스자동] ${kstNow} KST 수집완료: 전체${allItems.length}건 필터${relevant.length}건 신규${added}건 에러${errors}건 (저장${storedNews.length}건)`);
+  } catch (e) {
+    console.error(`[뉴스자동] 수집 실패: ${e.message}`);
+  }
+}
+
+// ============================================================
 // 서버 시작
 // ============================================================
-app.listen(PORT, () => {
+server = app.listen(PORT, () => {
   console.log('');
   console.log('  ╔══════════════════════════════════════╗');
   console.log('  ║   📊 DART 공시 모니터 서버 v3.5     ║');
@@ -677,16 +760,31 @@ app.listen(PORT, () => {
     console.error(`  ❌ Context 자동 등록 실패: ${e.message}`);
   }
 
+  // Claude 데이터센터 주기 갱신 (1분마다 — 첫 실행은 15초 딜레이)
+  setTimeout(() => {
+    contextModule.updateClaudeSummary(app);
+    setInterval(() => contextModule.updateClaudeSummary(app), 300000);  // 5분마다 DC 갱신 + 서머리 파일
+  }, 15000);
+
+  // 뉴스 자동 수집 (10분)
+  console.log('  📰 뉴스 자동 수집 타이머 시작 (10분 간격)');
+  setTimeout(() => collectNewsAuto(), 30000);  // 서버 시작 30초 후 1회
+  setInterval(() => collectNewsAuto(), 600000);  // 이후 10분마다
+
   // 매크로 데이터 수집
   console.log('  🌍 매크로 데이터 수집 시작...');
   macro.fetchAllMacro().catch(e => console.error(`[매크로] 초기 수집 실패: ${e.message}`));
   setInterval(() => {
     macro.fetchAllMacro().catch(e => console.error(`[매크로] 수집 실패: ${e.message}`));
     const kstHour = new Date(Date.now() + 9 * 3600000).getUTCHours();
+    const kstMin = new Date(Date.now() + 9 * 3600000).getUTCMinutes();
     if (kstHour === 6) {
       macro.verifyClosingPrices().catch(e => console.error(`[매크로] 종가 검증 실패: ${e.message}`));
+      // KST 06:10 — 일별 히스토리 저장 (365일 FIFO)
+      if (kstMin >= 10 && kstMin < 40) {
+        macro.saveDailyHistory();
+      }
     }
-    if (kstHour === 3) macro.cleanOldDaily();
   }, 1800000);
 
   // 예측 피드백 루프
@@ -696,9 +794,9 @@ app.listen(PORT, () => {
     const kstMin = new Date(Date.now() + 9 * 3600000).getUTCMinutes();
     if (kstHour === 15 && kstMin >= 35 && kstMin <= 45) {
       const getPriceFn = (code) => {
-        const watchlist = hantoo.getWatchlist();
-        const stock = watchlist.find(s => s.code === code);
-        return stock?.price ? parseFloat(stock.price) : null;
+        // ���簡 ��ȸ - companyData.getPrice()�� price.json���� �б�
+        const priceData = companyData.getPrice(code);
+        return priceData?.current?.price || null;
       };
       prediction.evaluateDuePredictions(getPriceFn);
     }

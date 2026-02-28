@@ -1311,22 +1311,14 @@
             var list = data.list || [];
             for (var i = 0; i < list.length; i++) {
               var item = list[i];
-              var kwCls = classify(item.report_nm);
-              if (kwCls === 'exclude') continue;
-              // AI 분류 우선, 없으면 키워드 폴백
-              var cls = kwCls;
-              if (item._aiCls === '강력호재') cls = 'strong_good';
-              else if (item._aiCls === '호재') cls = 'good';
-              else if (item._aiCls === '악재') cls = 'bad';
-              else if (item._aiCls === '일반') cls = kwCls; // 일반이면 키워드로 major 등 판단
+              var cls = classify(item.report_nm);
+              if (cls === 'exclude') continue;
               collected.push({
                 no: item.rcept_no,
                 corp: item.corp_name || '',
                 title: item.report_nm || '',
                 date: item.rcept_dt || '',
                 cls: cls,
-                aiCls: item._aiCls || '',
-                aiSummary: item._aiSummary || '',
                 watch: isWatchlist(item.corp_name),
                 url: 'https://dart.fss.or.kr/dsaf001/main.do?rcpNo=' + item.rcept_no,
                 flrNm: item.flr_nm || ''

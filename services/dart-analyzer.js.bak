@@ -134,52 +134,48 @@ async function analyzeDartFiles(apiKey) {
 
 /**
  * 배치 분류 — Gemini에 10건씩 요청
- * 4단계 분류: 강력호재 / 호재 / 악재 / 일반
  * @param {Array} batch - 분류할 공시 목록
  * @param {string} apiKey - Gemini API 키
  */
 async function classifyBatch(batch, apiKey) {
     // 프롬프트 조립
     const items = batch.map((b, i) =>
-        `${i + 1}. [${b.item.corp_name || '?'}] ${b.item.report_nm || '?'}`
+        `${i + 1}. ${b.item.corp_name || '?'} — ${b.item.report_nm || '?'}`
     ).join('\n');
 
-    const prompt = `당신은 한국 주식시장 전문 애널리스트입니다.
-아래 DART 공시 제목을 보고 주식 투자자 관점에서 분류해주세요. 반드시 JSON 배열로만 답하세요.
+    const prompt = `한국 DART 공시를 분류해주세요. 반드시 JSON 배열로만 답하세요.
 
 공시 목록:
 ${items}
 
-분류 기준 (주식 투자 관점):
-- 강력호재: 대규모 수주, 사상최대 실적, 대형 M&A, 자사주 대량 매입 등 주가 강한 상승
-- 호재: 배당결정, 실적호전, 신규투자, 수주, 자사주 취득 등 주가 긍정적
-- 악재: 유상증자, 감자, 적자전환, 횡령, 상장폐지, 소송 등 주가 부정적
-- 일반: 정기보고서, 주총소집, 임원변동, 일상적 공시 등 주가 영향 없음
-
-응답 형식 (JSON 배열만, 다른 텍스트 없이):
+각 공시에 대해 다음 JSON 배열 형식으로 응답:
 [
-  { "idx": 1, "cls": "강력호재|호재|악재|일반", "summary": "15자 이내 핵심 요약" },
+  { "idx": 1, "cls": "호재|악재|중립", "summary": "10자 이내 한줄요약" },
   ...
-]`;
+]
+
+분류 기준:
+- 호재: 매출증가, 실적호전, 투자유치, 배당증가, 자사주매입 등
+- 악재: 적자전환, 감자, 상폐위험, 소송, 횡령, 매출감소 등
+- 중립: 정기공시, 주총소집, 임원변경, 일반 보고서 등`;
 
     try {
         const url = `${GEMINI_BASE}${MODEL}:generateContent?key=${apiKey}`;
         const resp = await axios.post(url, {
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 800 }
+            generationConfig: { temperature: 0.2, maxOutputTokens: 500 }
         }, { timeout: 15000, headers: { 'Content-Type': 'application/json' } });
 
         const text = resp.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
-        // JSON 파싱 (코드블록 안에 있을 수도 있음)
-        const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-        const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+        // JSON 파싱
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
         if (jsonMatch) {
             const results = JSON.parse(jsonMatch[0]);
             results.forEach(r => {
                 const target = batch[r.idx - 1];
                 if (target) {
-                    target.item._aiCls = r.cls || '일반';
+                    target.item._aiCls = r.cls || '중립';
                     target.item._aiSummary = r.summary || '';
                     totalAnalyzed++;
                 }
@@ -189,7 +185,7 @@ ${items}
         console.error(`[공시분석] Gemini 호출 실패: ${e.message}`);
         // 실패 시 기본값 설정
         batch.forEach(b => {
-            b.item._aiCls = '일반';
+            b.item._aiCls = '중립';
             b.item._aiSummary = '';
         });
     }

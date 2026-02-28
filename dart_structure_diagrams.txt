@@ -1,0 +1,77 @@
+graph TD
+    subgraph "외부 소스"
+        DART_API["DART OpenAPI<br/>(금융감독원)"]
+        GEMINI["Gemini AI API<br/>(분류 엔진)"]
+    end
+
+    subgraph "services/dart-analyzer.js (수집+분류 엔진)"
+        CDT["collectDartToday()<br/>10분마다 자동 수집"]
+        ADF["analyzeDartFiles()<br/>미분류 공시 AI 분류"]
+        CB["classifyBatch()<br/>10건씩 배치 분류"]
+        SDF["saveDartFiles()<br/>_aiCls/_aiSummary 저장"]
+    end
+
+    subgraph "파일 저장소 (data/)"
+        DF["dart_YYYYMMDD_p1.json<br/>dart_YYYYMMDD_p2.json<br/>...(최대 5페이지)"]
+    end
+
+    subgraph "routes/dart.js (API 라우트)"
+        RD_DC["DC 터널<br/>(DC 메모리에서 즉시 반환)"]
+        RD_FILE["파일 폴백<br/>(dart_*.json에서 읽기)"]
+        RD_API["DART API 직접 호출<br/>(파일도 없을 때)"]
+    end
+
+    subgraph "routes/context.js (Claude DC)"
+        DC_LOAD["updateClaudeSummary()<br/>dart_*.json → DC 메모리"]
+        DC_MEM["dc.disclosures<br/>(최대 100건)"]
+    end
+
+    subgraph "public/index.html (프론트엔드)"
+        FE_FETCH["fetchAll()<br/>GET /api/dart"]
+        FE_POLL["10분 폴링<br/>(setInterval)"]
+        FE_CLS["classify()<br/>키워드 분류 (호재/악재/주요)"]
+        FE_AI["analyzeItem()<br/>Gemini 개별 분석"]
+        FE_TG["checkNewAlerts()<br/>텔레그램 알림"]
+        FE_RENDER["renderCurrent()<br/>그룹별 표시"]
+    end
+
+    subgraph "Claude API 소비자"
+        CL_MKT["GET /api/claude/market"]
+        CL_ALL["GET /api/claude (전체)"]
+        CL_CODE["GET /api/claude?code="]
+        CL_SUM["GET /api/claude/summary"]
+    end
+
+    %% 수집 흐름
+    DART_API -->|"100건/페이지, 최대5페이지"| CDT
+    CDT -->|"dart_YYYYMMDD_pN.json"| DF
+    DF --> ADF
+    GEMINI -->|"10건 배치"| CB
+    ADF --> CB
+    CB -->|"_aiCls, _aiSummary"| SDF
+    SDF --> DF
+
+    %% DC 로딩
+    DF -->|"1분마다 읽기"| DC_LOAD
+    DC_LOAD --> DC_MEM
+
+    %% API 라우트
+    FE_FETCH --> RD_DC
+    RD_DC -->|"dc.disclosures"| DC_MEM
+    RD_DC -.->|"없으면"| RD_FILE
+    RD_FILE -->|"dart_*.json"| DF
+    RD_FILE -.->|"없으면"| RD_API
+    RD_API --> DART_API
+
+    %% 프론트엔드
+    FE_POLL --> FE_FETCH
+    FE_FETCH --> FE_CLS
+    FE_CLS --> FE_RENDER
+    FE_FETCH --> FE_TG
+    FE_AI -->|"POST /api/gemini"| GEMINI
+
+    %% Claude 소비자
+    DC_MEM --> CL_MKT
+    DC_MEM --> CL_ALL
+    DC_MEM --> CL_CODE
+    DC_MEM --> CL_SUM
