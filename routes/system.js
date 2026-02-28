@@ -22,16 +22,27 @@ router.get('/status', (req, res) => {
     });
 });
 
-// 메모리
+// 메모리 + DC 상태 + 히스토리
 router.get('/memory', (req, res) => {
     const mem = process.memoryUsage();
+    const dc = req.app.locals.claudeDataCenter || {};
+    const memHistory = req.app.locals.memHistory || [];
     res.json({
-        rss: Math.round(mem.rss / 1024 / 1024) + 'MB',
-        heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + 'MB',
-        heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + 'MB',
-        limit: config.MEMORY_LIMIT_MB + 'MB',
-        warningCount: req.app.locals.memoryWarningCount || 0,
-        uptime: Math.round(process.uptime() / 60) + '분'
+        current: {
+            rss: Math.round(mem.rss / 1024 / 1024) + 'MB',
+            heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + 'MB',
+            heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + 'MB',
+            external: Math.round(mem.external / 1024 / 1024) + 'MB',
+            dcSize: Math.round(JSON.stringify(dc).length / 1024) + 'KB'
+        },
+        dc: {
+            news: (dc.news || []).length,
+            reports: (dc.reports || []).length,
+            disclosures: (dc.disclosures || []).length,
+            prices: (dc.prices || []).length
+        },
+        history: memHistory,
+        uptime: Math.round(process.uptime()) + 's'
     });
 });
 

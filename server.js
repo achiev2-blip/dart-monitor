@@ -97,7 +97,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ============================================================
 // 메모리 모니터링 (1분마다 기록, 최대 60건 = 1시간)
 // ============================================================
-const memHistory = [];
+app.locals.memHistory = [];
 function recordMemory() {
   const mem = process.memoryUsage();
   const dc = app.locals.claudeDataCenter || {};
@@ -115,27 +115,11 @@ function recordMemory() {
       dcSize: Math.round(JSON.stringify(dc).length / 1024)  // KB
     }
   };
-  memHistory.push(entry);
-  if (memHistory.length > 60) memHistory.shift();
+  app.locals.memHistory.push(entry);
+  if (app.locals.memHistory.length > 60) app.locals.memHistory.shift();
 }
 setInterval(recordMemory, 60000);
 setTimeout(recordMemory, 5000);  // 5초 후 첫 기록
-
-app.get('/api/memory', (req, res) => {
-  const mem = process.memoryUsage();
-  const dc = app.locals.claudeDataCenter || {};
-  res.json({
-    current: {
-      rss: Math.round(mem.rss / 1024 / 1024) + 'MB',
-      heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + 'MB',
-      heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + 'MB',
-      external: Math.round(mem.external / 1024 / 1024) + 'MB',
-      dcSize: Math.round(JSON.stringify(dc).length / 1024) + 'KB'
-    },
-    history: memHistory,
-    uptime: Math.round(process.uptime()) + 's'
-  });
-});
 
 // ============================================================
 // 데이터 저장소 초기화
