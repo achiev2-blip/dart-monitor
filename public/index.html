@@ -460,35 +460,20 @@
     }
 
     .spinner {
-      width: 120px;
-      height: 3px;
-      background: var(--border);
-      border-radius: 2px;
-      overflow: hidden;
-      margin: 0 auto
-    }
-
-    .spinner::after {
-      content: '';
-      display: block;
-      width: 40%;
-      height: 100%;
-      background: var(--tab-active);
-      border-radius: 2px;
-      animation: slide 1.2s ease-in-out infinite
+      display: none
     }
 
     @keyframes slide {
       0% {
-        transform: translateX(-100%)
+        opacity: .3
       }
 
       50% {
-        transform: translateX(200%)
+        opacity: .6
       }
 
       100% {
-        transform: translateX(-100%)
+        opacity: .3
       }
     }
 
@@ -948,8 +933,7 @@
   </div>
   <main id="content">
     <div class="loading">
-      <div class="spinner"></div>
-      <p style="margin-top:10px">공시 데이터를 불러오는 중...</p>
+      <p style="margin-top:10px;font-size:.75em;opacity:.4;animation:slide 2s infinite">데이터 준비 중</p>
     </div>
   </main>
 
