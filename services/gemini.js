@@ -347,88 +347,73 @@ async function analyzeReportBatch(reports) {
 // ============================================================
 const newsAiCacheServer = loadJSON('news_ai_cache.json', {});
 
+/**
+ * 뉴스 AI 분류 — 단독 모듈 (리포트/공시와 분리)
+ * Key3 (GEMINI_KEY_STOCK) 전용, 1건씩 순차 처리
+ * 
+ * 흐름: 미분류 뉴스 1건 → Gemini 자연 질문 → 긴 답변 OK
+ *       → 엔진이 응답에서 키워드 추출 (강력호재/호재/악재/일반)
+ *       → aiCls 저장 → 다음 뉴스 (답변 완료 확인 후 텀)
+ */
 async function classifyNewsBatch(newsItems, getWatchlistFn) {
     if (isCooldownActive()) {
         console.log('[뉴스AI] 쿨다운 중 — 분류 스킵');
         return;
     }
 
-    // Key3 (GEMINI_KEY_STOCK) 사용 — Key2 쿼터와 분리
+    // Key3 (GEMINI_KEY_STOCK) 전용 — Key2 쿼터와 완전 분리
     const newsApiKey = process.env.GEMINI_KEY_STOCK || GEMINI_KEY;
-
-    const BATCH_SIZE = 5;
     let classified = 0;
 
-    for (let i = 0; i < newsItems.length; i += BATCH_SIZE) {
-        const batch = newsItems.slice(i, i + BATCH_SIZE);
-        const needClassify = batch.filter(n => !newsAiCacheServer[n.link]);
-        if (needClassify.length === 0) continue;
+    // 1건씩 순차 처리 — 동시 요청 금지
+    for (const news of newsItems) {
+        // 이미 분류된 건 스킵 (중복 질문 방지)
+        if (news.aiClassified || newsAiCacheServer[news.link]) {
+            if (!news.aiClassified && newsAiCacheServer[news.link]) {
+                // 캐시에만 있고 뉴스 객체에 미반영 → 복원
+                const cached = newsAiCacheServer[news.link];
+                news.aiClassified = true;
+                news.aiCls = cached.cls;
+            }
+            continue;
+        }
 
-        const watchlistNames = getWatchlistFn().map(s => s.name).join(', ');
+        const title = news.title || '';
+        const source = news.source || '';
 
-        const newsTexts = needClassify.map((n, idx) =>
-            `[${idx + 1}] ${n.title} (${n.source || ''})`
-        ).join('\n');
+        // 자연스러운 질문 (길어도 OK)
+        const prompt = `"${title}" — ${source}
 
-        const prompt = `한국 주식시장 뉴스 분류 전문가입니다. 아래 뉴스들을 분석해주세요.
+위 뉴스를 한국 주식시장 투자자 관점에서 분류해줘.
+강력호재, 호재, 악재, 일반 중 하나로 판단하고 이유를 설명해줘.
 
-모니터링 종목: ${watchlistNames}
-
-뉴스 목록:
-${newsTexts}
-
-각 뉴스에 대해 번호별로 다음 형식으로 답변 (줄바꿈으로 구분):
-[번호] 카테고리:OO | 판단:OO | 중요도:OO | 종목:OO | 요약:OO
-
-카테고리: 국제정치/국내정치/경제정책/산업/기업/시장/법안/기타 중 택1
-판단: 호재/악재/중립 중 택1
-중요도: 상/중/하 중 택1
-종목: 직접 관련되는 상장 종목명 (복수 가능, 없으면 "시장전체")
-요약: 1줄 핵심 요약`;
+기준:
+- 강력호재: 시장 전체 또는 특정 섹터에 큰 호재. 목표가 대폭 상향, 대규모 수주, 사상최대 실적 등
+- 호재: 긍정적 뉴스. 실적 호전, 수출 증가, 정책 수혜 등
+- 악재: 부정적 뉴스. 실적 악화, 규제 강화, 관세 부과 등
+- 일반: 주식시장에 직접적 영향 없는 일반 뉴스`;
 
         try {
+            // 1건 질문 → 답변 완료까지 await
             const text = await callGeminiDirect(prompt, newsApiKey);
             if (!text) continue;
 
-            const results = parseNewsClassification(text, needClassify.length);
+            // 엔진이 Gemini 응답에서 키워드 추출
+            const cls = extractNewsClassification(text);
 
-            for (let j = 0; j < needClassify.length; j++) {
-                const news = needClassify[j];
-                const result = results[j] || { category: '기타', cls: 'normal', importance: '중', stocks: '시장전체', summary: '' };
+            // 저장
+            newsAiCacheServer[news.link] = { cls };
+            news.aiClassified = true;
+            news.aiCls = cls;
+            classified++;
 
-                newsAiCacheServer[news.link] = result;
+            const kstNow = new Date(Date.now() + 9 * 3600000).toISOString().replace('T', ' ').slice(0, 19);
+            console.log(`[뉴스AI] ${kstNow} "${title.slice(0, 30)}..." → ${cls}`);
 
-                news.aiClassified = true;
-                news.aiCategory = result.category;
-                news.aiCls = result.cls;
-                news.aiImportance = result.importance;
-                news.aiStocks = result.stocks;
-                news.aiSummary = result.summary;
-
-                if (result.stocks && result.stocks !== '시장전체' && deps.findStockCode && deps.companyData) {
-                    const stockNames = result.stocks.split(',').map(s => s.trim());
-                    for (const name of stockNames) {
-                        const code = deps.findStockCode(name);
-                        if (code) {
-                            deps.companyData.addNewsToLayer(code, {
-                                title: news.title,
-                                link: news.link,
-                                category: result.category,
-                                cls: result.cls,
-                                importance: result.importance,
-                                summary: result.summary,
-                                date: new Date().toISOString()
-                            });
-                        }
-                    }
-                }
-
-                classified++;
-            }
-
-            await new Promise(r => setTimeout(r, 2500));
+            // 답변 완료 확인 후 텀 (2초) — 다음 질문 전 대기
+            await new Promise(r => setTimeout(r, 2000));
         } catch (e) {
-            console.error(`[뉴스AI] 배치 분류 실패: ${e.message}`);
+            console.error(`[뉴스AI] 분류 실패: ${e.message}`);
         }
     }
 
@@ -436,6 +421,19 @@ ${newsTexts}
         saveJSON('news_ai_cache.json', newsAiCacheServer);
         console.log(`[뉴스AI] ${classified}건 분류 완료`);
     }
+}
+
+/**
+ * Gemini 응답에서 뉴스 분류 키워드 추출 (뉴스 전용)
+ * Gemini가 자연스럽게 답한 긴 텍스트에서 강력호재/호재/악재/일반을 찾아냄
+ */
+function extractNewsClassification(text) {
+    if (!text) return 'normal';
+    // 강력호재를 먼저 체크 (호재보다 앞에)
+    if (text.includes('강력호재') || text.includes('강력 호재')) return 'strong_good';
+    if (text.includes('호재')) return 'good';
+    if (text.includes('악재')) return 'bad';
+    return 'normal';  // 일반
 }
 
 function parseNewsClassification(text, expectedCount) {
