@@ -166,7 +166,8 @@ function createAiRoutes(aiName) {
                 'GET /api/claude/predictions': '예측 데이터',
                 'GET /api/claude/stocks/:code/analysis': '종목별 AI 분석 결과',
                 'GET /api/stocks/company/:code/price': '종목 일별 차트 + 시간외 가격 (인증 불필요)',
-                'GET /api/consensus/:code': '종목별 컨센서스 (인증: ?api_key=dartmonitor-claude)'
+                'GET /api/consensus/:code': '종목별 컨센서스 (인증: ?api_key=dartmonitor-claude)',
+                'GET /api/reports': '리포트 전체 — DC 50건보다 더 많이 볼 때 사용 (AI분석 포함, 인증 불필요)'
             },
             write: {
                 'POST /api/claude/ctx': { body: '{ market:{}, stocks:[{code,name,...}], insights:[], newsDigest:{} }', desc: '분석 결과 저장' },
