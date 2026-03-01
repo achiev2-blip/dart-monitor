@@ -147,13 +147,14 @@ function markGeminiWork() {
 // ============================================================
 // Gemini 직접 호출
 // ============================================================
-async function callGeminiDirect(prompt) {
+async function callGeminiDirect(prompt, apiKey) {
     if (isCooldownActive()) {
         return null;
     }
 
     const model = getCurrentModel();
-    const url = `${GEMINI_BASE}${model.id}:generateContent?key=${GEMINI_KEY}`;
+    const key = apiKey || GEMINI_KEY;
+    const url = `${GEMINI_BASE}${model.id}:generateContent?key=${key}`;
 
     try {
         const resp = await axios.post(url, {
@@ -352,6 +353,9 @@ async function classifyNewsBatch(newsItems, getWatchlistFn) {
         return;
     }
 
+    // Key3 (GEMINI_KEY_STOCK) 사용 — Key2 쿼터와 분리
+    const newsApiKey = process.env.GEMINI_KEY_STOCK || GEMINI_KEY;
+
     const BATCH_SIZE = 5;
     let classified = 0;
 
@@ -383,7 +387,7 @@ ${newsTexts}
 요약: 1줄 핵심 요약`;
 
         try {
-            const text = await callGeminiDirect(prompt);
+            const text = await callGeminiDirect(prompt, newsApiKey);
             if (!text) continue;
 
             const results = parseNewsClassification(text, needClassify.length);
