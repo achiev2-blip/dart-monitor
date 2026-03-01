@@ -5,7 +5,7 @@ const axios = require('axios');
 const config = require('../config');
 const { saveJSON, loadJSON } = require('../utils/file-io');
 const gemini = require('../services/gemini');
-const { fetchConsensus } = require('../crawlers/consensus');  // 컨센서스 크롤러 (독립 모듈)
+
 const companyData = require('../utils/company-data');
 const hantoo = require('../crawlers/hantoo');
 const macro = require('../crawlers/macro');         // 매크로 지표 (getCurrent, getMarketImpactSummary)
@@ -720,14 +720,7 @@ router.get('/claude', async (req, res) => {
                 context: ctxData || null
             };
 
-            // 컨센서스 실시간 조회 (유/무 판단)
-            try {
-                const consensus = await fetchConsensus(targetCode);
-                target.consensus = consensus || null;  // null = 컨센서스 없음
-            } catch (e) {
-                target.consensus = null;
-                console.warn(`[Claude API] 컨센서스 조회 실패: ${e.message}`);
-            }
+            target.consensus = null;  // 컨센서스는 자동수집 데이터 사용 (엔드포인트에서 크롤링 X)
 
             // 2. 종목별 DART 공시 — DC에서 필터
             const dcData = req.app.locals.claudeDataCenter;

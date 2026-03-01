@@ -1,4 +1,6 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const gemini = require('../services/gemini');
 const hantoo = require('../crawlers/hantoo');
 const companyData = require('../utils/company-data');
@@ -125,23 +127,19 @@ router.delete('/watchlist', (req, res) => {
     res.json(hantoo.removeStock(name));
 });
 
-// ─── 컨센서스 조회 (네이버 금융 실시간 크롤링) ───
-const consensus = require('../crawlers/consensus');
-
-router.get('/consensus/:code', async (req, res) => {
+// 실시간 크롤링 제거 — 저장된 컨센서스 데이터 반환
+router.get('/consensus/:code', (req, res) => {
     const { code } = req.params;
     if (!code || !/^\d{6}$/.test(code)) {
         return res.status(400).json({ ok: false, msg: '6자리 종목코드 필수' });
     }
     try {
-        const data = await consensus.fetchConsensus(code);
-        if (!data) {
-            return res.json({ ok: false, msg: '접근불가 — 컨센서스 데이터를 가져올 수 없습니다' });
-        }
+        const consFp = path.join(require('../config').DATA_DIR, 'companies', code, 'consensus.json');
+        if (!fs.existsSync(consFp)) return res.json({ ok: false, msg: '컨센서스 데이터 없음' });
+        const data = JSON.parse(fs.readFileSync(consFp, 'utf-8'));
         res.json({ ok: true, code, consensus: data });
     } catch (e) {
-        console.error(`[컨센서스 API] ${code} 오류:`, e.message);
-        res.json({ ok: false, msg: '접근불가 — ' + e.message });
+        res.json({ ok: false, msg: e.message });
     }
 });
 
