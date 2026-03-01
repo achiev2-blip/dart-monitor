@@ -1686,12 +1686,12 @@
       var allNews = [];
       var sentNewsUrls = {};
       var newsAiCache = {};
-      var NEWS_POLL_MS = 480000; // 8분 간격
+      var NEWS_POLL_MS = 480000; // 8분 간격 (legacy, 미사용)
 
       // Report engine state
       var allReports = [];
-      var reportCache = {}; // corp+broker -> previous report (for change detection)
-      var REPORT_POLL_MS = 720000; // 12분 간격
+      var reportCache = {};
+      var REPORT_POLL_MS = 720000; // 12분 간격 (legacy, 미사용)
 
       // ============================================================
       // 일시정지 제어
@@ -1857,92 +1857,8 @@
         return false;
       }
 
-      function fetchAllNews(cb) {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/api/news', true);
-        xhr.timeout = 30000;
-        xhr.onload = function () {
-          if (xhr.status === 200) {
-            try {
-              var resp = JSON.parse(xhr.responseText);
-              var items = resp.items || [];
-              // [DIAG] API 응답 원본 진단
-              var dcnt = 0, fcnt = 0, noLink = 0, noTitle = 0;
-              for (var i = 0; i < items.length; i++) {
-                var it = items[i];
-                // 필드명 방어: url→link 폴백
-                if (!it.link && it.url) { it.link = it.url }
-                // 필드명 방어: feedType/newsType→type 폴백
-                if (!it.type && it.feedType) { it.type = it.feedType }
-                if (!it.type && it.newsType) { it.type = it.newsType }
-                // 필드명 방어: name/feedName→source 폴백
-                if (!it.source && it.name) { it.source = it.name }
-                if (!it.source && it.feedName) { it.source = it.feedName }
-                it.pubDate = it.pubDate ? new Date(it.pubDate) : new Date();
-                it.cls = it.cls || preClassifyNews(it.title);
-                it.watch = isWatchlistNews(it.title);
-                it.sectors = getRelatedSectors(it.title);
-                it.aiDone = false;
-                it.aiResult = null;
-                // 진단 카운트
-                if (it.type === 'foreign') fcnt++; else dcnt++;
-                if (!it.link) noLink++;
-                if (!it.title) noTitle++;
-              }
-              console.log('[NEWS-DIAG] API total:' + items.length + ' domestic:' + dcnt + ' foreign:' + fcnt + ' noLink:' + noLink + ' noTitle:' + noTitle);
-              if (items.length > 0) {
-                // 첫 국내/외신 아이템 샘플 출력
-                var dSample = null, fSample = null;
-                for (var j = 0; j < items.length; j++) {
-                  if (!dSample && items[j].type !== 'foreign') dSample = items[j];
-                  if (!fSample && items[j].type === 'foreign') fSample = items[j];
-                  if (dSample && fSample) break;
-                }
-                if (dSample) console.log('[NEWS-DIAG] domestic sample:', JSON.stringify({ title: dSample.title, link: dSample.link, type: dSample.type, source: dSample.source }));
-                if (fSample) console.log('[NEWS-DIAG] foreign sample:', JSON.stringify({ title: fSample.title, link: fSample.link, type: fSample.type, source: fSample.source }));
-                if (!dSample) console.warn('[NEWS-DIAG] ⚠️ 국내뉴스 0건! API 응답에 domestic 타입 없음');
-              }
-              if (resp.errors > 0 && items.length > 0) {
-                toast('📰 뉴스 ' + items.length + '건 (일부 피드 실패)');
-              }
-              cb(items);
-            } catch (e) { console.error('[NEWS-DIAG] JSON parse error:', e); cb([]) }
-          } else { console.error('[NEWS-DIAG] HTTP error:', xhr.status); cb([]) }
-        };
-        xhr.onerror = function () { toast('⚠️ 서버 연결 실패'); cb([]) };
-        xhr.ontimeout = function () { console.error('[NEWS-DIAG] timeout'); cb([]) };
-        xhr.send();
-      }
+      // fetchAllNews, loadNews — DC 통합으로 삭제됨 (loadDataFromDC('news') 사용)
 
-      function loadNews() {
-        if (clientPaused) return;
-        fetchAllNews(function (newItems) {
-          var added = 0;
-          var dupSkipped = 0;
-          var noLinkSkipped = 0;
-          for (var i = 0; i < newItems.length; i++) {
-            var lnk = newItems[i].link;
-            if (!lnk) { noLinkSkipped++; continue }
-            if (!sentNewsUrls[lnk]) {
-              sentNewsUrls[lnk] = true;
-              allNews.unshift(newItems[i]);
-              added++;
-            } else {
-              dupSkipped++;
-            }
-          }
-          if (allNews.length > 500) allNews = allNews.slice(0, 500);
-          // [DIAG] 중복체크 결과
-          var dInAll = 0, fInAll = 0;
-          for (var k = 0; k < allNews.length; k++) { if (allNews[k].type === 'foreign') fInAll++; else dInAll++ }
-          console.log('[NEWS-DIAG] loadNews: input:' + newItems.length + ' added:' + added + ' dup:' + dupSkipped + ' noLink:' + noLinkSkipped + ' | allNews total:' + allNews.length + ' (domestic:' + dInAll + ' foreign:' + fInAll + ')');
-          if (added > 0) {
-            toast('📰 뉴스 ' + added + '건 수집');
-            analyzeNewsBatch(allNews.slice(0, Math.min(added, 20)));
-          }
-          if (currentTab === 'news') renderNews();
-        });
-      }
 
       function analyzeNewsBatch(items) {
         var idx = 0;
@@ -2190,35 +2106,8 @@
       // ============================================================
       // BROKER REPORT ENGINE
       // ============================================================
-      function fetchReports() {
-        if (clientPaused) return;
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/api/reports', true);
-        xhr.timeout = 20000;
-        xhr.onload = function () {
-          if (xhr.status === 200) {
-            try {
-              var resp = JSON.parse(xhr.responseText);
-              var items = resp.items || [];
-              // 프론트엔드 필드 추가
-              for (var i = 0; i < items.length; i++) {
-                items[i].cls = 'normal';
-                items[i].watch = isWatchlist(items[i].corp);
-                items[i].prevTargetPrice = 0;
-                items[i].prevOpinion = '';
-                items[i].priceChange = 0;
-              }
-              if (items.length > 0) {
-                processNewReports(items);
-                toast('📊 리포트 ' + items.length + '건 수집');
-              }
-            } catch (e) { }
-          }
-        };
-        xhr.onerror = function () { toast('⚠️ 리포트 서버 연결 실패') };
-        xhr.ontimeout = function () { };
-        xhr.send();
-      }
+      // fetchReports — DC 통합으로 삭제됨 (loadDataFromDC('reports') 사용)
+
 
       function processNewReports(items) {
         var newAlerts = [];
