@@ -44,29 +44,22 @@ router.get('/reports', (req, res) => {
 // 리포트 디버그
 router.get('/reports/debug', async (req, res) => {
     const { reportStores } = req.app.locals;
-    const { REPORT_SOURCES, fetchReportPage, fetchHyundaiWithPuppeteer, getSmartInterval } = reportFns;
+    const { REPORT_SOURCES, fetchReportPage, getSmartInterval } = reportFns;
     const puppeteer = req.app.locals.puppeteer;
     const CHROME_PATH = req.app.locals.CHROME_PATH;
-    const hyundaiBrowser = reportFns.getHyundaiBrowser ? reportFns.getHyundaiBrowser() : null;
 
     try {
         const debugResults = {
             puppeteer: {
                 available: !!puppeteer,
-                chromePath: CHROME_PATH || '미발견',
-                browserConnected: hyundaiBrowser ? hyundaiBrowser.isConnected() : false
+                chromePath: CHROME_PATH || '미발견'
             }
         };
         for (const src of REPORT_SOURCES) {
             debugResults[src.key] = { stored: reportStores[src.key].length, interval: Math.round(getSmartInterval(src.key) / 1000) + 's (동적)', urls: [] };
             for (const urlObj of src.urls) {
                 try {
-                    let items;
-                    if (src.key === '현대차증권') {
-                        items = await fetchHyundaiWithPuppeteer(urlObj.url);
-                    } else {
-                        items = await fetchReportPage(urlObj);
-                    }
+                    const items = await fetchReportPage(urlObj);
                     debugResults[src.key].urls.push({
                         url: urlObj.url,
                         fetched: items.length,
@@ -90,20 +83,6 @@ router.get('/reports/debug', async (req, res) => {
     }
 });
 
-// 현대차증권 HTML 덤프 (디버그용)
-router.get('/reports/debug/hyundai-html', (req, res) => {
-    const debugPath = path.join(DATA_DIR, 'debug_hyundai_rendered.html');
-    try {
-        if (fs.existsSync(debugPath)) {
-            const html = fs.readFileSync(debugPath, 'utf-8');
-            res.type('html').send(html);
-        } else {
-            res.status(404).json({ error: '아직 현대차증권 HTML 덤프가 없습니다. /api/reports/debug 먼저 호출하세요.' });
-        }
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
 
 // 수동 새로고침
 router.post('/reports/refresh', async (req, res) => {
@@ -148,7 +127,6 @@ router.post('/reports/clear', (req, res) => {
             'WiseReport': 'reports_wisereport.json',
             '미래에셋': 'reports_mirae.json',
             '하나증권': 'reports_hana.json',
-            '현대차증권': 'reports_hyundai.json',
             '네이버': 'reports_naver.json'
         };
         const fname = fileMap[source] || 'reports_unknown.json';
@@ -162,7 +140,6 @@ router.post('/reports/clear', (req, res) => {
         saveJSON('reports_wisereport.json', []);
         saveJSON('reports_mirae.json', []);
         saveJSON('reports_hana.json', []);
-        saveJSON('reports_hyundai.json', []);
         saveJSON('reports_naver.json', []);
         saveJSON('report_cache.json', {});
         console.log('[리포트] 전체 캐시 초기화');

@@ -30,7 +30,7 @@ function createBackupZip(targetDir, storedNews, reportStores, sentItems, reportC
 
         const files = ['news.json', 'reports.json', 'sent_items.json', 'report_cache.json',
             'reports_wisereport.json', 'reports_mirae.json', 'reports_hana.json',
-            'reports_hyundai.json', 'reports_naver.json', 'report_ai_cache.json'];
+            'reports_naver.json', 'report_ai_cache.json'];
         let copied = 0;
         for (const file of files) {
             const src = path.join(DATA_DIR, file);
@@ -172,7 +172,6 @@ router.post('/backup/restore', (req, res) => {
             WiseReport: 'reports_wisereport.json',
             '미래에셋': 'reports_mirae.json',
             '하나증권': 'reports_hana.json',
-            '현대차증권': 'reports_hyundai.json',
             '네이버': 'reports_naver.json'
         };
         for (const [key, fname] of Object.entries(storeMap)) {

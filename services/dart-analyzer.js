@@ -1,8 +1,8 @@
 /**
- * DART 공시 수집 + 분석기 — KEY2 독립 모듈
+ * DART 공시 수집 + 분석기 — ai-queue 연동
  * 역할: (1) DART API에서 오늘 공시 자동 수집 → dart_*.json 저장
- *       (2) 새 공시를 읽고 호재/악재/중립 분류 + 한줄 요약 생성
- * 키: GEMINI_KEY_NEWS (공시 분석 전용)
+ *       (2) 미분류 공시를 ai-queue에 추가 → 결과 콜백으로 저장
+ * AI: ai-queue 공유 큐 사용 (리포트와 KEY2 공유)
  * 트리거: 주기적 실행 (10분마다)
  * 읽기/쓰기: data/dart_*.json
  */
@@ -10,19 +10,13 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const aiQueue = require('./ai-queue');
 
 // 데이터 디렉토리 경로
 const DATA_DIR = path.join(__dirname, '..', 'data');
 
-// Gemini API 설정 (config에서 읽기)
-const config = require('../config');
-// GEMINI_BASE가 /models/로 끝나지 않으면 추가
-let base = config.GEMINI_BASE || 'https://generativelanguage.googleapis.com/v1beta/';
-if (!base.endsWith('models/')) base += 'models/';
-const GEMINI_BASE = base;
-const MODEL = 'gemini-2.5-flash';
-
 // DART API 설정
+const config = require('../config');
 const DART_API_KEY = config.DART_API_KEY;
 const DART_API_BASE = 'https://opendart.fss.or.kr/api/list.json';
 const MAX_PAGES = 5;
@@ -36,32 +30,24 @@ let totalCollected = 0;
 
 /**
  * 초기화 — server.js에서 호출
- * @param {Object} opts - { geminiKeyNews: string, intervalMs: number }
+ * @param {Object} opts - { intervalMs: number }
  */
 function init(opts = {}) {
-    // .env에서 직접 읽기 — KEY_NEWS가 이전 키라 3번(STOCK) 사용
-    const apiKey = opts.geminiKeyNews || process.env.GEMINI_KEY_STOCK || process.env.GEMINI_KEY_NEWS;
     const intervalMs = opts.intervalMs || 600000; // 기본 10분
 
-    if (!apiKey) {
-        console.log('[공시분석] GEMINI_KEY_NEWS 없음 — 비활성화');
-        return;
-    }
-
-    console.log(`[공시분석] KEY2 초기화 — ${intervalMs / 1000}초 간격`);
+    console.log(`[공시분석] 초기화 — ${intervalMs / 1000}초 간격 (ai-queue 연동)`);
 
     // 초기 실행 (서버 시작 30초 후)
-    setTimeout(() => analyzeDartFiles(apiKey), 30000);
+    setTimeout(() => analyzeDartFiles(), 30000);
 
     // 주기적 실행
-    setInterval(() => analyzeDartFiles(apiKey), intervalMs);
+    setInterval(() => analyzeDartFiles(), intervalMs);
 }
 
 /**
- * DART 파일에서 미분류 공시 찾아서 분석
- * @param {string} apiKey - Gemini API 키
+ * DART 파일에서 미분류 공시 찾아서 ai-queue에 추가
  */
-async function analyzeDartFiles(apiKey) {
+async function analyzeDartFiles() {
     if (isAnalyzing) {
         console.log('[공시분석] 이미 분석 중 — 스킵');
         return;
@@ -105,25 +91,20 @@ async function analyzeDartFiles(apiKey) {
             return;
         }
 
-        console.log(`[공시분석] 미분류 ${unclassified.length}건 발견 — 분석 시작`);
+        console.log(`[공시분석] 미분류 ${unclassified.length}건 → ai-queue 추가`);
 
-        // 배치 분석 (10건씩)
-        const batchSize = 10;
-        for (let i = 0; i < unclassified.length; i += batchSize) {
-            const batch = unclassified.slice(i, i + batchSize);
-            await classifyBatch(batch, apiKey);
-
-            // API 과부하 방지 — 배치 간 2초 대기
-            if (i + batchSize < unclassified.length) {
-                await sleep(2000);
-            }
+        // 1건씩 ai-queue에 추가 — 콜백으로 결과 저장
+        for (const entry of unclassified) {
+            aiQueue.addDisclosure(entry.item, (result) => {
+                // 결과를 공시 라인으로: dart 파일에 저장
+                entry.item._aiCls = result.cls || '일반';
+                entry.item._aiSummary = result.summary || '';
+                totalAnalyzed++;
+                saveSingleDartItem(entry.fileName, entry.idx, result);
+            });
         }
 
-        // 분류 결과를 파일에 저장
-        saveDartFiles(unclassified);
-
         lastAnalyzedAt = new Date().toISOString();
-        console.log(`[공시분석] 완료 — ${unclassified.length}건 분류 (총 누적: ${totalAnalyzed}건)`);
 
     } catch (e) {
         console.error(`[공시분석] 오류: ${e.message}`);
@@ -133,100 +114,23 @@ async function analyzeDartFiles(apiKey) {
 }
 
 /**
- * 배치 분류 — Gemini에 10건씩 요청
- * 4단계 분류: 강력호재 / 호재 / 악재 / 일반
- * @param {Array} batch - 분류할 공시 목록
- * @param {string} apiKey - Gemini API 키
+ * 단건 결과를 dart 파일에 저장 (콜백용)
  */
-async function classifyBatch(batch, apiKey) {
-    // 프롬프트 조립
-    const items = batch.map((b, i) =>
-        `${i + 1}. [${b.item.corp_name || '?'}] ${b.item.report_nm || '?'}`
-    ).join('\n');
-
-    const prompt = `당신은 한국 주식시장 전문 애널리스트입니다.
-아래 DART 공시 제목을 보고 주식 투자자 관점에서 분류해주세요. 반드시 JSON 배열로만 답하세요.
-
-공시 목록:
-${items}
-
-분류 기준 (주식 투자 관점):
-- 강력호재: 대규모 수주, 사상최대 실적, 대형 M&A, 자사주 대량 매입 등 주가 강한 상승
-- 호재: 배당결정, 실적호전, 신규투자, 수주, 자사주 취득 등 주가 긍정적
-- 악재: 유상증자, 감자, 적자전환, 횡령, 상장폐지, 소송 등 주가 부정적
-- 일반: 정기보고서, 주총소집, 임원변동, 일상적 공시 등 주가 영향 없음
-
-응답 형식 (JSON 배열만, 다른 텍스트 없이):
-[
-  { "idx": 1, "cls": "강력호재|호재|악재|일반", "summary": "15자 이내 핵심 요약" },
-  ...
-]`;
-
+function saveSingleDartItem(fileName, idx, result) {
+    const filePath = path.join(DATA_DIR, fileName);
     try {
-        const url = `${GEMINI_BASE}${MODEL}:generateContent?key=${apiKey}`;
-        const resp = await axios.post(url, {
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.2, maxOutputTokens: 800 }
-        }, { timeout: 15000, headers: { 'Content-Type': 'application/json' } });
-
-        const text = resp.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-        // JSON 파싱 (코드블록 안에 있을 수도 있음)
-        const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-        const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-            const results = JSON.parse(jsonMatch[0]);
-            results.forEach(r => {
-                const target = batch[r.idx - 1];
-                if (target) {
-                    target.item._aiCls = r.cls || '일반';
-                    target.item._aiSummary = r.summary || '';
-                    totalAnalyzed++;
-                }
-            });
-        }
-    } catch (e) {
-        console.error(`[공시분석] Gemini 호출 실패: ${e.message}`);
-        // 실패 시 기본값 설정
-        batch.forEach(b => {
-            b.item._aiCls = '일반';
-            b.item._aiSummary = '';
-        });
-    }
-}
-
-/**
- * 분류 결과를 dart 파일에 저장
- * @param {Array} classified - 분류 완료된 항목 목록
- */
-function saveDartFiles(classified) {
-    // 파일별로 그룹핑
-    const byFile = {};
-    classified.forEach(c => {
-        if (!byFile[c.fileName]) byFile[c.fileName] = [];
-        byFile[c.fileName].push(c);
-    });
-
-    // 각 파일 저장
-    for (const [fileName, items] of Object.entries(byFile)) {
-        const filePath = path.join(DATA_DIR, fileName);
-        try {
-            const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-            // 분류 결과 반영
-            items.forEach(item => {
-                if (data.list && data.list[item.idx]) {
-                    data.list[item.idx]._aiCls = item.item._aiCls;
-                    data.list[item.idx]._aiSummary = item.item._aiSummary;
-                }
-            });
-            // 분석 시각 기록
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        if (data.list && data.list[idx]) {
+            data.list[idx]._aiCls = result.cls || '일반';
+            data.list[idx]._aiSummary = result.summary || '';
             data._analyzedAt = new Date().toISOString();
             fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-        } catch (e) {
-            console.error(`[공시분석] 파일 저장 실패 ${fileName}: ${e.message}`);
         }
+    } catch (e) {
+        console.error(`[공시분석] 파일 저장 실패 ${fileName}: ${e.message}`);
     }
 }
+
 
 /**
  * 오늘 날짜 반환 (KST, YYYYMMDD)

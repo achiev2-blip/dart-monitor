@@ -5,7 +5,6 @@
  * fetchReportPage: WiseReport, 미래에셋, 하나증권, 네이버 파싱
  * fetchNaverReportDetail: 네이버 상세 페이지 크롤링
  * fetchMiraeReportDetail: 미래에셋 상세 Puppeteer 크롤링
- * fetchHyundaiWithPuppeteer: 현대차증권 전체 Puppeteer 크롤링
  * fetchSourceReports: 소스별 수집 오케스트레이터
  * getSmartInterval: 시간대별 수집 간격
  * REPORT_SOURCES: 소스 설정
@@ -21,7 +20,7 @@ const { saveJSON, loadJSON } = require('../utils/file-io');
 let reportStores = {};
 let reportCache = {};
 let _getIsPaused = () => false;
-let analyzeReportBatch = async () => { };
+let _onReportAnalyzed = null;  // 리포트 AI 결과 콜백 (server.js에서 주입)
 
 /**
  * 모듈 초기화 — server.js에서 공유 상태 주입
@@ -31,11 +30,11 @@ function init(deps) {
   if (deps.reportStores) reportStores = deps.reportStores;
   if (deps.reportCache) reportCache = deps.reportCache;
   if (deps.getIsPaused) _getIsPaused = deps.getIsPaused;
-  if (deps.analyzeReportBatch) analyzeReportBatch = deps.analyzeReportBatch;
+  if (deps.onReportAnalyzed) _onReportAnalyzed = deps.onReportAnalyzed;
   console.log('[reports] 모듈 초기화 완료');
 }
 
-// Puppeteer (현대차증권 JS렌더링용)
+// Puppeteer (미래에셋 상세 JS렌더링용)
 let puppeteer;
 try {
   puppeteer = require('puppeteer-core');
@@ -307,15 +306,7 @@ async function fetchReportPage(urlObj) {
       items.push(...entries);
     }
 
-    // ========================================
-    // 현대차증권 — Puppeteer로 별도 처리 (여기선 skip)
-    // fetchHyundaiWithPuppeteer() 에서 처리
-    // ========================================
-    else if (source === '현대차증권') {
-      // Puppeteer 전용 함수에서 처리하므로 여기선 빈 배열 반환
-      // (fetchReportPage가 axios로 호출되므로 JS렌더링 불가)
-      return [];
-    }
+
 
     // ========================================
     // 네이버 금융 파싱
@@ -603,195 +594,6 @@ async function fetchMiraeReportDetail(messageId) {
   }
 }
 
-// ============================================================
-// 현대차증권 Puppeteer 기반 크롤링
-// ============================================================
-let hyundaiBrowser = null;
-
-async function fetchHyundaiWithPuppeteer(url) {
-  if (!puppeteer || !CHROME_PATH) {
-    console.warn('[현대차증권] Puppeteer 또는 Chrome 미설치. npm install puppeteer-core 후 재시작 필요');
-    return [];
-  }
-
-  try {
-    // 매번 새 브라우저 (메모리 누수 방지)
-    if (hyundaiBrowser) {
-      try { await hyundaiBrowser.close(); } catch (e) { }
-      try { hyundaiBrowser.process()?.kill('SIGKILL'); } catch (e) { }
-      hyundaiBrowser = null;
-    }
-    hyundaiBrowser = await puppeteer.launch({
-      executablePath: CHROME_PATH,
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process', '--disable-extensions', '--js-flags=--max-old-space-size=128', '--disable-background-networking', '--disable-default-apps']
-    });
-    console.log(`[현대차증권] Puppeteer 브라우저 시작 (${CHROME_PATH})`);
-
-    const page = await hyundaiBrowser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-
-    try {
-      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-      // JS 렌더링 대기 (리서치 데이터 로딩)
-      await new Promise(r => setTimeout(r, 3000));
-
-      // 추가 대기: 테이블이나 리스트가 나타날 때까지
-      try {
-        await page.waitForSelector('table tbody tr, .research_list li, .board_list li, .list_table tr', { timeout: 8000 });
-      } catch (e) {
-        // 셀렉터 못 찾아도 계속 진행
-      }
-
-      const html = await page.content();
-
-      // 디버그: 렌더링된 HTML 저장
-      const debugPath = path.join(DATA_DIR, 'debug_hyundai_rendered.html');
-      try { fs.writeFileSync(debugPath, html, 'utf-8'); } catch (e) { }
-
-      // cheerio로 파싱
-      const $ = cheerio.load(html);
-      const items = [];
-
-      // 범용 파싱 전략: 날짜가 있는 행/항목 찾기
-      // 전략1: 테이블 행
-      $('table tr, table tbody tr').each(function () {
-        const cells = $(this).find('td');
-        if (cells.length < 3) return;
-
-        const rowText = $(this).text();
-        const dateMatch = rowText.match(/(20\d{2}[.\/-]\d{2}[.\/-]\d{2})/);
-        if (!dateMatch) return;
-
-        let corp = '', title = '', author = '', pdfLink = '';
-
-        cells.each(function () {
-          const txt = $(this).text().trim();
-          const link = $(this).find('a');
-
-          if (link.length && txt.length > 3) {
-            // 종목코드 패턴: 종목명(코드/의견)
-            const corpMatch = txt.match(/^(.+?)\s*[\(（](\d{6})/);
-            const opMatch = txt.match(/\/(매수|매도|중립|Buy|Hold|Sell|BUY|HOLD|SELL|Not Rated|Outperform|비중확대|비중축소)[\)）]/i);
-
-            if (corpMatch && !corp) {
-              corp = corpMatch[1].trim();
-              if (!pdfLink) pdfLink = link.attr('href') || '';
-            } else if (txt.length > 5 && !title) {
-              title = txt;
-              if (!pdfLink) pdfLink = link.attr('href') || '';
-            }
-          }
-          // 작성자 패턴
-          if (/^[가-힣]{2,4}$/.test(txt) && !author) {
-            author = txt;
-          }
-        });
-
-        if (corp || title) {
-          // 투자의견 추출
-          const fullText = $(this).text();
-          let opinion = '';
-          const opM = fullText.match(/(매수|매도|중립|Buy|Hold|Sell|BUY|HOLD|SELL|Outperform|비중확대|비중축소|Not Rated)/i);
-          if (opM) opinion = opM[1];
-
-          // 목표주가 추출
-          let targetPrice = 0;
-          const tpM = fullText.match(/(?:목표주?가?|TP)\s*[:\s]?\s*([\d,]+)\s*원?/i);
-          if (tpM) targetPrice = parseInt(tpM[1].replace(/,/g, '')) || 0;
-
-          if (pdfLink && !pdfLink.startsWith('http')) {
-            pdfLink = 'https://www.hmsec.com' + pdfLink;
-          }
-
-          items.push({
-            corp: corp || title.substring(0, 15),
-            title: title || corp,
-            broker: '현대차증권(직접)',
-            analyst: author,
-            opinion,
-            targetPrice,
-            currentPrice: 0,
-            date: dateMatch[1].replace(/[-\/]/g, '.'),
-            pdfLink,
-            source: '현대차증권'
-          });
-        }
-      });
-
-      // 전략2: li 리스트 기반 (하나증권과 유사한 구조일 수 있음)
-      if (items.length === 0) {
-        $('li, .research_item, .board_item, [class*=list]').each(function () {
-          const text = $(this).text().trim();
-          const dateMatch = text.match(/(20\d{2}[.\/-]\d{2}[.\/-]\d{2})/);
-          if (!dateMatch || text.length < 20) return;
-
-          const link = $(this).find('a').first();
-          const titleText = link.text().trim() || text.substring(0, 60);
-          if (titleText.length < 5) return;
-
-          // 종목+코드 패턴
-          const corpMatch = titleText.match(/^(.+?)\s*[\(（](\d{6})/);
-          let corp = corpMatch ? corpMatch[1].trim() : '';
-          let stockCode = corpMatch ? corpMatch[2] : '';
-
-          let opinion = '';
-          const opM = text.match(/(매수|매도|중립|Buy|Hold|Sell|Outperform|비중확대|비중축소)/i);
-          if (opM) opinion = opM[1];
-
-          let targetPrice = 0;
-          const tpM = text.match(/목표주?가?\s*([\d,]+)\s*원/);
-          if (tpM) targetPrice = parseInt(tpM[1].replace(/,/g, '')) || 0;
-
-          let pdfLink = link.attr('href') || '';
-          if (pdfLink && !pdfLink.startsWith('http')) pdfLink = 'https://www.hmsec.com' + pdfLink;
-
-          items.push({
-            corp: stockCode ? `${corp}(${stockCode})` : (corp || titleText.substring(0, 15)),
-            title: titleText,
-            broker: '현대차증권(직접)',
-            analyst: '',
-            opinion,
-            targetPrice,
-            currentPrice: 0,
-            date: dateMatch[1].replace(/[-\/]/g, '.'),
-            pdfLink,
-            source: '현대차증권'
-          });
-        });
-      }
-
-      console.log(`[현대차증권] Puppeteer 파싱: ${items.length}건 추출 (HTML ${html.length}자)`);
-      return items;
-
-    } finally {
-      await page.close().catch(() => { });
-      // 크롤링 완료 후 브라우저 닫기 (타임아웃 10초)
-      if (hyundaiBrowser) {
-        try {
-          await Promise.race([
-            hyundaiBrowser.close(),
-            new Promise(r => setTimeout(r, 10000))
-          ]);
-        } catch (e) { }
-        // 강제 kill
-        try { hyundaiBrowser.process()?.kill('SIGKILL'); } catch (e) { }
-        hyundaiBrowser = null;
-      }
-    }
-
-  } catch (e) {
-    console.error(`[현대차증권] Puppeteer 오류: ${e.message}`);
-    if (hyundaiBrowser) {
-      try { await hyundaiBrowser.close(); } catch (e2) { }
-      try { hyundaiBrowser.process()?.kill('SIGKILL'); } catch (e2) { }
-      hyundaiBrowser = null;
-    }
-    return [];
-  }
-}
-
-// 서버 종료 시 브라우저 정리
 
 // ============================================================
 // 소스별 독립 백그라운드 수집
@@ -813,7 +615,6 @@ function getSmartInterval(sourceKey) {
       case 'WiseReport': return 5 * 60 * 1000;   // 5분
       case '미래에셋': return 5 * 60 * 1000;   // 5분
       case '하나증권': return 5 * 60 * 1000;   // 5분
-      case '현대차증권': return 10 * 60 * 1000;  // 10분
       case '네이버': return 10 * 60 * 1000;  // 10분
       default: return 5 * 60 * 1000;
     }
@@ -825,7 +626,6 @@ function getSmartInterval(sourceKey) {
       case 'WiseReport': return 10 * 60 * 1000;  // 10분
       case '미래에셋': return 10 * 60 * 1000;  // 10분
       case '하나증권': return 10 * 60 * 1000;  // 10분
-      case '현대차증권': return 20 * 60 * 1000;  // 20분
       case '네이버': return 15 * 60 * 1000;  // 15분
       default: return 10 * 60 * 1000;
     }
@@ -836,7 +636,6 @@ function getSmartInterval(sourceKey) {
     case 'WiseReport': return 60 * 60 * 1000;  // 60분
     case '미래에셋': return 60 * 60 * 1000;  // 60분
     case '하나증권': return 60 * 60 * 1000;  // 60분
-    case '현대차증권': return 0;               // 0 = 수집 안 함
     case '네이버': return 60 * 60 * 1000;  // 60분
     default: return 60 * 60 * 1000;
   }
@@ -1068,9 +867,15 @@ async function fetchSourceReports(src) {
       }
     }
 
-    // 신규 리포트 Gemini AI 분석 (최대 10건)
+    // 신규 리포트 ai-queue에 1건씩 추가
+    const aiQueue = require('../services/ai-queue');
     const newItems = reportStores[src.key].slice(0, Math.min(added, 10));
-    analyzeReportBatch(newItems).catch(e => console.error(`[리포트AI] 배치 실패: ${e.message}`));
+    for (const report of newItems) {
+      aiQueue.addReport(report, (result) => {
+        if (_onReportAnalyzed) _onReportAnalyzed(report, result);
+      });
+    }
+    console.log(`[${src.key}] ${newItems.length}건 ai-queue 추가`);
   } else {
     console.log(`[${src.key}] 변동 없음 (${reportStores[src.key].length}건)`);
   }
@@ -1088,7 +893,7 @@ function scheduleNextFetch(src) {
 
   const interval = getSmartInterval(src.key);
 
-  // interval === 0 → 이 시간대에는 수집 안 함 (현대차증권 장외)
+  // interval === 0 → 이 시간대에는 수집 안 함
   if (interval === 0) {
     // 1시간 후 다시 확인 (시간대 변경 감지)
     reportTimers[src.key] = {
@@ -1125,8 +930,7 @@ function startReportTimers() {
     // 초기 실행 지연: 소스별로 분산
     const initialDelay = src.key === 'WiseReport' ? 3000 :
       src.key === '미래에셋' ? 6000 :
-        src.key === '하나증권' ? 9000 :
-          src.key === '현대차증권' ? 15000 : 12000;
+        src.key === '하나증권' ? 9000 : 12000;
     setTimeout(() => {
       if (!_getIsPaused()) {
         fetchSourceReports(src).catch(e => console.error(`[${src.key}] 오류: ${e.message}`));
@@ -1145,7 +949,7 @@ function startReportTimers() {
 function filterNaverDuplicates(allItems) {
   // 직접 소스(네이버 제외)의 종목+날짜+증권사 키 수집
   const directKeys = new Set();
-  const directSources = ['WiseReport', '미래에셋', '하나증권', '현대차증권'];
+  const directSources = ['WiseReport', '미래에셋', '하나증권'];
 
   for (const srcName of directSources) {
     const items = reportStores[srcName] || [];
@@ -1174,7 +978,6 @@ function filterNaverDuplicates(allItems) {
   });
 }
 
-function getHyundaiBrowser() { return hyundaiBrowser; }
 
 function getIsPaused() { return isPaused; }
 
@@ -1183,14 +986,12 @@ module.exports = {
   fetchReportPage,
   fetchNaverReportDetail,
   fetchMiraeReportDetail,
-  fetchHyundaiWithPuppeteer,
   fetchSourceReports,
   getSmartInterval,
   REPORT_SOURCES,
   scheduleNextFetch,
   startReportTimers,
   filterNaverDuplicates,
-  getHyundaiBrowser,
   CHROME_PATH,
   puppeteer,
   get reportTimers() { return reportTimers; }

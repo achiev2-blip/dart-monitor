@@ -26,7 +26,7 @@ const macro = require('./crawlers/macro');
 const prediction = require('./utils/prediction');
 const gemini = require('./services/gemini');
 
-// Puppeteer (현대차증권 JS렌더링용)
+// Puppeteer (미래에셋 상세 JS렌더링용)
 let puppeteer;
 try {
   puppeteer = require('puppeteer-core');
@@ -36,7 +36,7 @@ try {
     puppeteer = require('puppeteer');
     console.log('[Puppeteer] puppeteer 로드 성공');
   } catch (e2) {
-    console.warn('[Puppeteer] 미설치 — 현대차증권 크롤링 비활성. npm install puppeteer-core 실행 필요');
+    console.warn('[Puppeteer] 미설치 — 일부 크롤링 비활성. npm install puppeteer-core 실행 필요');
   }
 }
 
@@ -148,7 +148,6 @@ const reportStores = {
   WiseReport: loadJSON('reports_wisereport.json', []),
   '미래에셋': loadJSON('reports_mirae.json', []),
   '하나증권': loadJSON('reports_hana.json', []),
-  '현대차증권': loadJSON('reports_hyundai.json', []),
   '네이버': loadJSON('reports_naver.json', [])
 };
 
@@ -272,7 +271,6 @@ function cleanOldData() {
     'reports_wisereport.json': reportStores.WiseReport,
     'reports_mirae.json': reportStores['미래에셋'],
     'reports_hana.json': reportStores['하나증권'],
-    'reports_hyundai.json': reportStores['현대차증권'],
     'reports_naver.json': reportStores['네이버']
   };
   let reportRemoved = 0;
@@ -329,7 +327,7 @@ function findStockCode(corpName) {
   return found ? found.code : null;
 }
 
-console.log(`[복원] 리포트 WR:${reportStores.WiseReport.length} 미래에셋:${reportStores['미래에셋'].length} 하나:${reportStores['하나증권'].length} 현대차:${reportStores['현대차증권'].length} 네이버:${reportStores['네이버'].length} (총${totalReportCount()}건), 전송이력 ${Object.keys(sentItems).length}건`);
+console.log(`[복원] 리포트 WR:${reportStores.WiseReport.length} 미래에셋:${reportStores['미래에셋'].length} 하나:${reportStores['하나증권'].length} 네이버:${reportStores['네이버'].length} (총${totalReportCount()}건), 전송이력 ${Object.keys(sentItems).length}건`);
 
 // ============================================================
 // Gemini 서비스 초기화
@@ -391,11 +389,14 @@ app.post('/api/gemini', async (req, res) => {
 const {
   init: initReports,
   fetchReportPage, fetchNaverReportDetail, fetchMiraeReportDetail,
-  fetchHyundaiWithPuppeteer, fetchSourceReports, getSmartInterval,
+  fetchSourceReports, getSmartInterval,
   REPORT_SOURCES, scheduleNextFetch, startReportTimers,
-  filterNaverDuplicates, getHyundaiBrowser, CHROME_PATH: REPORT_CHROME_PATH,
+  filterNaverDuplicates, CHROME_PATH: REPORT_CHROME_PATH,
   puppeteer: reportPuppeteer
 } = require('./crawlers/reports');
+
+const aiQueue = require('./services/ai-queue');
+aiQueue.init({ apiKey: process.env.GEMINI_KEY_NEWS });
 
 const reportTimers = {};
 
@@ -403,7 +404,23 @@ initReports({
   reportStores,
   reportCache,
   getIsPaused: () => isPaused,
-  analyzeReportBatch: gemini.analyzeReportBatch
+  onReportAnalyzed: (report, result) => {
+    // 리포트 라인으로 결과 저장
+    const cacheKey = `${report.corp}|${report.title}|${report.date}`;
+    reportAiCache[cacheKey] = result;
+    report.aiResult = result;
+    // 워치리스트 종목이면 company-data에도 저장
+    if (report.corp && companyData) {
+      const code = findStockCode(report.corp);
+      if (code) {
+        companyData.addReport(code, { ...report, aiResult: result });
+        companyData.addReportToLayer(code, { ...report, aiResult: result });
+        if (result.summary) companyData.updateAiLayer(code, result.summary, result.cls);
+      }
+    }
+    const { saveJSON } = require('./utils/file-io');
+    saveJSON('report_ai_cache.json', reportAiCache);
+  }
 });
 
 // ============================================================
@@ -486,10 +503,8 @@ reportsRoute.init({
   filterNaverDuplicates,
   REPORT_SOURCES,
   fetchReportPage,
-  fetchHyundaiWithPuppeteer,
   fetchSourceReports,
   getSmartInterval,
-  getHyundaiBrowser,
 });
 app.use('/api', reportsRoute.router);
 
@@ -519,7 +534,6 @@ process.on('SIGINT', async () => {
   console.log('[종료] 상태 저장 중...');
   gemini.saveServerState();
   hantoo.stop();
-  if (getHyundaiBrowser()) { try { await getHyundaiBrowser().close(); } catch (e) { } }
   if (server) server.close();
   process.exit();
 });
@@ -632,15 +646,6 @@ function triggerUnprocessedAnalysis(reason) {
 }
 
 async function analyzeUnprocessedReportsSafe() {
-  if (gemini.isAnalyzing) {
-    console.log('[리포트AI] 이미 분석 중 — 미분석 처리 스킵');
-    return;
-  }
-  if (gemini.isCooldownActive()) {
-    console.log('[리포트AI] 쿨다운 중 — 미분석 처리 스킵');
-    return;
-  }
-
   const allReports = [];
   Object.values(reportStores).forEach(items => allReports.push(...items));
 
@@ -655,8 +660,24 @@ async function analyzeUnprocessedReportsSafe() {
   }
 
   const batch = unprocessed.slice(0, 30);
-  console.log(`[리포트AI] 미분석 ${unprocessed.length}건 중 ${batch.length}건 분석 시작...`);
-  await gemini.analyzeReportBatch(batch);
+  console.log(`[리포트AI] 미분석 ${unprocessed.length}건 중 ${batch.length}건 ai-queue 추가`);
+  for (const report of batch) {
+    aiQueue.addReport(report, (result) => {
+      const cacheKey = `${report.corp}|${report.title}|${report.date}`;
+      reportAiCache[cacheKey] = result;
+      report.aiResult = result;
+      if (report.corp && companyData) {
+        const code = findStockCode(report.corp);
+        if (code) {
+          companyData.addReport(code, { ...report, aiResult: result });
+          companyData.addReportToLayer(code, { ...report, aiResult: result });
+          if (result.summary) companyData.updateAiLayer(code, result.summary, result.cls);
+        }
+      }
+      const { saveJSON } = require('./utils/file-io');
+      saveJSON('report_ai_cache.json', reportAiCache);
+    });
+  }
 }
 
 // collectNewsAuto는 news-dc.js로 이동됨
@@ -674,7 +695,7 @@ server = app.listen(PORT, () => {
   console.log('');
   console.log(`  📁 데이터 경로: ${DATA_DIR}`);
   console.log(`  📰 저장된 뉴스: news-dc 관리`);
-  console.log(`  📊 리포트: WR:${reportStores.WiseReport.length} 미래에셋:${reportStores['미래에셋'].length} 하나:${reportStores['하나증권'].length} 현대차:${reportStores['현대차증권'].length} 네이버:${reportStores['네이버'].length}`);
+  console.log(`  📊 리포트: WR:${reportStores.WiseReport.length} 미래에셋:${reportStores['미래에셋'].length} 하나:${reportStores['하나증권'].length} 네이버:${reportStores['네이버'].length}`);
   console.log(`  🤖 리포트AI 캐시: ${Object.keys(reportAiCache).length}건`);
   console.log(`  🤖 Gemini: ${gemini.GEMINI_MODELS[gemini.currentModelIndex]?.label} (${gemini.fallbackRound}회차)${gemini.isCooldownActive() ? ' [쿨다운중]' : ''}`);
   console.log(`  🌐 Puppeteer: ${puppeteer ? '✅ 로드됨' : '❌ 미설치'} | Chrome: ${CHROME_PATH || '❌ 미발견'}`);
