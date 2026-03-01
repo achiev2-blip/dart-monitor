@@ -149,16 +149,18 @@ function createAiRoutes(aiName) {
         const data = permissions.loadPermissions(aiName);
         // API 가이드 — Claude가 사용 가능한 전체 경로와 파라미터
         const apiGuide = {
-            _notice: '🚨 이 가이드를 반드시 읽고 아래 경로만 사용할 것. /api/context, /api/predictions 등 기존 경로 사용 금지.',
+            _notice: '🚨 이 가이드를 반드시 읽고 아래 경로만 사용할 것. /api/context, /api/predictions 등 기존 경로 사용 금지. /api/claude 한방 조회 사용 금지 (서버 과부하).',
             auth: '모든 요청에 ?api_key=dartmonitor-claude 또는 헤더 x-api-key: dartmonitor-claude',
             read: {
-                'GET /api/claude': '한방 조회 — 뉴스+공시+리포트+가격+매크로 전부 포함 (핵심 엔드포인트)',
+                'GET /api/claude/summary': 'DC 서머리 — 지수+종목+뉴스+리포트+공시 통합 (한 분야 핵심 조회)',
+                'GET /api/claude/summary?section=news': '뉴스만 조회 (경량)',
+                'GET /api/claude/summary?section=reports': '리포트만 조회 (경량)',
+                'GET /api/claude/summary?section=prices': '종목 현재가만 조회 (경량)',
+                'GET /api/claude/summary?section=disclosures': '공시만 조회 (경량)',
+                'GET /api/claude/summary?section=macro': '매크로 지표만 조회 (경량)',
                 'GET /api/claude/ctx': '시장 요약 + 종목 컨텍스트 + commands',
-                'GET /api/claude/prices': '전 종목 현재가/등락률 (읽기 전용)',
-                'GET /api/claude/summary': 'DC 서머리 — 지수+종목+뉴스+리포트+공시 통합 (파일 기반)',
-                'GET /api/claude/macro': '매크로 지표 — VIX, 환율, 국채금리 등 (읽기 전용)',
-                'GET /api/claude/overseas': '미국시장 지표 (읽기 전용)',
                 'GET /api/claude/commands': '미완료 사용자 명령 목록',
+                'GET /api/claude/overseas': '미국시장 지표 (읽기 전용)',
                 'GET /api/claude/token': '한투 API 토큰 (읽기 전용)',
                 'GET /api/claude/predictions': '예측 데이터',
                 'GET /api/claude/stocks/:code/analysis': '종목별 AI 분석 결과',
@@ -175,12 +177,12 @@ function createAiRoutes(aiName) {
                 'POST /api/claude/stocks/:code/ai-analysis': { body: '{ summary:"분석 요약", sentiment:"positive/negative/neutral" }', desc: '종목별 AI분석 저장 (layers.json AI분석 레이어)' }
             },
             readOnly: '⚠️ news, reports, prices, dart, macro, overseas, token은 읽기 전용. POST 요청 불가 — 크롤러가 데이터를 수집하므로 덮어쓰기 금지.',
-            retry: '⚠️ 502 에러 발생 시 2~3회 재시도할 것. Cloudflare 터널 간헐적 불안정이 원인.',
+            retry: '⚠️ 502 에러 발생 시 2~3회 재시도할 것.',
             workflow: [
                 '1. 이 permissions 응답으로 사용 가능한 API 확인',
                 '2. GET /api/claude/commands 로 미완료 명령 확인 → 있으면 우선 처리',
-                '3. GET /api/claude/ctx 또는 GET /api/claude 로 현재 컨텍스트 읽기',
-                '4. 필요 시 news, reports, prices, dart, macro 추가 조회 (읽기만 가능)',
+                '3. GET /api/claude/summary 로 시장 전체 데이터 읽기 (또는 ?section= 으로 개별 조회)',
+                '4. GET /api/claude/ctx 로 컨텍스트 읽기',
                 '5. 분석 완료 후 POST /api/claude/ctx 로 결과 저장'
             ]
         };

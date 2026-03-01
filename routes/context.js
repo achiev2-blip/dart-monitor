@@ -649,10 +649,9 @@ router.get('/claude/summary', (req, res) => {
     }
 
     // 전체 조회 — 캡 유지 방식 (지우지 않음, 새 대화에서도 접근 가능)
-    const response = JSON.parse(JSON.stringify(dc));  // 딥 카피
     dc._meta.lastReadAt = new Date().toISOString();
     console.log(`[Claude/DC] 전체 읽기`);
-    res.json(response);
+    res.json(dc);
 });
 
 router.get('/claude', async (req, res) => {
@@ -954,11 +953,10 @@ function updateClaudeSummary(app) {
             };
         });
 
-        // 매크로
+        // 매크로 (오늘 데이터만 — history는 /api/macro에서 별도 조회)
         dc.macro = {
             current: macro.getCurrent(),
-            impact: macro.getMarketImpactSummary(),
-            history: loadJSON(path.join(macro.MACRO_DIR, 'history.json'), [])
+            impact: macro.getMarketImpactSummary()
         };
 
         // ── 누적형 데이터: 각 DC 모듈이 독립 관리 ──
