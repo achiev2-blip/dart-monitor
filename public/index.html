@@ -1712,8 +1712,8 @@
           document.getElementById('statusDot').classList.remove('paused');
           setStatus('수집 재개됨');
           toast('▶️ 수집 재개');
-          // 즉시 1회 갱신
-          loadData(); loadNews(); fetchReports();
+          // 순차 갱신 (1분 간격)
+          loadDataFromDC();
         } else {
           // 일시정지
           fetch('/api/pause', { method: 'POST' }).catch(function () { });
@@ -1728,27 +1728,104 @@
         }
       }
 
+      // DC 섹션별 순차 로테이션 (1분 간격, 공시→리포트→뉴스 반복)
+      var dcSectionIndex = 0;
+      var DC_SECTIONS = ['disclosures', 'reports', 'news'];
+      var DC_POLL_MS = 60000; // 1분 간격
+
+      function loadDataFromDC() {
+        if (clientPaused || serverFailCount >= 3) return;
+        var section = DC_SECTIONS[dcSectionIndex % DC_SECTIONS.length];
+        dcSectionIndex++;
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/claude/summary?section=' + section, true);
+        xhr.timeout = 15000;
+        xhr.onload = function () {
+          if (xhr.status === 200) {
+            try {
+              var resp = JSON.parse(xhr.responseText);
+              var items = resp.data || [];
+              if (section === 'news') { processNewsFromDC(items); }
+              else if (section === 'disclosures') { processDisclosuresFromDC(items); }
+              else if (section === 'reports') { processReportsFromDC(items); }
+            } catch (e) { console.error('[DC/' + section + '] parse error:', e); }
+          } else { serverFailCount++; }
+        };
+        xhr.onerror = function () { serverFailCount++; };
+        xhr.ontimeout = function () { };
+        xhr.send();
+      }
+
+      function processNewsFromDC(items) {
+        var added = 0;
+        for (var i = 0; i < items.length; i++) {
+          var it = items[i];
+          if (!it.link) continue;
+          if (sentNewsUrls[it.link]) continue;
+          sentNewsUrls[it.link] = true;
+          it.pubDate = it.date ? new Date(it.date) : new Date();
+          it.cls = it.cls || preClassifyNews(it.title);
+          it.watch = isWatchlistNews(it.title);
+          it.sectors = getRelatedSectors(it.title);
+          it.aiDone = !!it.cls;
+          it.aiResult = it.summary ? { cls: it.cls, summary: it.summary, corp: it.stocks || '시장전체', impact: it.importance || '중', sector: it.category || '' } : null;
+          allNews.unshift(it);
+          added++;
+        }
+        if (allNews.length > 500) allNews = allNews.slice(0, 500);
+        if (added > 0) toast('📰 뉴스 ' + added + '건 수집');
+        if (currentTab === 'news') renderNews();
+        updateStats();
+      }
+
+      function processDisclosuresFromDC(items) {
+        // DC 공시 데이터를 기존 allItems 형식으로 변환
+        var newItems = [];
+        for (var i = 0; i < items.length; i++) {
+          var d = items[i];
+          newItems.push({
+            no: d.rcept_no || d.no || ('dc_' + i),
+            corp: d.corp_name || d.corp || '',
+            title: d.report_nm || d.title || '',
+            date: d.rcept_dt || d.date || '',
+            cls: d.cls || 'normal',
+            url: d.url || ('https://dart.fss.or.kr/dsaf001/main.do?rcpNo=' + (d.rcept_no || '')),
+            watch: isWatchlist(d.corp_name || d.corp || ''),
+            flrNm: d.flr_nm || ''
+          });
+        }
+        allItems = newItems;
+        if (currentTab === 'realtime' || currentTab === 'daily') renderData();
+        updateStats();
+      }
+
+      function processReportsFromDC(items) {
+        var added = 0;
+        for (var i = 0; i < items.length; i++) {
+          var r = items[i];
+          var key = (r.corp || r.stock || '') + '|' + (r.broker || r.source || '') + '|' + (r.date || '');
+          var dup = false;
+          for (var j = 0; j < allReports.length; j++) {
+            var er = allReports[j];
+            if ((er.corp || '') + '|' + (er.broker || '') + '|' + (er.date || '') === key) { dup = true; break; }
+          }
+          if (dup) continue;
+          r.cls = r.cls || 'normal';
+          r.watch = isWatchlist(r.corp || r.stock || '');
+          allReports.unshift(r);
+          added++;
+        }
+        if (allReports.length > 200) allReports = allReports.slice(0, 200);
+        if (added > 0) toast('📊 리포트 ' + added + '건 수집');
+        if (currentTab === 'corp') renderCorp();
+        updateStats();
+      }
+
       function startPolling() {
         stopPolling();
         serverFailCount = 0;
-        pollTimers.dart = setInterval(function () {
-          if (clientPaused || serverFailCount >= 3) return;
-          if (!selectedDate || selectedDate === today()) {
-            var day = new Date().getDay();
-            if (day === 0 || day === 6) return;
-            loadData();
-          }
-        }, POLL_MS);
-        pollTimers.news = setInterval(function () {
-          if (clientPaused || serverFailCount >= 3) return;
-          loadNews();
-        }, NEWS_POLL_MS);
-        pollTimers.report = setInterval(function () {
-          if (clientPaused || serverFailCount >= 3) return;
-          var day = new Date().getDay();
-          if (day === 0 || day === 6) return;
-          fetchReports();
-        }, REPORT_POLL_MS);
+        // 1분 간격으로 DC 섹션 순차 호출
+        pollTimers.dart = setInterval(loadDataFromDC, DC_POLL_MS);
       }
 
       function stopPolling() {
@@ -3098,9 +3175,10 @@
 
       cleanCache();
 
-      loadData();
-      loadNews();
-      fetchReports();
+      // DC 섹션별 순차 로드 (서버 메모리 보호)
+      loadDataFromDC();  // 첫 번째 섹션 즉시
+      setTimeout(function () { loadDataFromDC(); }, 60000);  // 2번째 섹션 1분 후
+      setTimeout(function () { loadDataFromDC(); }, 120000); // 3번째 섹션 2분 후
       loadCompanyPrices();
 
       // 주가 급변동 알림 폴링 (30초 간격)
