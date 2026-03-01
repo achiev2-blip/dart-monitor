@@ -102,21 +102,21 @@ graph TD
     end
 
     subgraph SERVER["🖥️ server.js — 메인 서버 v3.5"]
-        S_REQUIRE["require dart-scheduler<br/>한 줄로 초기화"]
-        S_CALL["dartScheduler.start<br/>app, contextModule 전달"]
+        S_REQUIRE["require dart-dc<br/>const dartDC = require('./services/dart-dc')"]
+        S_CALL["dartDC.init(app)<br/>app 전달 — DC 갱신 시작"]
         S_ROUTE["라우트 등록<br/>app.use — /api — dart.js"]
         S_1MIN["1분 타이머 setInterval 60s<br/>updateClaudeSummary 호출<br/>메모리 감시 + 쿨다운 체크"]
     end
 
-    subgraph SCHEDULER["📋 services/dart-scheduler.js — 신규 분리 모듈"]
-        SCH_INIT["start — server.js에서 호출<br/>app, contextModule 전달"]
-        SCH_DA["dart-analyzer.init<br/>KEY2 + 10분 간격"]
-        SCH_DC["DC 갱신 타이머<br/>15초 딜레이 후 시작<br/>이후 5분마다 updateClaudeSummary"]
+    subgraph SCHEDULER["📋 services/dart-dc.js — 공시 DC 모듈"]
+        SCH_INIT["init(app) — server.js에서 호출<br/>app 전달 → DC 갱신 시작"]
+        SCH_DA["collectDartToday<br/>DART API 수집 + 10분 간격"]
+        SCH_DC["updateDisclosures<br/>DC.disclosures 갱신<br/>오늘 파일 읽기 → 100건 캡"]
         SCH_CLEAN["cleanOldDart<br/>dart_*.json 7일 보존규칙<br/>서버 시작 시 1회 실행"]
     end
 
     subgraph ANALYZER["⚙️ services/dart-analyzer.js — 수집+분류 엔진"]
-        INIT_DA["init — dart-scheduler에서 호출<br/>KEY2 + 10분 인터벌"]
+        INIT_DA["init — dart-dc에서 호출<br/>KEY2 + 10분 인터벌"]
         CDT["collectDartToday<br/>DART API에서 오늘 공시 수집<br/>조건: KST 08~19시, 평일만<br/>최대 5페이지 x 100건"]
         ADF["analyzeDartFiles<br/>미분류 공시 스캔<br/>!item._aiCls인 것만"]
         CB["classifyBatch<br/>Gemini에 10건 배치 전송<br/>강력호재/호재/악재/일반 분류<br/>주식투자 관점 프롬프트"]
@@ -129,7 +129,7 @@ graph TD
     end
 
     subgraph DC["🧠 routes/context.js — Claude 데이터센터"]
-        DC_UPDATE["updateClaudeSummary — L984<br/>호출자 2곳:<br/>① server.js 1분 타이머<br/>② dart-scheduler 5분 타이머"]
+        DC_UPDATE["updateClaudeSummary — L984<br/>호출자 2곳:<br/>① server.js 1분 타이머<br/>② dart-dc 5분 타이머"]
         DC_STATE["상태 데이터 — 덮어쓰기<br/>prices, macro, token<br/>overseas, index, investor"]
         DC_EVENT["이벤트 데이터 — 누적<br/>news 100캡, reports 50캡<br/>읽으면 초기화"]
         DC_DISC["공시 데이터 — 갱신<br/>오늘 우선 + 폴백<br/>30건 중단, rcept_no 중복제거<br/>100캡, _aiCls/_aiSummary 포함"]
