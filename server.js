@@ -517,10 +517,11 @@ app.use('/api', backupRoute.router);
 app.use('/api', require('./routes/system'));
 app.use('/api', contextModule.router);
 app.use('/api', require('./routes/macro'));
-// AI Gemini 공간 라우트 등록 (Claude는 context.js 전용 터널 사용)
+// AI 공간 라우트 등록
 const { createAiRoutes } = require('./routes/ai-space');
+app.use('/api', createAiRoutes('claude'));
 app.use('/api', createAiRoutes('gemini'));
-// Claude 서브라우트는 context.js에 직접 등록 — 독립 터널 (ai-space.js 경유하지 않음)
+// Claude/Gemini 공통: permissions에서 API 지도 제공
 app.use('/api', require('./routes/predictions'));
 app.use('/api', require('./routes/data-viewer'));
 app.use('/api', require('./routes/archive'));  // 아카이브 조회 (독립 모듈)

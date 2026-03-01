@@ -22,6 +22,32 @@ const DATA_DIR = config.DATA_DIR;
 const CONTEXT_DIR = path.join(DATA_DIR, 'context');
 
 // ============================================================
+// Permissions Gate — AI 세션 추적 (permissions 먼저 읽기 강제)
+// ============================================================
+const GATE_SESSION_TTL = 60 * 60 * 1000; // 1시간 유효
+const aiGateSessions = {};  // { 'apiKey': { readAt: timestamp, aiName: 'claude' } }
+
+// 세션 상태 조회 헬퍼 (외부에서 확인용)
+function getGateStatus() {
+    const now = Date.now();
+    const sessions = {};
+    for (const [key, info] of Object.entries(aiGateSessions)) {
+        const maskedKey = key.slice(0, 8) + '...';
+        const elapsed = Math.round((now - info.readAt) / 60000);
+        const remaining = Math.max(0, Math.round((info.readAt + GATE_SESSION_TTL - now) / 60000));
+        sessions[maskedKey] = {
+            ai: info.aiName,
+            readAt: new Date(info.readAt).toISOString(),
+            elapsed: `${elapsed}분 전`,
+            remaining: remaining > 0 ? `${remaining}분 남음` : '만료됨',
+            active: remaining > 0
+        };
+    }
+    return { sessions, ttlMinutes: GATE_SESSION_TTL / 60000 };
+}
+
+
+// ============================================================
 // AI 전용 인증 미들웨어 생성
 // ============================================================
 function createAiAuth(aiName) {
@@ -141,15 +167,60 @@ function createAiRoutes(aiName) {
     router.use(createAiAuth(aiName));
 
     // ----------------------------------------------------------
+    // Permissions Gate — permissions 먼저 안 읽으면 다른 API 차단
+    // ----------------------------------------------------------
+    router.use((req, res, next) => {
+        // permissions 라우트 자체는 항상 통과
+        if (req.path === `/${aiName}/permissions`) return next();
+
+        // localhost는 gate 제외 (개발 환경 + 프론트엔드)
+        const host = req.hostname || '';
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+        if (isLocal) return next();
+
+        // 같은 사이트 브라우저 요청은 gate 제외
+        const referer = req.headers.referer || req.headers.origin || '';
+        if (referer.includes(host)) return next();
+
+        // 외부 AI 요청 — 세션 체크
+        const apiKey = req.headers['x-api-key'] || req.query.api_key || '';
+        const session = aiGateSessions[apiKey];
+        const now = Date.now();
+
+        if (!session || (now - session.readAt) > GATE_SESSION_TTL) {
+            // 세션 없거나 만료 → 차단
+            console.log(`[Gate:${aiName}] ⛔ 차단 — permissions 미확인. path=${req.path}`);
+            return res.status(403).json({
+                ok: false,
+                error: `⚠️ 먼저 GET /api/${aiName}/permissions 를 호출하세요. 가이드를 읽어야 다른 API를 사용할 수 있습니다.`,
+                gate: 'locked',
+                action: `GET /api/${aiName}/permissions?api_key=YOUR_KEY`
+            });
+        }
+
+        // 세션 유효 → 통과
+        next();
+    });
+
+    // ----------------------------------------------------------
     // 권한 테이블 조회/변경
     // ----------------------------------------------------------
 
     // 권한 테이블 조회 — AI가 입장 시 먼저 읽는 API (전체 API 가이드 포함)
+    // ⭐ 이 엔드포인트를 호출해야 gate가 해제됨
     router.get(`/${aiName}/permissions`, (req, res) => {
+        // 세션 등록 — gate 해제
+        const apiKey = req.headers['x-api-key'] || req.query.api_key || '';
+        if (apiKey) {
+            aiGateSessions[apiKey] = { readAt: Date.now(), aiName };
+            console.log(`[Gate:${aiName}] ✅ 가이드 확인 완료 — gate 해제 (1시간 유효)`);
+        }
+
         const data = permissions.loadPermissions(aiName);
         // API 가이드 — Claude가 입장 시 읽는 전체 지침 + API 지도
         const apiGuide = {
             _notice: '🚨 반드시 이 가이드를 읽고 아래 경로만 사용할 것.',
+            _gate: '✅ 가이드를 읽었으므로 다른 API 접근이 1시간 동안 허용됩니다. 1시간 후 다시 이 엔드포인트를 호출해야 합니다.',
             access: '⚠️ web_fetch 차단됨. 반드시 bash curl 사용. 예: curl -s "http://34.22.94.45/api/claude/summary?api_key=dartmonitor-claude"',
             auth: '?api_key=dartmonitor-claude 또는 헤더 x-api-key: dartmonitor-claude',
 
@@ -163,7 +234,7 @@ function createAiRoutes(aiName) {
 
             // ━━ API 지도 (우선순위 순서) ━━
             step1_시작: {
-                'GET /api/claude/permissions': '이 가이드 + 권한 확인 (가장 먼저 호출)',
+                'GET /api/claude/permissions': '이 가이드 + 권한 확인 (가장 먼저 호출) ⭐ gate 해제됨',
                 'GET /api/claude/commands': '미완료 사용자 명령 목록 → 있으면 우선 처리'
             },
             step2_데이터_읽기: {
@@ -198,7 +269,7 @@ function createAiRoutes(aiName) {
 
             // ━━ 작업 흐름 ━━
             workflow: [
-                '1. permissions → 이 가이드 읽기',
+                '1. permissions → 이 가이드 읽기 (필수! gate 해제)',
                 '2. commands → 미완료 명령 확인 (있으면 우선 처리)',
                 '3. summary → 시장 전체 데이터 읽기 (또는 ?section= 개별)',
                 '4. ctx → 컨텍스트 읽기',
@@ -206,7 +277,7 @@ function createAiRoutes(aiName) {
                 '6. 분석 완료 → POST ctx 로 결과 저장'
             ]
         };
-        res.json({ ok: true, apiGuide, ...data });
+        res.json({ ok: true, gateUnlocked: true, ttlMinutes: GATE_SESSION_TTL / 60000, apiGuide, ...data });
     });
 
     // 권한 테이블 변경 — 관리자 키만 가능
@@ -987,4 +1058,4 @@ ${serverContext}`;
     return router;
 }
 
-module.exports = { createAiRoutes };
+module.exports = { createAiRoutes, getGateStatus };
