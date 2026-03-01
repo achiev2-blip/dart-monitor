@@ -272,13 +272,22 @@ function cleanSectorFiles(cutoffStr) {
 // 3.5 미분류 뉴스 재분류 — 1건씩 순차, 새 뉴스 오면 즉시 중단
 // ════════════════════════════════════════════════
 
-/** 미분류 뉴스 1건씩 순차 재분류 — 새 뉴스 도착 시 즉시 중단 */
+/** 미분류 뉴스 1건씩 순차 재분류 — 새 뉴스 도착 시 즉시 중단, 쿨다운 해제 시 자동 재시도 */
 async function retryUnclassified() {
     // 이미 실행 중이거나 새 뉴스 분류 중이면 스킵
     if (_retryRunning || _newsPending) return;
     if (!_app || _app.locals.isPaused) return;
     const gemini = require('./gemini');
-    if (gemini.isCooldownActive()) return;
+
+    // 쿨다운 중이면 해제 시점에 자동 재시도 예약
+    if (gemini.isCooldownActive()) {
+        const wait = gemini.cooldownUntil() - Date.now();
+        if (wait > 0) {
+            setTimeout(() => retryUnclassified(), wait);
+            console.log(`[news-dc/재분류] 쿨다운 중 — ${Math.round(wait / 60000)}분 후 자동 재시도 예약`);
+        }
+        return;
+    }
 
     const unclassified = storedNews.filter(n => !n.aiClassified);
     if (unclassified.length === 0) return;
@@ -290,6 +299,17 @@ async function retryUnclassified() {
     for (const news of unclassified) {
         if (_newsPending) break;  // 새 뉴스 우선 → 즉시 중단
         if (news.aiClassified) continue;  // 이미 분류됨 스킵
+
+        // 루프 도중 쿨다운 걸리면 해제 후 재시도 예약하고 중단
+        if (gemini.isCooldownActive()) {
+            const wait = gemini.cooldownUntil() - Date.now();
+            if (wait > 0) {
+                setTimeout(() => retryUnclassified(), wait);
+                console.log(`[news-dc/재분류] 쿨다운 발동 — ${Math.round(wait / 60000)}분 후 자동 재시도 예약`);
+            }
+            break;
+        }
+
         try {
             await gemini.classifyNewsBatch([news], () => hantoo.getWatchlist());
             saveToFile();
