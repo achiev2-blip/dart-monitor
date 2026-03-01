@@ -27,6 +27,8 @@ let _app = null;
 let storedNews = [];       // 뉴스 배열 (이 모듈이 소유)
 let lastCollectedAt = null;
 let lastDCUpdatedAt = null;
+let _newsPending = false;   // 새 뉴스 분류 진행 중 플래그
+let _retryRunning = false;  // 미분류 재분류 루프 실행 중 플래그
 
 // ── 유틸리티 ──
 
@@ -102,19 +104,26 @@ async function collectNewsAuto() {
         if (storedNews.length > ALL_CAP) storedNews.splice(ALL_CAP);
         if (added > 0) {
             saveToFile();
-            // AI 분류 트리거
-            const unclassified = storedNews.filter(n => !n.aiClassified).slice(0, 20);
-            if (unclassified.length > 0) {
-                gemini.classifyNewsBatch(unclassified, () => hantoo.getWatchlist())
-                    .then(() => {
-                        // AI 분류 완료 후 섹터별 파일 갱신
-                        saveToSectorFiles(unclassified);
-                        saveToFile();  // AI 분류 결과 반영
-                    })
-                    .catch(e => console.error(`[news-dc/AI] 자동분류 실패: ${e.message}`));
-            }
             // 새 뉴스를 섹터별 파일에 저장 (분류 전이라도 제목 기반)
             saveToSectorFiles(newItems);
+
+            // AI 분류 — 새 뉴스 우선, 완료 후 미분류 재분류 트리거
+            const unclassified = storedNews.filter(n => !n.aiClassified).slice(0, 20);
+            if (unclassified.length > 0) {
+                _newsPending = true;  // 재분류 중단 시그널
+                try {
+                    await gemini.classifyNewsBatch(unclassified, () => hantoo.getWatchlist());
+                    saveToSectorFiles(unclassified);
+                    saveToFile();
+                } catch (e) {
+                    console.error(`[news-dc/AI] 자동분류 실패: ${e.message}`);
+                }
+                _newsPending = false;  // 분류 완료 시그널
+                retryUnclassified();   // 즉시 미분류 재분류 시작
+            }
+        } else {
+            // 새 뉴스 없으면 미분류 재분류 시도
+            if (!_retryRunning) retryUnclassified();
         }
         lastCollectedAt = new Date().toISOString();
         const kstNow = new Date(Date.now() + 9 * 3600000).toISOString().replace('T', ' ').slice(0, 19);
@@ -260,6 +269,44 @@ function cleanSectorFiles(cutoffStr) {
 }
 
 // ════════════════════════════════════════════════
+// 3.5 미분류 뉴스 재분류 — 1건씩 순차, 새 뉴스 오면 즉시 중단
+// ════════════════════════════════════════════════
+
+/** 미분류 뉴스 1건씩 순차 재분류 — 새 뉴스 도착 시 즉시 중단 */
+async function retryUnclassified() {
+    // 이미 실행 중이거나 새 뉴스 분류 중이면 스킵
+    if (_retryRunning || _newsPending) return;
+    if (!_app || _app.locals.isPaused) return;
+    const gemini = require('./gemini');
+    if (gemini.isCooldownActive()) return;
+
+    const unclassified = storedNews.filter(n => !n.aiClassified);
+    if (unclassified.length === 0) return;
+
+    _retryRunning = true;
+    const hantoo = require('../crawlers/hantoo');
+    let retried = 0;
+
+    for (const news of unclassified) {
+        if (_newsPending) break;  // 새 뉴스 우선 → 즉시 중단
+        if (news.aiClassified) continue;  // 이미 분류됨 스킵
+        try {
+            await gemini.classifyNewsBatch([news], () => hantoo.getWatchlist());
+            saveToFile();
+            retried++;
+        } catch (e) {
+            console.error(`[news-dc/재분류] 실패: ${e.message}`);
+            break;  // 에러 시 루프 중단
+        }
+    }
+
+    _retryRunning = false;
+    if (retried > 0) {
+        console.log(`[news-dc/재분류] ${retried}건 재분류 완료, 미분류 잔여 ${storedNews.filter(n => !n.aiClassified).length}건`);
+    }
+}
+
+// ════════════════════════════════════════════════
 // 4. DC 뉴스 관리 — 매 1분 전체 재구성
 // ════════════════════════════════════════════════
 
@@ -359,7 +406,11 @@ function init(app) {
     setInterval(() => updateNews(), 60000);
     console.log('[news-dc] DC 갱신 타이머 시작 (1분)');
 
-    // ③ 보존규칙은 server.js의 cleanOldData에서 호출
+    // ③ 미분류 재분류 — 초기 실행 (60초 후, 수집 완료 후에도 자동 트리거)
+    setTimeout(() => retryUnclassified(), 60000);
+    console.log('[news-dc] 미분류 재분류 활성화 (이벤트 기반)');
+
+    // ④ 보존규칙은 server.js의 cleanOldData에서 호출
     console.log('[news-dc] 초기화 완료');
 }
 
@@ -390,4 +441,4 @@ function getStatus() {
     };
 }
 
-module.exports = { init, getStoredNews, getNewsBySector, getSectorByCompany, collectNewsAuto, cleanOldNews, getStatus, updateNews };
+module.exports = { init, getStoredNews, getNewsBySector, getSectorByCompany, collectNewsAuto, cleanOldNews, getStatus, updateNews, retryUnclassified };

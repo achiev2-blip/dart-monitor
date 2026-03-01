@@ -1,5 +1,5 @@
 ---
-description: PDCA 사이클 — 모든 작업에 Plan-Do-Check-Act 단계를 적용
+description: PDCA 사이클 — 모든 작업에 olan-Do-Check-Act 단계를 적용
 ---
 
 # PDCA 워크플로우
