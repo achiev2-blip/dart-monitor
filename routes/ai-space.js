@@ -147,45 +147,63 @@ function createAiRoutes(aiName) {
     // 권한 테이블 조회 — AI가 입장 시 먼저 읽는 API (전체 API 가이드 포함)
     router.get(`/${aiName}/permissions`, (req, res) => {
         const data = permissions.loadPermissions(aiName);
-        // API 가이드 — Claude가 사용 가능한 전체 경로와 파라미터
+        // API 가이드 — Claude가 입장 시 읽는 전체 지침 + API 지도
         const apiGuide = {
-            _notice: '🚨 이 가이드를 반드시 읽고 아래 경로만 사용할 것. /api/context, /api/predictions 등 기존 경로 사용 금지. /api/claude 한방 조회 사용 금지 (서버 과부하).',
-            access: '⚠️ web_fetch가 차단될 수 있음. API 호출 시 반드시 bash curl을 사용할 것. 예: curl -s "http://34.22.94.45/api/claude/summary?api_key=dartmonitor-claude"',
-            auth: '모든 요청에 ?api_key=dartmonitor-claude 또는 헤더 x-api-key: dartmonitor-claude',
-            read: {
-                'GET /api/claude/summary': 'DC 서머리 — 지수+종목+뉴스+리포트+공시 통합 (한 분야 핵심 조회)',
-                'GET /api/claude/summary?section=news': '뉴스만 조회 (경량)',
-                'GET /api/claude/summary?section=reports': '리포트만 조회 (경량)',
-                'GET /api/claude/summary?section=prices': '종목 현재가만 조회 (경량)',
-                'GET /api/claude/summary?section=disclosures': '공시만 조회 (경량)',
-                'GET /api/claude/summary?section=macro': '매크로 지표만 조회 (경량)',
-                'GET /api/claude/ctx': '시장 요약 + 종목 컨텍스트 + commands',
-                'GET /api/claude/commands': '미완료 사용자 명령 목록',
-                'GET /api/claude/overseas': '미국시장 지표 (읽기 전용)',
-                'GET /api/claude/token': '한투 API 토큰 (읽기 전용)',
-                'GET /api/claude/predictions': '예측 데이터',
+            _notice: '🚨 반드시 이 가이드를 읽고 아래 경로만 사용할 것.',
+            access: '⚠️ web_fetch 차단됨. 반드시 bash curl 사용. 예: curl -s "http://34.22.94.45/api/claude/summary?api_key=dartmonitor-claude"',
+            auth: '?api_key=dartmonitor-claude 또는 헤더 x-api-key: dartmonitor-claude',
+
+            // ━━ 핵심 규칙 ━━
+            rules: [
+                '1) commands 배열 먼저 확인 → 미완료 명령 있으면 최우선 처리',
+                '2) 종목 분석 시 consensus 있으면 참고, null이면 무시',
+                '3) 데이터는 읽기만 가능 — 크롤러가 수집하므로 덮어쓰기 금지',
+                '4) 502 에러 시 2~3회 재시도'
+            ],
+
+            // ━━ API 지도 (우선순위 순서) ━━
+            step1_시작: {
+                'GET /api/claude/permissions': '이 가이드 + 권한 확인 (가장 먼저 호출)',
+                'GET /api/claude/commands': '미완료 사용자 명령 목록 → 있으면 우선 처리'
+            },
+            step2_데이터_읽기: {
+                'GET /api/claude/summary': '전체 서머리 (뉴스+공시+리포트+주가+매크로 통합)',
+                'GET /api/claude/summary?section=news': '뉴스만 (경량)',
+                'GET /api/claude/summary?section=reports': '리포트만 (경량)',
+                'GET /api/claude/summary?section=disclosures': '공시만 (경량)',
+                'GET /api/claude/summary?section=prices': '종목 현재가만 (경량)',
+                'GET /api/claude/summary?section=macro': '매크로 지표만 (경량)',
+                'GET /api/claude/ctx': '시장 컨텍스트 + 종목 분석 이력 + commands'
+            },
+            step3_상세_조회: {
+                'GET /api/news': 'DC 뉴스 전체 (오늘+100건)',
+                'GET /api/news?company=기업명': '기업별 섹터 뉴스 (100일치)',
+                'GET /api/news?code=종목코드': '종목 관련 뉴스 (relatedNews 포함)',
+                'GET /api/reports': '리포트 전체 (DC 50건 이상, AI분석 포함)',
+                'GET /api/consensus/:code': '종목별 컨센서스 (없으면 null)',
+                'GET /api/stocks/company/:code/price': '종목 일별 차트 + 시간외 가격',
                 'GET /api/claude/stocks/:code/analysis': '종목별 AI 분석 결과',
-                'GET /api/stocks/company/:code/price': '종목 일별 차트 + 시간외 가격 (인증 불필요)',
-                'GET /api/consensus/:code': '종목별 컨센서스 (인증: ?api_key=dartmonitor-claude)',
-                'GET /api/reports': '리포트 전체 — DC 50건보다 더 많이 볼 때 사용 (AI분석 포함, 인증 불필요)'
+                'GET /api/claude/predictions': '예측 데이터',
+                'GET /api/claude/overseas': '미국시장 지표'
             },
-            write: {
+            step4_저장: {
                 'POST /api/claude/ctx': { body: '{ market:{}, stocks:[{code,name,...}], insights:[], newsDigest:{} }', desc: '분석 결과 저장' },
-                'POST /api/claude/archive': { body: '{ type, data }', desc: '아카이브 저장' },
                 'POST /api/claude/predictions': { body: '{ predictions:[{code,name,...}] }', desc: '예측 저장 (종목코드+종목명 필수)' },
+                'POST /api/claude/stocks/:code/memo': { body: '{ notes:"메모", tags:["태그"] }', desc: '종목별 메모 저장' },
+                'POST /api/claude/stocks/:code/ai-analysis': { body: '{ summary:"요약", sentiment:"positive/negative/neutral" }', desc: '종목별 AI분석 저장' },
+                'POST /api/claude/archive': { body: '{ type, data }', desc: '아카이브 저장' },
                 'POST /api/claude/commands': { body: '{ text }', desc: '새 명령 추가' },
-                'PATCH /api/claude/commands/:id': { body: '{ done:true, result }', desc: '명령 완료 처리' },
-                'POST /api/claude/stocks/:code/memo': { body: '{ notes:"메모 내용", tags:["태그"] }', desc: '종목별 메모 저장 (layers.json 메모 레이어)' },
-                'POST /api/claude/stocks/:code/ai-analysis': { body: '{ summary:"분석 요약", sentiment:"positive/negative/neutral" }', desc: '종목별 AI분석 저장 (layers.json AI분석 레이어)' }
+                'PATCH /api/claude/commands/:id': { body: '{ done:true, result }', desc: '명령 완료 처리' }
             },
-            readOnly: '⚠️ news, reports, prices, dart, macro, overseas, token은 읽기 전용. POST 요청 불가 — 크롤러가 데이터를 수집하므로 덮어쓰기 금지.',
-            retry: '⚠️ 502 에러 발생 시 2~3회 재시도할 것.',
+
+            // ━━ 작업 흐름 ━━
             workflow: [
-                '1. 이 permissions 응답으로 사용 가능한 API 확인',
-                '2. GET /api/claude/commands 로 미완료 명령 확인 → 있으면 우선 처리',
-                '3. GET /api/claude/summary 로 시장 전체 데이터 읽기 (또는 ?section= 으로 개별 조회)',
-                '4. GET /api/claude/ctx 로 컨텍스트 읽기',
-                '5. 분석 완료 후 POST /api/claude/ctx 로 결과 저장'
+                '1. permissions → 이 가이드 읽기',
+                '2. commands → 미완료 명령 확인 (있으면 우선 처리)',
+                '3. summary → 시장 전체 데이터 읽기 (또는 ?section= 개별)',
+                '4. ctx → 컨텍스트 읽기',
+                '5. 필요 시 step3 상세 조회',
+                '6. 분석 완료 → POST ctx 로 결과 저장'
             ]
         };
         res.json({ ok: true, apiGuide, ...data });

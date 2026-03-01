@@ -776,7 +776,7 @@ router.get('/claude', async (req, res) => {
 
             const pendingCommands = (loadContext('commands.json') || []).filter(c => !c.done);
             const response = {
-                _instructions: '⚠️ 최우선 지침: 1) commands 배열 확인 후 미완료 명령 처리. 2) 종목 분석 시 target.consensus 있으면 참고, null이면 무시. 3) 뉴스 조회: GET /api/news (DC 오늘+100건), ?company=기업명 (섹터별 100일치), ?range=500 (역산). 4) 작업 완료 후 POST /api/context/claude-update로 결과 저장.',
+                _instructions: '⚠️ 최우선 지침: 1) commands 배열 확인 후 미완료 명령 처리. 2) 종목 분석 시 target.consensus 있으면 참고, null이면 무시. 3) 뉴스: GET /api/news (?company=기업명, ?code=종목코드). 4) 작업 완료 후 POST /api/claude/ctx 로 결과 저장.',
                 commands: pendingCommands,
                 ok: true,
                 mode: 'stock-detail',
@@ -863,7 +863,7 @@ router.get('/claude', async (req, res) => {
         // 응답
         const pendingCmds = ctxCommands.filter(c => !c.done);
         res.json({
-            _instructions: '⚠️ 최우선 지침: 1) commands 배열 확인 후 미완료 명령 처리. 2) 뉴스: GET /api/news (DC 오늘+100건), ?company=기업명 (섹터별 100일치), ?range=500 (역산), ?code=종목코드 (relatedNews 포함). 3) 종목 컨센서스: GET /api/consensus/:code (파일 기반, 없으면 null). 4) 작업 완료 후 POST /api/context/claude-update로 결과 저장.',
+            _instructions: '⚠️ 최우선 지침: 1) commands 배열 확인 후 미완료 명령 처리. 2) 뉴스: GET /api/news (?company=기업명, ?code=종목코드). 3) 종목 컨센서스: GET /api/consensus/:code (없으면 null). 4) 작업 완료 후 POST /api/claude/ctx 로 결과 저장.',
             commands: pendingCmds,
             ok: true,
             mode: 'overview',
