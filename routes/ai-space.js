@@ -168,22 +168,19 @@ function createAiRoutes(aiName) {
 
     // ----------------------------------------------------------
     // Permissions Gate — permissions 먼저 안 읽으면 다른 API 차단
+    // Nginx 리버스프록시 환경에서도 정확히 동작하도록
+    // API 키를 보내는 요청(= 외부 AI)만 gate 대상으로 함
     // ----------------------------------------------------------
     router.use((req, res, next) => {
         // permissions 라우트 자체는 항상 통과
         if (req.path === `/${aiName}/permissions`) return next();
 
-        // localhost는 gate 제외 (개발 환경 + 프론트엔드)
-        const host = req.hostname || '';
-        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
-        if (isLocal) return next();
-
-        // 같은 사이트 브라우저 요청은 gate 제외
-        const referer = req.headers.referer || req.headers.origin || '';
-        if (referer.includes(host)) return next();
-
-        // 외부 AI 요청 — 세션 체크
+        // API 키가 없는 요청 = 브라우저/localhost → gate 제외
+        // (createAiAuth에서 이미 인증 통과한 상태)
         const apiKey = req.headers['x-api-key'] || req.query.api_key || '';
+        if (!apiKey) return next();
+
+        // API 키가 있는 요청 = 외부 AI → 세션 체크
         const session = aiGateSessions[apiKey];
         const now = Date.now();
 
