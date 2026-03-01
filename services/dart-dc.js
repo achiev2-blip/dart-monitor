@@ -34,6 +34,8 @@ let lastCollectedAt = null;
 let lastDCUpdatedAt = null;
 let totalAnalyzed = 0;
 let totalCollected = 0;
+let storedDisclosures = [];                // 메모리 저장소 (리포트 방식)
+let sentDisclosureIds = new Set();         // DC에 넣은 공시 ID 기억
 
 // ── 유틸리티 ──
 
@@ -85,6 +87,14 @@ async function collectDartToday() {
                 const fileName = `dart_${today}_p${p}.json`;
                 const filePath = path.join(DATA_DIR, fileName);
                 fs.writeFileSync(filePath, JSON.stringify(resp.data, null, 2), 'utf-8');
+
+                // 메모리에도 추가 (DC 누적용)
+                resp.data.list.forEach(item => {
+                    const id = item.rcept_no;
+                    if (id && !storedDisclosures.some(d => d.rcept_no === id)) {
+                        storedDisclosures.push(item);
+                    }
+                });
 
                 totalItems += resp.data.list.length;
                 newPages++;
@@ -245,7 +255,7 @@ function saveDartFiles(classified) {
 // 3. DC 공시 관리 — app.locals.claudeDataCenter.disclosures
 // ════════════════════════════════════════════════
 
-/** DC의 disclosures 섹션 갱신 — 오늘 전부 + 20건 미만이면 역순 보충 */
+/** DC의 disclosures 섹션 갱신 — storedDisclosures에서 새것만 누적 (리포트 방식) */
 function updateDisclosures() {
     if (!_app) return;
 
@@ -255,83 +265,40 @@ function updateDisclosures() {
     }
     const dc = _app.locals.claudeDataCenter;
 
-    const today = getToday();
-
     try {
-        // 날짜별로 그룹핑된 파일 목록
-        const allDartFiles = fs.readdirSync(DATA_DIR)
-            .filter(f => f.startsWith('dart_') && f.endsWith('.json'))
-            .sort().reverse();  // 최신부터
+        // storedDisclosures에서 아직 DC에 안 넣은 것만 추출
+        const newItems = storedDisclosures.filter(d => {
+            const id = d.rcept_no;
+            return id && !sentDisclosureIds.has(id);
+        }).map(d => ({
+            rcept_no: d.rcept_no,
+            corp_name: d.corp_name || '',
+            corp_code: d.corp_code || '',
+            report_nm: d.report_nm || '',
+            rcept_dt: d.rcept_dt || '',
+            flr_nm: d.flr_nm || '',
+            rm: d.rm || '',
+            _aiCls: d._aiCls || '',
+            _aiSummary: d._aiSummary || ''
+        }));
 
-        if (allDartFiles.length === 0) return;
-
-        // 날짜별 분류
-        const dateMap = {};
-        allDartFiles.forEach(f => {
-            const match = f.match(/dart_(\d{8})/);
-            if (match) {
-                if (!dateMap[match[1]]) dateMap[match[1]] = [];
-                dateMap[match[1]].push(f);
-            }
-        });
-
-        // 날짜 역순 정렬
-        const dates = Object.keys(dateMap).sort().reverse();
-
-        let allDisclosures = [];
-
-        // 오늘 공시 전부 로딩
-        const todayFiles = dateMap[today] || [];
-        for (const f of todayFiles) {
-            try {
-                const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf-8'));
-                if (data.list && Array.isArray(data.list)) {
-                    allDisclosures.push(...data.list);
-                }
-            } catch (e) { /* 손상된 파일 무시 */ }
+        // 누적 + 날짜순 정렬 + 캡 적용
+        if (newItems.length > 0) {
+            dc.disclosures = [...(dc.disclosures || []), ...newItems]
+                .sort((a, b) => (b.rcept_dt || '').localeCompare(a.rcept_dt || ''))
+                .slice(0, DC_DISCLOSURE_CAP);
+            // 넣은 ID 기억
+            newItems.forEach(d => sentDisclosureIds.add(d.rcept_no));
         }
 
-        // 오늘 공시 20건 미만이면 이전 날짜에서 역순 보충
-        if (allDisclosures.length < 20) {
-            for (const date of dates) {
-                if (date === today) continue; // 오늘은 이미 처리
-                const files = dateMap[date];
-                for (const f of files) {
-                    try {
-                        const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf-8'));
-                        if (data.list && Array.isArray(data.list)) {
-                            allDisclosures.push(...data.list);
-                        }
-                    } catch (e) { }
-                    if (allDisclosures.length >= 30) break;
-                }
-                if (allDisclosures.length >= 30) break;
-            }
+        // sentIds 메모리 관리: 500개 초과 시 정리
+        if (sentDisclosureIds.size > 500) {
+            const arr = [...sentDisclosureIds];
+            sentDisclosureIds = new Set(arr.slice(-250));
         }
-
-        // 중복 제거 (rcept_no 기준) + 캡 적용
-        const seen = new Set();
-        dc.disclosures = allDisclosures
-            .filter(d => {
-                if (!d.rcept_no || seen.has(d.rcept_no)) return false;
-                seen.add(d.rcept_no);
-                return true;
-            })
-            .slice(0, DC_DISCLOSURE_CAP)
-            .map(d => ({
-                rcept_no: d.rcept_no,
-                corp_name: d.corp_name || '',
-                corp_code: d.corp_code || '',
-                report_nm: d.report_nm || '',
-                rcept_dt: d.rcept_dt || '',
-                flr_nm: d.flr_nm || '',
-                rm: d.rm || '',
-                _aiCls: d._aiCls || '',
-                _aiSummary: d._aiSummary || ''
-            }));
 
         lastDCUpdatedAt = new Date().toISOString();
-        console.log(`[dart-dc/DC] 갱신: ${dc.disclosures.length}건 (오늘 ${todayFiles.length}파일)`);
+        console.log(`[dart-dc/DC] 갱신: ${dc.disclosures.length}건 (신규 ${newItems.length}건)`);
 
     } catch (e) {
         console.warn(`[dart-dc/DC] 갱신 실패: ${e.message}`);
@@ -437,7 +404,29 @@ function init(app) {
     // ① 보존규칙 (서버 시작 시 1회)
     cleanOldDart();
 
-    // ② 수집+분류 (30초 후 첫 실행, 이후 10분마다)
+    // ② 기존 파일에서 storedDisclosures 1회 로드 (메모리 초기화)
+    try {
+        const dartFiles = fs.readdirSync(DATA_DIR)
+            .filter(f => f.startsWith('dart_') && f.endsWith('.json'))
+            .sort().reverse();
+        for (const f of dartFiles) {
+            try {
+                const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, f), 'utf-8'));
+                if (data.list && Array.isArray(data.list)) {
+                    data.list.forEach(item => {
+                        if (item.rcept_no && !storedDisclosures.some(d => d.rcept_no === item.rcept_no)) {
+                            storedDisclosures.push(item);
+                        }
+                    });
+                }
+            } catch (e) { }
+        }
+        console.log(`[dart-dc] 파일에서 ${storedDisclosures.length}건 로드 완료`);
+    } catch (e) {
+        console.warn(`[dart-dc] 초기 로드 실패: ${e.message}`);
+    }
+
+    // ③ 수집+분류 (30초 후 첫 실행, 이후 10분마다)
     if (apiKey) {
         setTimeout(() => analyzeDartFiles(apiKey), 30000);
         setInterval(() => analyzeDartFiles(apiKey), 600000);
@@ -448,7 +437,7 @@ function init(app) {
         setInterval(() => collectDartToday(), 600000);
     }
 
-    // ③ DC 갱신 (15초 후 첫 실행, 이후 5분마다)
+    // ④ DC 갱신 (15초 후 첫 실행, 이후 5분마다)
     setTimeout(() => updateDisclosures(), 15000);
     setInterval(() => updateDisclosures(), 300000);
     console.log('[dart-dc] DC 갱신 타이머 시작 (5분)');
