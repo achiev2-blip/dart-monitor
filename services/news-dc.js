@@ -1,14 +1,13 @@
 /**
- * 뉴스 전용 DC — 수집 + 저장 + DC 관리 통합 모듈
+ * 뉴스 전용 DC — 수집 + 섹터별 저장 + DC 관리 통합 모듈
  * 
  * 역할:
- *  1. storedNews 배열 소유 (news.json에서 로드)
+ *  1. storedNews 배열 소유 (news.json에서 로드, 1000건 순환)
  *  2. RSS 크롤러로 자동 수집 (10분마다)
  *  3. AI 분류 트리거 (Gemini)
- *  4. 24시간 보존규칙 + 200건 캡
- *  5. dc.news에 독립 기록 (5분마다)
- * 
- * 이전: server.js collectNewsAuto + storedNews + context.js DC 뉴스 누적
+ *  4. 100일 보존규칙 + 1000건 캡
+ *  5. 섹터별 파일 저장 (data/news/{섹터}/news.json)
+ *  6. dc.news 매 1분 전체 재구성 (오늘 뉴스 + 역산 100건)
  */
 
 const fs = require('fs');
@@ -17,37 +16,47 @@ const path = require('path');
 // ── 경로 ──
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const NEWS_FILE = path.join(DATA_DIR, 'news.json');
-const DC_NEWS_CAP = 200;
+const NEWS_DIR = path.join(DATA_DIR, 'news');
+
+// ── 설정 ──
+const ALL_CAP = 1000;           // all.json 전체 뉴스 캡
+const RETENTION_DAYS = 100;     // 보존 기간 (일)
 
 // ── 상태 ──
 let _app = null;
 let storedNews = [];       // 뉴스 배열 (이 모듈이 소유)
 let lastCollectedAt = null;
 let lastDCUpdatedAt = null;
-let sentNewsIds = new Set();  // DC에 이미 넣은 뉴스 ID 기억 (읽고 지움 대응)
 
 // ── 유틸리티 ──
 
 /** JSON 파일 로드 */
-function loadJSON(fallback) {
+function loadJSONFile(filePath, fallback) {
     try {
-        return JSON.parse(fs.readFileSync(NEWS_FILE, 'utf-8'));
+        return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     } catch (e) {
         return fallback;
     }
 }
 
 /** JSON 파일 저장 */
-function saveToFile() {
+function saveJSONFile(filePath, data) {
     try {
-        fs.writeFileSync(NEWS_FILE, JSON.stringify(storedNews, null, 2), 'utf-8');
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
     } catch (e) {
-        console.warn(`[news-dc/저장] 실패: ${e.message}`);
+        console.warn(`[news-dc/저장] ${filePath} 실패: ${e.message}`);
     }
 }
 
+/** all.json 저장 */
+function saveToFile() {
+    saveJSONFile(NEWS_FILE, storedNews);
+}
+
 // ════════════════════════════════════════════════
-// 1. 자동 수집 — RSS 크롤러 → storedNews
+// 1. 자동 수집 — RSS 크롤러 → storedNews + 섹터별 저장
 // ════════════════════════════════════════════════
 
 /** 뉴스 자동 수집 (10분마다) */
@@ -80,24 +89,32 @@ async function collectNewsAuto() {
         const relevant = allItems.filter(item => isStockRelevant(item.title));
         const existingLinks = new Set(storedNews.map(n => n.link));
         let added = 0;
+        const newItems = [];
         for (const item of relevant) {
             if (!existingLinks.has(item.link)) {
                 item.collectedAt = new Date().toISOString();
                 storedNews.unshift(item);
                 existingLinks.add(item.link);
+                newItems.push(item);
                 added++;
             }
         }
-        if (storedNews.length > 200) storedNews.splice(200);
+        if (storedNews.length > ALL_CAP) storedNews.splice(ALL_CAP);
         if (added > 0) {
             saveToFile();
             // AI 분류 트리거
             const unclassified = storedNews.filter(n => !n.aiClassified).slice(0, 20);
             if (unclassified.length > 0) {
-                gemini.classifyNewsBatch(unclassified, () => hantoo.getWatchlist()).catch(e =>
-                    console.error(`[news-dc/AI] 자동분류 실패: ${e.message}`)
-                );
+                gemini.classifyNewsBatch(unclassified, () => hantoo.getWatchlist())
+                    .then(() => {
+                        // AI 분류 완료 후 섹터별 파일 갱신
+                        saveToSectorFiles(unclassified);
+                        saveToFile();  // AI 분류 결과 반영
+                    })
+                    .catch(e => console.error(`[news-dc/AI] 자동분류 실패: ${e.message}`));
             }
+            // 새 뉴스를 섹터별 파일에 저장 (분류 전이라도 제목 기반)
+            saveToSectorFiles(newItems);
         }
         lastCollectedAt = new Date().toISOString();
         const kstNow = new Date(Date.now() + 9 * 3600000).toISOString().replace('T', ' ').slice(0, 19);
@@ -108,41 +125,145 @@ async function collectNewsAuto() {
 }
 
 // ════════════════════════════════════════════════
-// 2. 보존규칙 — 24시간 경과 삭제 + 200건 캡
+// 2. 섹터별 파일 저장
+// ════════════════════════════════════════════════
+
+/** 워치리스트에서 섹터 목록 로드 */
+function getSectorMap() {
+    try {
+        const watchlist = loadJSONFile(path.join(DATA_DIR, 'watchlist.json'), []);
+        const map = {};  // { 기업명: 섹터 }
+        for (const s of watchlist) {
+            if (s.name && s.sector) map[s.name] = s.sector;
+        }
+        return map;
+    } catch (e) {
+        return {};
+    }
+}
+
+/** 뉴스를 섹터별 파일에 저장 */
+function saveToSectorFiles(newsItems) {
+    if (!newsItems || newsItems.length === 0) return;
+    const sectorMap = getSectorMap();
+    const companyNames = Object.keys(sectorMap);
+    const sectorNews = {};  // { 섹터: [뉴스] }
+
+    for (const item of newsItems) {
+        const title = item.title || '';
+        let matched = false;
+
+        // 제목에서 기업명 검색 → 해당 섹터에 추가
+        for (const name of companyNames) {
+            if (title.includes(name)) {
+                const sector = sectorMap[name];
+                if (!sectorNews[sector]) sectorNews[sector] = [];
+                sectorNews[sector].push(item);
+                matched = true;
+            }
+        }
+
+        // 매칭 안 된 뉴스 → '시장' 폴더
+        if (!matched) {
+            if (!sectorNews['시장']) sectorNews['시장'] = [];
+            sectorNews['시장'].push(item);
+        }
+    }
+
+    // 각 섹터 파일에 추가
+    for (const [sector, items] of Object.entries(sectorNews)) {
+        const sectorFile = path.join(NEWS_DIR, sector, 'news.json');
+        const existing = loadJSONFile(sectorFile, []);
+        const existingLinks = new Set(existing.map(n => n.link));
+        let added = 0;
+        for (const item of items) {
+            if (!existingLinks.has(item.link)) {
+                existing.unshift({
+                    title: item.title, source: item.source,
+                    date: item.date || item.pubDate || '',
+                    link: item.link || '',
+                    cls: item.aiCls || '', importance: item.aiImportance || '',
+                    summary: item.aiSummary || '', stocks: item.aiStocks || '',
+                    category: item.aiCategory || '',
+                    collectedAt: item.collectedAt || ''
+                });
+                added++;
+            }
+        }
+        if (added > 0) {
+            saveJSONFile(sectorFile, existing);
+        }
+    }
+}
+
+/** 섹터 파일에서 뉴스 로드 */
+function loadSectorNews(sector) {
+    const sectorFile = path.join(NEWS_DIR, sector, 'news.json');
+    return loadJSONFile(sectorFile, []);
+}
+
+// ════════════════════════════════════════════════
+// 3. 보존규칙 — 100일 경과 삭제 + 1000건 캡
 // ════════════════════════════════════════════════
 
 /** 뉴스 보존규칙 적용 */
 function cleanOldNews() {
-    const kst = new Date(Date.now() + 9 * 3600000);
-    const cutoff = new Date(kst);
-    cutoff.setHours(cutoff.getHours() - 24);
+    const now = new Date();
+    const cutoff = new Date(now.getTime() - RETENTION_DAYS * 24 * 3600000);
     const cutoffStr = cutoff.toISOString();
     const before = storedNews.length;
 
-    // 24시간 경과 삭제
+    // 100일 경과 삭제
     for (let i = storedNews.length - 1; i >= 0; i--) {
         const d = storedNews[i].pubDate || storedNews[i].date;
         if (d && new Date(d).toISOString() < cutoffStr) {
             storedNews.splice(i, 1);
         }
     }
-    // 200건 캡
-    if (storedNews.length > 200) storedNews.length = 200;
+    // 1000건 캡
+    if (storedNews.length > ALL_CAP) storedNews.length = ALL_CAP;
 
     if (storedNews.length < before) {
         saveToFile();
         const removed = before - storedNews.length;
-        console.log(`[news-dc/보존] ${removed}건 삭제 (24시간+200건캡), 잔여 ${storedNews.length}건`);
+        console.log(`[news-dc/보존] ${removed}건 삭제 (${RETENTION_DAYS}일+${ALL_CAP}건캡), 잔여 ${storedNews.length}건`);
         return removed;
     }
+
+    // 섹터 파일도 100일 보존규칙 적용
+    cleanSectorFiles(cutoffStr);
     return 0;
 }
 
+/** 섹터 파일 보존규칙 */
+function cleanSectorFiles(cutoffStr) {
+    try {
+        if (!fs.existsSync(NEWS_DIR)) return;
+        const sectors = fs.readdirSync(NEWS_DIR).filter(f =>
+            fs.statSync(path.join(NEWS_DIR, f)).isDirectory()
+        );
+        for (const sector of sectors) {
+            const sectorFile = path.join(NEWS_DIR, sector, 'news.json');
+            const items = loadJSONFile(sectorFile, []);
+            const before = items.length;
+            const filtered = items.filter(n => {
+                const d = n.date || n.collectedAt;
+                return !d || new Date(d).toISOString() >= cutoffStr;
+            });
+            if (filtered.length < before) {
+                saveJSONFile(sectorFile, filtered);
+            }
+        }
+    } catch (e) {
+        console.warn(`[news-dc/섹터정리] ${e.message}`);
+    }
+}
+
 // ════════════════════════════════════════════════
-// 3. DC 뉴스 관리 — dc.news 독립 갱신
+// 4. DC 뉴스 관리 — 매 1분 전체 재구성
 // ════════════════════════════════════════════════
 
-/** DC의 news 섹션 갱신 — 새 뉴스만 누적 (sentIds로 중복 방지) */
+/** DC의 news 섹션 갱신 — 매번 전체 재구성 (AI 분류 항상 반영) */
 function updateNews() {
     if (!_app) return;
 
@@ -152,28 +273,37 @@ function updateNews() {
     const dc = _app.locals.claudeDataCenter;
 
     try {
-        // sentNewsIds로 이미 DC에 넣은 뉴스 건너뜀 (dc.news가 비워져도 안전)
-        const newNews = storedNews.filter(n => {
-            const id = (n.title || '') + (n.date || n.pubDate || '');
-            return !sentNewsIds.has(id);
-        }).map(n => ({
+        // 오늘 날짜 (KST 기준)
+        const kstNow = new Date(Date.now() + 9 * 3600000);
+        const todayStr = kstNow.toISOString().slice(0, 10);
+
+        // 오늘 뉴스 전체
+        const todayNews = storedNews.filter(n => {
+            const d = n.date || n.pubDate || n.collectedAt || '';
+            return d.slice(0, 10) >= todayStr;
+        });
+
+        // 오늘 뉴스가 100건 미만이면 역산으로 채우기
+        let result;
+        if (todayNews.length >= 100) {
+            result = todayNews;
+        } else {
+            // 오늘 뉴스 + 나머지를 역산으로 100건 채우기
+            const remaining = 100 - todayNews.length;
+            const olderNews = storedNews.filter(n => {
+                const d = n.date || n.pubDate || n.collectedAt || '';
+                return d.slice(0, 10) < todayStr;
+            }).slice(0, remaining);
+            result = [...todayNews, ...olderNews];
+        }
+
+        // DC.news 전체 재구성 (AI 분류값 항상 최신 반영)
+        dc.news = result.map(n => ({
             title: n.title, source: n.source, date: n.date || n.pubDate || '',
             cls: n.aiCls || '', importance: n.aiImportance || '',
             summary: n.aiSummary || '', stocks: n.aiStocks || '',
             category: n.aiCategory || '', link: n.link || ''
         }));
-
-        if (newNews.length > 0) {
-            dc.news = [...(dc.news || []), ...newNews].slice(-DC_NEWS_CAP);
-            // 새로 넣은 ID 기억
-            newNews.forEach(n => sentNewsIds.add(n.title + n.date));
-        }
-
-        // sentIds 메모리 관리: 1000개 초과 시 오래된 것 삭제
-        if (sentNewsIds.size > 1000) {
-            const arr = [...sentNewsIds];
-            sentNewsIds = new Set(arr.slice(-500));
-        }
 
         lastDCUpdatedAt = new Date().toISOString();
     } catch (e) {
@@ -185,9 +315,20 @@ function updateNews() {
 // 외부 인터페이스
 // ════════════════════════════════════════════════
 
-/** storedNews 배열 반환 (routes/news.js에서 사용) */
+/** storedNews 배열 반환 */
 function getStoredNews() {
     return storedNews;
+}
+
+/** 섹터별 뉴스 로드 (routes/news.js 조건3용) */
+function getNewsBySector(sector) {
+    return loadSectorNews(sector);
+}
+
+/** 기업명으로 섹터 조회 */
+function getSectorByCompany(companyName) {
+    const map = getSectorMap();
+    return map[companyName] || null;
 }
 
 // ════════════════════════════════════════════════
@@ -199,8 +340,11 @@ function init(app) {
     _app = app;
 
     // news.json에서 로드
-    storedNews = loadJSON([]);
+    storedNews = loadJSONFile(NEWS_FILE, []);
     console.log(`[news-dc] 초기화: ${storedNews.length}건 로드`);
+
+    // 섹터 디렉토리 생성
+    ensureSectorDirs();
 
     // app.locals에 참조 공유 (routes/news.js 호환)
     app.locals.storedNews = storedNews;
@@ -210,12 +354,28 @@ function init(app) {
     setInterval(() => collectNewsAuto(), 600000);
     console.log('[news-dc] 수집 타이머 시작 (10분)');
 
-    // ② DC 갱신 (15초 후 첫 실행, 이후 5분마다)
+    // ② DC 갱신 (15초 후 첫 실행, 이후 1분마다)
     setTimeout(() => updateNews(), 15000);
-    setInterval(() => updateNews(), 300000);
+    setInterval(() => updateNews(), 60000);
+    console.log('[news-dc] DC 갱신 타이머 시작 (1분)');
 
     // ③ 보존규칙은 server.js의 cleanOldData에서 호출
     console.log('[news-dc] 초기화 완료');
+}
+
+/** 섹터 디렉토리 미리 생성 */
+function ensureSectorDirs() {
+    const watchlist = loadJSONFile(path.join(DATA_DIR, 'watchlist.json'), []);
+    const sectors = new Set(watchlist.map(s => s.sector).filter(Boolean));
+    sectors.add('시장');  // 공통 뉴스 폴더
+
+    for (const sector of sectors) {
+        const dir = path.join(NEWS_DIR, sector);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+            console.log(`[news-dc] 섹터 디렉토리 생성: ${sector}`);
+        }
+    }
 }
 
 /** 상태 조회 */
@@ -224,8 +384,10 @@ function getStatus() {
         lastCollectedAt,
         lastDCUpdatedAt,
         newsCount: storedNews.length,
-        dcNewsCount: _app?.locals?.claudeDataCenter?.news?.length || 0
+        dcNewsCount: _app?.locals?.claudeDataCenter?.news?.length || 0,
+        retentionDays: RETENTION_DAYS,
+        allCap: ALL_CAP
     };
 }
 
-module.exports = { init, getStoredNews, collectNewsAuto, cleanOldNews, getStatus, updateNews };
+module.exports = { init, getStoredNews, getNewsBySector, getSectorByCompany, collectNewsAuto, cleanOldNews, getStatus, updateNews };
