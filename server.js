@@ -75,15 +75,18 @@ app.use((req, res, next) => {
   next();
 });
 
-// API 인증 미들웨어 — localhost 및 같은 사이트(프론트엔드) 요청 허용
+// API 인증 미들웨어 — GET(읽기)는 허용, POST/PUT/DELETE(쓰기)만 인증 필요
 app.use('/api', (req, res, next) => {
+  // GET 요청은 누구나 접근 가능 (읽기 전용)
+  if (req.method === 'GET') return next();
+  // localhost는 모든 메서드 허용
   const host = req.hostname || '';
   const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
   if (isLocal) return next();
   // 같은 사이트에서 온 브라우저 요청 허용 (프론트엔드 페이지)
   const referer = req.headers.referer || req.headers.origin || '';
   if (referer.includes(host)) return next();
-  // 외부 API 호출은 x-api-key 헤더 또는 api_key 쿼리 파라미터 필요
+  // 외부 쓰기 요청은 x-api-key 헤더 또는 api_key 쿼리 파라미터 필요
   const apiKey = req.headers['x-api-key'] || req.query.api_key;
   if (!apiKey || apiKey !== config.INTERNAL_API_KEY) {
     return res.status(401).json({ ok: false, error: '인증 필요: x-api-key 헤더를 확인하세요.' });
