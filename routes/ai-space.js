@@ -150,6 +150,7 @@ function createAiRoutes(aiName) {
         // API 가이드 — Claude가 사용 가능한 전체 경로와 파라미터
         const apiGuide = {
             _notice: '🚨 이 가이드를 반드시 읽고 아래 경로만 사용할 것. /api/context, /api/predictions 등 기존 경로 사용 금지. /api/claude 한방 조회 사용 금지 (서버 과부하).',
+            access: '⚠️ web_fetch가 차단될 수 있음. API 호출 시 반드시 bash curl을 사용할 것. 예: curl -s "http://34.22.94.45/api/claude/summary?api_key=dartmonitor-claude"',
             auth: '모든 요청에 ?api_key=dartmonitor-claude 또는 헤더 x-api-key: dartmonitor-claude',
             read: {
                 'GET /api/claude/summary': 'DC 서머리 — 지수+종목+뉴스+리포트+공시 통합 (한 분야 핵심 조회)',
