@@ -95,6 +95,18 @@ app.use('/api', (req, res, next) => {
 });
 
 app.use(express.json({ limit: '10mb' }));
+
+// Claude/봇 프론트엔드 접근 차단 (API는 허용)
+app.use((req, res, next) => {
+  const ua = (req.headers['user-agent'] || '').toLowerCase();
+  if (req.path.endsWith('.html') || req.path === '/') {
+    if (ua.includes('claude') || ua.includes('anthropic') || ua.includes('bot')) {
+      return res.status(403).send('Blocked');
+    }
+  }
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ============================================================

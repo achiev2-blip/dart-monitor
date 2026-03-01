@@ -1802,7 +1802,7 @@
                 if (!it.source && it.name) { it.source = it.name }
                 if (!it.source && it.feedName) { it.source = it.feedName }
                 it.pubDate = it.pubDate ? new Date(it.pubDate) : new Date();
-                it.cls = preClassifyNews(it.title);
+                it.cls = it.cls || preClassifyNews(it.title);
                 it.watch = isWatchlistNews(it.title);
                 it.sectors = getRelatedSectors(it.title);
                 it.aiDone = false;
