@@ -1733,10 +1733,10 @@
       var DC_SECTIONS = ['disclosures', 'reports', 'news'];
       var DC_POLL_MS = 60000; // 1분 간격
 
-      function loadDataFromDC() {
+      function loadDataFromDC(forceSection) {
         if (clientPaused || serverFailCount >= 3) return;
-        var section = DC_SECTIONS[dcSectionIndex % DC_SECTIONS.length];
-        dcSectionIndex++;
+        var section = forceSection || DC_SECTIONS[dcSectionIndex % DC_SECTIONS.length];
+        if (!forceSection) dcSectionIndex++;
         var xhr = new XMLHttpRequest();
         xhr.open('GET', '/api/claude/summary?section=' + section, true);
         xhr.timeout = 15000;
@@ -3073,10 +3073,10 @@
           document.querySelectorAll('.tab').forEach(function (b) { b.classList.remove('active') });
           btn.classList.add('active');
           currentTab = btn.getAttribute('data-tab');
-          if (currentTab === 'news' && allNews.length === 0) loadNews();
-          if (currentTab === 'report' && allReports.length === 0) fetchReports();
-          if (currentTab === 'corp' && allNews.length === 0) loadNews();
-          if (currentTab === 'corp' && allReports.length === 0) fetchReports();
+          if (currentTab === 'news' && allNews.length === 0) loadDataFromDC('news');
+          if (currentTab === 'report' && allReports.length === 0) loadDataFromDC('reports');
+          if (currentTab === 'corp' && allNews.length === 0) loadDataFromDC('news');
+          if (currentTab === 'corp' && allReports.length === 0) loadDataFromDC('reports');
           if (currentTab === 'corp' && !Object.keys(companyPriceCache).length) loadCompanyPrices(function () { renderCorp() });
           renderCurrent();
           setTimeout(updateStickyTop, 50);
