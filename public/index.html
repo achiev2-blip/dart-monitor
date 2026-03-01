@@ -2020,7 +2020,7 @@
         var timeStr = '';
         try {
           var d = item.pubDate;
-          timeStr = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+          timeStr = ('0' + (d.getMonth() + 1)).slice(-2) + '/' + ('0' + d.getDate()).slice(-2) + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
         } catch (e) { }
         var aiHtml = '';
         if (item.aiResult) {
