@@ -515,10 +515,16 @@ const backupRoute = require('./routes/backup');
 app.use('/api', backupRoute.router);
 
 app.use('/api', require('./routes/system'));
+
+// Permissions Gate — AI가 permissions 먼저 읽어야 다른 API 접근 가능
+// context.js의 /claude/* 라우트도 포함하여 전역 적용
+const { createAiRoutes, createGateMiddleware } = require('./routes/ai-space');
+app.use('/api', createGateMiddleware('claude'));
+app.use('/api', createGateMiddleware('gemini'));
+
 app.use('/api', contextModule.router);
 app.use('/api', require('./routes/macro'));
 // AI 공간 라우트 등록
-const { createAiRoutes } = require('./routes/ai-space');
 app.use('/api', createAiRoutes('claude'));
 app.use('/api', createAiRoutes('gemini'));
 // Claude/Gemini 공통: permissions에서 API 지도 제공

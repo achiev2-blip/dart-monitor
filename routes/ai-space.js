@@ -46,6 +46,38 @@ function getGateStatus() {
     return { sessions, ttlMinutes: GATE_SESSION_TTL / 60000 };
 }
 
+// Gate 미들웨어 생성 — server.js에서 다른 라우터(context.js 등)에도 적용 가능
+function createGateMiddleware(aiName) {
+    return (req, res, next) => {
+        // permissions 라우트 자체는 항상 통과
+        if (req.path === `/${aiName}/permissions`) return next();
+
+        // API 키가 없는 요청 = 브라우저/localhost → gate 제외
+        const apiKey = req.headers['x-api-key'] || req.query.api_key || '';
+        if (!apiKey) return next();
+
+        // 해당 AI 경로가 아니면 gate 제외
+        if (!req.path.startsWith(`/${aiName}/`) && req.path !== `/${aiName}`) return next();
+
+        // API 키가 있는 요청 = 외부 AI → 세션 체크
+        const session = aiGateSessions[apiKey];
+        const now = Date.now();
+
+        if (!session || (now - session.readAt) > GATE_SESSION_TTL) {
+            console.log(`[Gate:${aiName}] ⛔ 차단 — permissions 미확인. path=${req.path}`);
+            return res.status(403).json({
+                ok: false,
+                error: `⚠️ 먼저 GET /api/${aiName}/permissions 를 호출하세요. 가이드를 읽어야 다른 API를 사용할 수 있습니다.`,
+                gate: 'locked',
+                action: `GET /api/${aiName}/permissions?api_key=YOUR_KEY`
+            });
+        }
+
+        next();
+    };
+}
+
+
 
 // ============================================================
 // AI 전용 인증 미들웨어 생성
@@ -1055,4 +1087,4 @@ ${serverContext}`;
     return router;
 }
 
-module.exports = { createAiRoutes, getGateStatus };
+module.exports = { createAiRoutes, getGateStatus, createGateMiddleware, aiGateSessions, GATE_SESSION_TTL };
