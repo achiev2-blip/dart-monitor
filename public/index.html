@@ -1738,7 +1738,7 @@
         var section = forceSection || DC_SECTIONS[dcSectionIndex % DC_SECTIONS.length];
         if (!forceSection) dcSectionIndex++;
         var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/api/claude/summary?section=' + section, true);
+        xhr.open('GET', '/api/claude/summary?section=' + section + '&api_key=dartmonitor-claude', true);
         xhr.timeout = 15000;
         xhr.onload = function () {
           if (xhr.status === 200) {
