@@ -39,6 +39,7 @@ setInterval(async () => {
     console.log('[체인] 확인필요 재시도 시작');
     try {
         await classifier.retryAndFinalize();
+        classifier.cleanOldOutputFiles();
     } catch (e) {
         console.error(`[체인] 재시도 오류: ${e.message}`);
     }
