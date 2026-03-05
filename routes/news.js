@@ -28,11 +28,13 @@ router.get('/news', (req, res) => {
         return res.json({ ok: true, items: storedNews.slice(0, limit), total: storedNews.length });
     }
 
-    // 조건1: DC에서 오늘 뉴스 + 역산 100건
+    // 조건1: DC에서 뉴스 (limit 파라미터 지원, 기본 50건)
     const dc = req.app.locals.claudeDataCenter;
     const dcNews = dc?.news || [];
+    const limit = parseInt(req.query.limit) || 50;
+    const limited = dcNews.slice(0, limit);
 
-    const result = { ok: true, items: dcNews, total: dcNews.length };
+    const result = { ok: true, items: limited, total: dcNews.length, showing: limited.length };
 
     // 조건1 + code: 기업코드로 관련 뉴스 추가
     if (code) {

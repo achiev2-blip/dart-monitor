@@ -516,7 +516,7 @@ router.get('/claude/market', async (req, res) => {
 
         // 포트폴리오 필터링 뉴스
         const recentNews = storedNews.slice(-100).reverse();
-        const filteredNews = filterByPortfolio(recentNews, ['title', 'summary', 'corp'], hantoo).slice(0, 10);
+        const filteredNews = filterByPortfolio(recentNews, ['title', 'summary', 'corp'], hantoo).slice(0, 50);
 
         // DART 공시 — DC에서 읽기
         const dc = req.app.locals.claudeDataCenter;
@@ -567,7 +567,7 @@ router.get('/claude/stocks', (req, res) => {
                 change: p?.current?.change || p?.change || null,
                 volume: p?.current?.volume || p?.volume || null,
                 afterHours: pd.afterHours || p?.afterHours || null,
-                daily: (pd.daily || []).slice(-5)
+                daily: pd.daily || []
             };
         });
 
@@ -590,7 +590,7 @@ router.get('/claude/stocks', (req, res) => {
 router.get('/claude/reports', (req, res) => {
     const { reportStores } = req.app.locals;
     try {
-        const limit = parseInt(req.query.limit) || 20;
+        const limit = parseInt(req.query.limit) || 100;
         const allReports = [];
         Object.values(reportStores).forEach(items => allReports.push(...items));
         const recentReports = allReports
@@ -701,12 +701,12 @@ router.get('/claude', async (req, res) => {
                 // 일봉 전체
                 daily: priceData.daily || [],
                 // 기업별 뉴스 (layers.json)
-                news: (layersData.뉴스 || []).slice(-20).map(n => ({
+                news: (layersData.뉴스 || []).slice(-50).map(n => ({
                     title: n.title, cls: n.cls, category: n.category,
                     date: n.date, summary: n.summary || '', importance: n.importance || ''
                 })),
                 // 기업별 리포트
-                reports: (layersData.리포트 || []).concat(companyData.getReports(targetCode) || []).slice(-15).map(r => ({
+                reports: (layersData.리포트 || []).concat(companyData.getReports(targetCode) || []).slice(-50).map(r => ({
                     title: r.title, broker: r.broker || r.source, date: r.date,
                     opinion: r.opinion || '', targetPrice: r.targetPrice || ''
                 })),
@@ -731,7 +731,7 @@ router.get('/claude', async (req, res) => {
             const recentStockNews = storedNews.filter(n => {
                 const text = [n.title, n.summary, n.corp, n.aiStocks].filter(Boolean).join(' ');
                 return text.includes(targetName);
-            }).slice(-10).map(n => ({
+            }).slice(-30).map(n => ({
                 title: n.title, source: n.source, date: n.date,
                 cls: n.aiCls || '', importance: n.aiImportance || '',
                 summary: n.aiSummary || ''
@@ -758,7 +758,7 @@ router.get('/claude', async (req, res) => {
                 const sectorNews = storedNews.filter(n => {
                     const text = [n.title, n.summary, n.corp, n.aiStocks].filter(Boolean).join(' ');
                     return sectorNames.some(name => text.includes(name));
-                }).slice(-10).map(n => ({
+                }).slice(-30).map(n => ({
                     title: n.title, source: n.source, date: n.date,
                     relatedStock: sectorNames.find(name => [n.title, n.summary, n.corp].join(' ').includes(name)) || '',
                     cls: n.aiCls || ''
@@ -810,14 +810,14 @@ router.get('/claude', async (req, res) => {
 
         // 2. 저장된 뉴스 최근 20건
         const recentNews = storedNews.slice(-100).reverse();
-        const filteredNews = filterByPortfolio(recentNews, ['title', 'summary', 'corp'], hantoo).slice(0, 20);
+        const filteredNews = filterByPortfolio(recentNews, ['title', 'summary', 'corp'], hantoo).slice(0, 50);
 
         // 3. 저장된 리포트 최근 20건 — 필드 축약 (토큰 절약)
         const allReports = [];
         Object.values(reportStores).forEach(items => allReports.push(...items));
         const recentReports = allReports
             .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-            .slice(0, 20)
+            .slice(0, 50)
             .map(r => ({ title: r.title, broker: r.broker || r.source, date: r.date, opinion: r.opinion || '', targetPrice: r.targetPrice || '' }));
 
         // 4. 컨텍스트 데이터 — claude-dc 캐시 사용
@@ -879,7 +879,7 @@ router.get('/claude', async (req, res) => {
             },
             disclosures: filteredDisclosures,
             news: newsCategories,
-            newsFlat: filteredNews.slice(0, 5),  // 10→5건 (토큰 절약)
+            newsFlat: filteredNews.slice(0, 20),  // 제한 해제 (최대 개방)
             reports: recentReports,
             realtimePrices,
             stocksDetail,
@@ -907,6 +907,123 @@ router.get('/claude', async (req, res) => {
         res.status(500).json({ ok: false, error: e.message });
     }
 });
+
+// ============================================================
+// /claude/all — 통합 엔드포인트 (모든 데이터 제한 없이 한 번에)
+// ============================================================
+router.get('/claude/all', (req, res) => {
+    try {
+        const { storedNews, reportStores } = req.app.locals;
+        const dc = req.app.locals.claudeDataCenter;
+        const watchlist = hantoo.getWatchlist();
+        const stockPrices = hantoo.getStockPrices();
+        const overseas = loadJSON('overseas.json', { latest: null, history: [] });
+
+        // 뉴스 — 전체
+        const allNews = (storedNews || []).slice().reverse().map(n => ({
+            title: n.title, source: n.source, date: n.date, link: n.link,
+            cls: n.aiCls || '', importance: n.aiImportance || '',
+            category: n.aiCategory || '', stocks: n.aiStocks || '',
+            summary: n.aiSummary || ''
+        }));
+
+        // 리포트 — 전체
+        const allReports = [];
+        Object.values(reportStores || {}).forEach(items => allReports.push(...items));
+        const sortedReports = allReports
+            .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+            .map(r => ({
+                title: r.title, broker: r.broker || r.source, date: r.date,
+                opinion: r.opinion || '', targetPrice: r.targetPrice || '',
+                stock: r.stockName || r.corp || '', link: r.link || ''
+            }));
+
+        // 주가 — 전종목 + 일봉 전체
+        const stocks = watchlist.map(s => {
+            const p = stockPrices[s.code];
+            const pd = companyData.getPrice(s.code);
+            return {
+                code: s.code, name: s.name, sector: s.sector || '',
+                price: p?.current?.price || p?.price || null,
+                change: p?.current?.change || p?.change || null,
+                volume: p?.current?.volume || p?.volume || null,
+                afterHours: pd.afterHours || p?.afterHours || null,
+                daily: pd.daily || []
+            };
+        });
+
+        // 공시 — DC 전체
+        const disclosures = dc?.disclosures || [];
+
+        // 컨텍스트
+        const ctxMarket = loadContext('market.json') || {};
+        const ctxCommands = loadContext('commands.json') || [];
+        const pendingCmds = ctxCommands.filter(c => !c.done);
+
+        // 아카이브
+        const claudeDCModule = require('../services/claude-dc');
+        const archiveCache = claudeDCModule.getArchive();
+
+        // 응답
+        const kst = new Date(Date.now() + 9 * 3600000);
+        const yyyymmdd = kst.getUTCFullYear().toString() +
+            String(kst.getUTCMonth() + 1).padStart(2, '0') +
+            String(kst.getUTCDate()).padStart(2, '0');
+
+        res.json({
+            ok: true,
+            mode: 'all',
+            timestamp: new Date().toISOString(),
+            date: yyyymmdd,
+            commands: pendingCmds,
+            summary: {
+                newsCount: allNews.length,
+                reportCount: sortedReports.length,
+                disclosureCount: disclosures.length,
+                stockCount: stocks.length,
+                watchlistCount: watchlist.length
+            },
+            news: allNews,
+            reports: sortedReports,
+            stocks,
+            index: hantoo.getIndexPrices(),
+            investor: hantoo.getMarketInvestor(),
+            disclosures,
+            macro: {
+                current: macro.getCurrent(),
+                impact: macro.getMarketImpactSummary()
+            },
+            overseas: overseas.latest,
+            overseasHistory: overseas.history || [],
+            context: { market: ctxMarket },
+            archive: {
+                weekly: archiveCache.weekly,
+                monthly: archiveCache.monthly,
+                quarterly: archiveCache.quarterly
+            },
+            newsDigest: (loadContext('news_digest.json') || {}).latest,
+            predictionStats: prediction.getStats(),
+            hantooToken: hantoo.getTokenInfo(),
+            _endpoints: {
+                this: 'GET /api/claude/all — 모든 데이터 통합 (제한 없음)',
+                byStock: 'GET /api/claude?code=005930 — 종목 상세',
+                news: 'GET /api/claude/news?limit=N — 뉴스',
+                reports: 'GET /api/claude/reports?limit=N — 리포트',
+                prices: 'GET /api/claude/prices — 주가',
+                macro: 'GET /api/claude/macro — 매크로',
+                overseas: 'GET /api/claude/overseas — 해외',
+                ctx: 'GET /api/claude/ctx — 컨텍스트 읽기/쓰기',
+                commands: 'GET /api/claude/commands — 명령어'
+            }
+        });
+
+        console.log(`[Claude/all] 통합 — 뉴스:${allNews.length} 리포트:${sortedReports.length} 공시:${disclosures.length} 종목:${stocks.length}`);
+    } catch (e) {
+        console.error(`[Claude/all] 오류: ${e.message}`);
+        res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
 // (서브라우트 제거됨 — /claude/summary 데이터센터에서 ?section 파라미터로 개별 조회 지원)
 
 
@@ -914,10 +1031,10 @@ router.get('/claude', async (req, res) => {
 // Claude 데이터센터 — 사전 수집 + 이벤트 누적 + 상태 갱신
 // ============================================================
 
-// 뉴스/리포트/공시 누적 캡 (메모리 보호)
-const DC_NEWS_CAP = 100;
-const DC_REPORT_CAP = 50;
-const DC_DISCLOSURE_CAP = 100;
+// 뉴스/리포트/공시 누적 캡 (최대 개방)
+const DC_NEWS_CAP = 500;
+const DC_REPORT_CAP = 200;
+const DC_DISCLOSURE_CAP = 500;
 
 // 데이터센터 갱신 (1분마다 호출) — 이벤트는 누적, 상태는 덮어쓰기
 function updateClaudeSummary(app) {

@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>뉴스 뷰어</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+        }
+
+        /* 헤더 */
+        .header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            color: #58a6ff;
+            font-weight: 600;
+        }
+
+        .header .status {
+            font-size: 13px;
+            color: #8b949e;
+        }
+
+        .header .status .count {
+            color: #58a6ff;
+            font-weight: 600;
+        }
+
+        /* 탭 */
+        .tabs {
+            background: #161b22;
+            padding: 8px 24px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            gap: 4px;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #8b949e;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: #c9d1d9;
+            background: #21262d;
+        }
+
+        .tab.active {
+            color: #f0f6fc;
+            background: #21262d;
+            border-color: #30363d;
+        }
+
+        .tab .badge {
+            display: inline-block;
+            min-width: 18px;
+            padding: 0 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            text-align: center;
+            margin-left: 6px;
+            font-weight: 600;
+        }
+
+        /* 분류별 뱃지 색상 */
+        .cls-강력호재 {
+            background: #da3633;
+            color: #fff;
+        }
+
+        .cls-호재 {
+            background: #238636;
+            color: #fff;
+        }
+
+        .cls-악재 {
+            background: #1f6feb;
+            color: #fff;
+        }
+
+        .cls-확인필요 {
+            background: #d29922;
+            color: #fff;
+        }
+
+        /* 출처별 뱃지 색상 */
+        .src-매경 {
+            background: #8b5cf6;
+            color: #fff;
+        }
+
+        .src-연합뉴스 {
+            background: #3b82f6;
+            color: #fff;
+        }
+
+        .src-한경 {
+            background: #10b981;
+            color: #fff;
+        }
+
+        .src-Bloomberg {
+            background: #f59e0b;
+            color: #000;
+        }
+
+        .src-Reuters {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .src-Google뉴스 {
+            background: #06b6d4;
+            color: #fff;
+        }
+
+        /* 테이블 */
+        .table-wrap {
+            padding: 16px 24px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 12px;
+            color: #8b949e;
+            border-bottom: 1px solid #21262d;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #21262d;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        tr:hover {
+            background: #161b22;
+        }
+
+        .news-source {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .news-title {
+            color: #c9d1d9;
+            max-width: 500px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .cls-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .time {
+            color: #8b949e;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .news-link {
+            color: #58a6ff;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .news-link:hover {
+            text-decoration: underline;
+        }
+
+        /* 더보기 */
+        .load-more {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #58a6ff;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 16px;
+            transition: background 0.2s;
+        }
+
+        .load-more:hover {
+            background: #30363d;
+        }
+
+        .load-more:disabled {
+            color: #484f58;
+            cursor: default;
+        }
+
+        /* 빈 상태 */
+        .empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #484f58;
+            font-size: 15px;
+        }
+
+        /* 자동갱신 표시 */
+        .refresh-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #21262d;
+            z-index: 10;
+        }
+
+        .refresh-bar .progress {
+            height: 100%;
+            background: #238636;
+            transition: width 1s linear;
+        }
+
+        /* 사이드 패널 */
+        .panel-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+
+        .panel-overlay.open {
+            display: block;
+        }
+
+        .side-panel {
+            position: fixed;
+            top: 0;
+            right: -420px;
+            bottom: 0;
+            width: 420px;
+            background: #161b22;
+            border-left: 1px solid #30363d;
+            z-index: 101;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .side-panel.open {
+            right: 0;
+        }
+
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header h2 {
+            font-size: 15px;
+            color: #f0f6fc;
+            font-weight: 600;
+        }
+
+        .panel-close {
+            background: none;
+            border: none;
+            color: #8b949e;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .panel-close:hover {
+            background: #21262d;
+            color: #f0f6fc;
+        }
+
+        .panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-info {
+            margin-bottom: 16px;
+        }
+
+        .panel-info .label {
+            font-size: 11px;
+            color: #8b949e;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .panel-info .value {
+            font-size: 14px;
+            color: #c9d1d9;
+        }
+
+        .panel-iframe {
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+            border: none;
+            background: #0d1117;
+            border-radius: 4px;
+        }
+
+        .panel-fallback {
+            text-align: center;
+            padding: 40px 20px;
+            color: #8b949e;
+            font-size: 13px;
+        }
+
+        .panel-fallback a {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 8px 20px;
+            background: #238636;
+            color: #fff;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        .panel-fallback a:hover {
+            background: #2ea043;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>📰 뉴스 뷰어</h1>
+        <div class="status">
+            캐시: <span class="count" id="totalCount">-</span>건
+            | 갱신: <span id="updatedAt">-</span>
+        </div>
+    </div>
+
+    <div class="tabs" id="tabs">
+        <div class="tab active" data-filter="전체">전체 <span class="badge" id="cnt-all">0</span></div>
+        <div class="tab" data-filter="강력호재">강력호재 <span class="badge cls-강력호재" id="cnt-강력호재">0</span></div>
+        <div class="tab" data-filter="호재">호재 <span class="badge cls-호재" id="cnt-호재">0</span></div>
+        <div class="tab" data-filter="악재">악재 <span class="badge cls-악재" id="cnt-악재">0</span></div>
+        <div class="tab" data-filter="확인필요">확인필요 <span class="badge cls-확인필요" id="cnt-확인필요">0</span></div>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>시간</th>
+                    <th>출처</th>
+                    <th>뉴스 제목</th>
+                    <th>분류</th>
+                    <th>원문</th>
+                </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+        </table>
+        <div class="empty" id="empty" style="display:none">뉴스 데이터가 없습니다</div>
+        <button class="load-more" id="loadMore" style="display:none">더보기 +50건</button>
+    </div>
+
+    <div class="refresh-bar">
+        <div class="progress" id="refreshProgress"></div>
+    </div>
+
+    <!-- 사이드 패널 -->
+    <div class="panel-overlay" id="panelOverlay"></div>
+    <div class="side-panel" id="sidePanel">
+        <div class="panel-header">
+            <h2 id="panelTitle">뉴스 상세</h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <button id="panelCopy"
+                    onclick="navigator.clipboard.writeText(document.getElementById('panelNewTab').href).then(()=>{this.textContent='✓복사됨';setTimeout(()=>this.textContent='복사',1500)})"
+                    style="background:#21262d;border:1px solid #30363d;color:#58a6ff;font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer;">복사</button>
+                <a id="panelNewTab" href="#" target="_blank"
+                    style="color:#58a6ff;font-size:12px;text-decoration:none;">새탭↗</a>
+                <button class="panel-close" id="panelClose">✕</button>
+            </div>
+        </div>
+        <div class="panel-body">
+            <div style="padding:12px 20px;border-bottom:1px solid #30363d;display:flex;gap:16px;align-items:center;">
+                <span id="panelSource" class="news-source"></span>
+                <span id="panelCls"></span>
+                <span id="panelTime" style="color:#8b949e;font-size:12px;"></span>
+            </div>
+            <div style="padding:12px 20px;border-bottom:1px solid #30363d;">
+                <div style="font-size:11px;color:#8b949e;margin-bottom:4px;">뉴스 제목</div>
+                <div id="panelNewsTitle" style="font-size:14px;color:#f0f6fc;line-height:1.5;"></div>
+            </div>
+            <div id="panelDescWrap" style="padding:12px 20px;border-bottom:1px solid #30363d;display:none;">
+                <div style="font-size:11px;color:#8b949e;margin-bottom:4px;">요약</div>
+                <div id="panelDesc" style="font-size:13px;color:#c9d1d9;line-height:1.6;"></div>
+            </div>
+            <iframe id="panelIframe" class="panel-iframe"
+                style="flex:1;width:100%;border:none;background:#fff;"></iframe>
+            <div class="panel-fallback" id="panelFallback" style="display:none;">
+                외부 사이트에서 iframe을 차단했습니다
+                <br><a id="panelFallbackLink" href="#" target="_blank">원문 열기 →</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const PAGE_SIZE = 50;
+        const REFRESH_MS = 120000; // 2분
+
+        let allItems = [];
+        let filtered = [];
+        let shown = 0;
+        let activeFilter = '전체';
+        let refreshTimer = null;
+        let progressTimer = null;
+
+        // ── 데이터 로드 ──
+        async function loadData() {
+            try {
+                const res = await fetch('/api/news/feed');
+                const data = await res.json();
+                if (!data.ok) return;
+
+                allItems = data.items || [];
+
+                // 상태 업데이트
+                document.getElementById('totalCount').textContent = data.total;
+                document.getElementById('updatedAt').textContent =
+                    data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-';
+
+                // 분류별 카운트
+                const counts = { '강력호재': 0, '호재': 0, '악재': 0, '확인필요': 0 };
+                allItems.forEach(i => { if (counts[i._cls] !== undefined) counts[i._cls]++; });
+                document.getElementById('cnt-all').textContent = allItems.length;
+                Object.keys(counts).forEach(k => {
+                    document.getElementById('cnt-' + k).textContent = counts[k];
+                });
+
+                applyFilter();
+                startRefreshTimer();
+            } catch (e) {
+                console.error('데이터 로드 실패:', e);
+            }
+        }
+
+        // ── 필터 ──
+        function applyFilter() {
+            filtered = activeFilter === '전체'
+                ? allItems
+                : allItems.filter(i => i._cls === activeFilter);
+            shown = 0;
+            document.getElementById('tbody').innerHTML = '';
+            showMore();
+        }
+
+        // ── 출처 뱃지 CSS 클래스 매핑 ──
+        function getSourceClass(feedName) {
+            if (!feedName) return '';
+            if (feedName.includes('매경')) return 'src-매경';
+            if (feedName.includes('연합')) return 'src-연합뉴스';
+            if (feedName.includes('한경')) return 'src-한경';
+            if (feedName.includes('Bloomberg')) return 'src-Bloomberg';
+            if (feedName.includes('Reuters')) return 'src-Reuters';
+            if (feedName.includes('Google')) return 'src-Google뉴스';
+            return '';
+        }
+
+        // ── 시간 포맷 ──
+        function formatTime(pubDate) {
+            if (!pubDate) return '-';
+            try {
+                const d = new Date(pubDate);
+                return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+            } catch {
+                return pubDate.slice(11, 16) || '-';
+            }
+        }
+
+        // ── 더보기 ──
+        function showMore() {
+            const tbody = document.getElementById('tbody');
+            const end = Math.min(shown + PAGE_SIZE, filtered.length);
+
+            for (let i = shown; i < end; i++) {
+                const item = filtered[i];
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.onclick = () => openPanel(i);
+
+                const time = formatTime(item.pubDate);
+                const srcClass = getSourceClass(item.feedName);
+                const srcBadge = `<span class="news-source ${srcClass}">${item.feedName || item.source || '-'}</span>`;
+                const clsBadge = item._cls
+                    ? `<span class="cls-badge cls-${item._cls}">${item._cls}</span>`
+                    : '<span class="cls-badge" style="color:#484f58">-</span>';
+
+                tr.innerHTML = `
+                    <td class="time">${time}</td>
+                    <td>${srcBadge}</td>
+                    <td class="news-title" title="${item.title || ''}">${item.title || '-'}</td>
+                    <td>${clsBadge}</td>
+                    <td><a class="news-link" href="#" onclick="openPanel(${i}); return false;">원문</a></td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            shown = end;
+
+            const btn = document.getElementById('loadMore');
+            const empty = document.getElementById('empty');
+
+            if (filtered.length === 0) {
+                empty.style.display = 'block';
+                btn.style.display = 'none';
+            } else {
+                empty.style.display = 'none';
+                btn.style.display = shown < filtered.length ? 'block' : 'none';
+                if (shown < filtered.length) {
+                    btn.textContent = `더보기 +${Math.min(PAGE_SIZE, filtered.length - shown)}건`;
+                }
+            }
+        }
+
+        // ── 탭 클릭 ──
+        document.getElementById('tabs').addEventListener('click', e => {
+            const tab = e.target.closest('.tab');
+            if (!tab) return;
+
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeFilter = tab.dataset.filter;
+            applyFilter();
+        });
+
+        // ── 더보기 클릭 ──
+        document.getElementById('loadMore').addEventListener('click', showMore);
+
+        // ── 자동 갱신 타이머 ──
+        function startRefreshTimer() {
+            if (progressTimer) clearInterval(progressTimer);
+            const bar = document.getElementById('refreshProgress');
+            const start = Date.now();
+            bar.style.width = '0%';
+
+            progressTimer = setInterval(() => {
+                const elapsed = Date.now() - start;
+                const pct = Math.min((elapsed / REFRESH_MS) * 100, 100);
+                bar.style.width = pct + '%';
+
+                if (elapsed >= REFRESH_MS) {
+                    clearInterval(progressTimer);
+                    loadData();
+                }
+            }, 1000);
+        }
+
+        // ── 사이드 패널 ──
+        function openPanel(idx) {
+            const item = filtered[idx];
+            if (!item) return;
+
+            // 출처 뱃지
+            const srcClass = getSourceClass(item.feedName);
+            document.getElementById('panelSource').className = 'news-source ' + srcClass;
+            document.getElementById('panelSource').textContent = item.feedName || item.source || '-';
+
+            // 분류 뱃지
+            const clsEl = document.getElementById('panelCls');
+            clsEl.innerHTML = item._cls
+                ? `<span class="cls-badge cls-${item._cls}">${item._cls}</span>`
+                : '';
+
+            // 시간
+            document.getElementById('panelTime').textContent = formatTime(item.pubDate);
+
+            // 제목
+            document.getElementById('panelTitle').textContent = item.feedName || '뉴스 상세';
+            document.getElementById('panelNewsTitle').textContent = item.title || '-';
+
+            // 요약 (있으면 표시)
+            const descWrap = document.getElementById('panelDescWrap');
+            const descEl = document.getElementById('panelDesc');
+            if (item.desc) {
+                descEl.textContent = item.desc;
+                descWrap.style.display = 'block';
+            } else {
+                descWrap.style.display = 'none';
+            }
+
+            // 원문 링크
+            const newsUrl = item.link || '#';
+            document.getElementById('panelNewTab').href = newsUrl;
+            document.getElementById('panelFallbackLink').href = newsUrl;
+
+            // iframe에 원문 로드
+            const iframe = document.getElementById('panelIframe');
+            iframe.style.display = 'block';
+            document.getElementById('panelFallback').style.display = 'none';
+            iframe.src = newsUrl;
+
+            // iframe 차단 시 fallback
+            iframe.onerror = () => {
+                iframe.style.display = 'none';
+                document.getElementById('panelFallback').style.display = 'block';
+            };
+
+            document.getElementById('panelOverlay').classList.add('open');
+            document.getElementById('sidePanel').classList.add('open');
+        }
+
+        function closePanel() {
+            document.getElementById('panelOverlay').classList.remove('open');
+            document.getElementById('sidePanel').classList.remove('open');
+            // iframe 중지
+            document.getElementById('panelIframe').src = '';
+        }
+
+        document.getElementById('panelClose').addEventListener('click', closePanel);
+        document.getElementById('panelOverlay').addEventListener('click', closePanel);
+
+        // ── 시작 ──
+        loadData();
+    </script>
+</body>
+
+</html>

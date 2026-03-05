@@ -1,0 +1,16 @@
+{
+    "name": "dart-news",
+    "version": "1.0.0",
+    "description": "뉴스 독립 모듈 — 수집 + 분류 + 뷰어",
+    "main": "news-server-viewer.js",
+    "scripts": {
+        "start": "node news-server-viewer.js",
+        "collect": "node news-collector.js",
+        "classify": "node news-classifier.js"
+    },
+    "dependencies": {
+        "axios": "^1.7.0",
+        "dotenv": "^17.3.1",
+        "express": "^4.21.0"
+    }
+}

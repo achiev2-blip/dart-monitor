@@ -221,6 +221,36 @@ graph TD
     FE_KW -->|"키워드 분류"| FE_RENDER
     FE_AI -->|"POST /api/gemini"| GEMINI_AI
     FE_FETCH --> FE_TG
+
+    subgraph DISC_MOD["📋 dart-disclosure — 독립 모듈 :3100"]
+        DM_COLLECTOR["collector.js<br/>DART API 수집<br/>B/C/D/I 유형<br/>10분 간격, 평일 08~19시"]
+        DM_CLASSIFIER["classifier.js<br/>3단계 분류<br/>규칙 → Quick AI → Search AI<br/>강력호재/호재/악재/일반/확인필요"]
+        DM_SERVER["disclosure-server-viewer.js<br/>Express :3100<br/>캐시 300건, 2분 갱신"]
+        DM_DATA["data/dart_YYYYMMDD.json<br/>7일 보존"]
+        DM_VIEWER["public/index.html<br/>분류별 탭 뷰어"]
+    end
+
+    DART_API -->|"B/C/D/I 공시"| DM_COLLECTOR
+    DM_COLLECTOR --> DM_DATA
+    DM_DATA --> DM_CLASSIFIER
+    DM_CLASSIFIER -->|"Gemini KEY4"| GEMINI_AI
+    DM_DATA --> DM_SERVER
+    DM_SERVER --> DM_VIEWER
+
+    subgraph RPT_MOD["📊 dart-reports — 독립 모듈 :3200"]
+        RM_COLLECTOR["collector.js<br/>4개 소스 크롤링<br/>WiseReport/미래에셋/하나/네이버<br/>cheerio 파싱, 교차중복 제거"]
+        RM_CLASSIFIER["classifier.js<br/>3단계 분류<br/>규칙 → Quick AI → Search AI<br/>매수/중립/매도/산업분석/확인필요"]
+        RM_SERVER["report-server-viewer.js<br/>Express :3200<br/>캐시 300건, 2분 갱신"]
+        RM_DATA["data/reports_YYYYMMDD.json<br/>7일 보존"]
+        RM_VIEWER["public/index.html<br/>의견별 탭 뷰어"]
+    end
+
+    RM_COLLECTOR -->|"WR+미래+하나"| RM_DATA
+    RM_COLLECTOR -->|"네이버 상세 보강"| RM_DATA
+    RM_DATA --> RM_CLASSIFIER
+    RM_CLASSIFIER -->|"Gemini KEY"| GEMINI_AI
+    RM_DATA --> RM_SERVER
+    RM_SERVER --> RM_VIEWER
 </pre>
         </div>
     </div>

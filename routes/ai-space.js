@@ -49,30 +49,7 @@ function getGateStatus() {
 // Gate 미들웨어 생성 — server.js에서 다른 라우터(context.js 등)에도 적용 가능
 function createGateMiddleware(aiName) {
     return (req, res, next) => {
-        // permissions 라우트 자체는 항상 통과
-        if (req.path === `/${aiName}/permissions`) return next();
-
-        // API 키가 없는 요청 = 브라우저/localhost → gate 제외
-        const apiKey = req.headers['x-api-key'] || req.query.api_key || '';
-        if (!apiKey) return next();
-
-        // 해당 AI 경로가 아니면 gate 제외
-        if (!req.path.startsWith(`/${aiName}/`) && req.path !== `/${aiName}`) return next();
-
-        // API 키가 있는 요청 = 외부 AI → 세션 체크
-        const session = aiGateSessions[apiKey];
-        const now = Date.now();
-
-        if (!session || (now - session.readAt) > GATE_SESSION_TTL) {
-            console.log(`[Gate:${aiName}] ⛔ 차단 — permissions 미확인. path=${req.path}`);
-            return res.status(403).json({
-                ok: false,
-                error: `⚠️ 먼저 GET /api/${aiName}/permissions 를 호출하세요. 가이드를 읽어야 다른 API를 사용할 수 있습니다.`,
-                gate: 'locked',
-                action: `GET /api/${aiName}/permissions?api_key=YOUR_KEY`
-            });
-        }
-
+        // ⚡ Gate 비활성화 — 모든 API 즉시 접근 허용
         next();
     };
 }
@@ -199,37 +176,9 @@ function createAiRoutes(aiName) {
     router.use(createAiAuth(aiName));
 
     // ----------------------------------------------------------
-    // Permissions Gate — permissions 먼저 안 읽으면 다른 API 차단
-    // Nginx 리버스프록시 환경에서도 정확히 동작하도록
-    // API 키를 보내는 요청(= 외부 AI)만 gate 대상으로 함
+    // Permissions Gate — 비활성화 (모든 API 즉시 접근 허용)
     // ----------------------------------------------------------
-    router.use((req, res, next) => {
-        // permissions 라우트 자체는 항상 통과
-        if (req.path === `/${aiName}/permissions`) return next();
-
-        // API 키가 없는 요청 = 브라우저/localhost → gate 제외
-        // (createAiAuth에서 이미 인증 통과한 상태)
-        const apiKey = req.headers['x-api-key'] || req.query.api_key || '';
-        if (!apiKey) return next();
-
-        // API 키가 있는 요청 = 외부 AI → 세션 체크
-        const session = aiGateSessions[apiKey];
-        const now = Date.now();
-
-        if (!session || (now - session.readAt) > GATE_SESSION_TTL) {
-            // 세션 없거나 만료 → 차단
-            console.log(`[Gate:${aiName}] ⛔ 차단 — permissions 미확인. path=${req.path}`);
-            return res.status(403).json({
-                ok: false,
-                error: `⚠️ 먼저 GET /api/${aiName}/permissions 를 호출하세요. 가이드를 읽어야 다른 API를 사용할 수 있습니다.`,
-                gate: 'locked',
-                action: `GET /api/${aiName}/permissions?api_key=YOUR_KEY`
-            });
-        }
-
-        // 세션 유효 → 통과
-        next();
-    });
+    // ⚡ Gate 해제됨 — 별도 조치 없이 모든 요청 통과
 
     // ----------------------------------------------------------
     // 권한 테이블 조회/변경
@@ -250,7 +199,7 @@ function createAiRoutes(aiName) {
         const apiGuide = {
             _notice: '🚨 반드시 이 가이드를 읽고 아래 경로만 사용할 것.',
             _gate: '✅ 가이드를 읽었으므로 다른 API 접근이 1시간 동안 허용됩니다. 1시간 후 다시 이 엔드포인트를 호출해야 합니다.',
-            access: '⚠️ web_fetch 차단됨. 반드시 bash curl 사용. 예: curl -s "http://34.22.94.45/api/claude/summary?api_key=dartmonitor-claude"',
+            access: '✅ web_fetch 또는 bash curl 모두 사용 가능. 예: curl -s "https://dartmonitor.com/api/claude/summary?api_key=dartmonitor-claude"',
             auth: '?api_key=dartmonitor-claude 또는 헤더 x-api-key: dartmonitor-claude',
 
             // ━━ 핵심 규칙 ━━
@@ -448,7 +397,7 @@ function createAiRoutes(aiName) {
         types.forEach(t => {
             const dir = path.join(ARCHIVE_DIR, t);
             if (fs.existsSync(dir)) {
-                result[t] = fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort().reverse().slice(0, 10).map(f => {
+                result[t] = fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort().reverse().slice(0, 30).map(f => {
                     try { return { name: f, content: JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) }; }
                     catch (e) { return null; }
                 }).filter(Boolean);
@@ -881,9 +830,9 @@ ${serverContext}`;
             contents.push({ role: 'user', parts: [{ text: systemPrompt }] });
             contents.push({ role: 'model', parts: [{ text: '네, 한국 주식시장 AI 어시스턴트입니다. 실시간 데이터를 참고해서 답변하겠습니다.' }] });
 
-            // 이전 대화 히스토리 추가 (최대 10턴)
+            // 이전 대화 히스토리 추가 (최대 20턴)
             if (history && Array.isArray(history)) {
-                const recentHistory = history.slice(-10);
+                const recentHistory = history.slice(-20);
                 for (const h of recentHistory) {
                     contents.push({ role: 'user', parts: [{ text: h.user }] });
                     if (h.ai) {
@@ -902,7 +851,7 @@ ${serverContext}`;
 
             const resp = await axios.post(url, {
                 contents,
-                generationConfig: { temperature: 0.7, maxOutputTokens: 4000 }
+                generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
             }, { timeout: 30000, headers: { 'Content-Type': 'application/json' } });
 
             const reply = resp.data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -940,7 +889,7 @@ ${serverContext}`;
     // ----------------------------------------------------------
     router.get(`/${aiName}/news`, requirePermission('ctx', 'read'), (req, res) => {
         const storedNews = req.app.locals.storedNews || [];
-        const limit = parseInt(req.query.limit) || 30;
+        const limit = parseInt(req.query.limit) || 200;
         // 최근 뉴스를 역순(최신 먼저)으로
         const recent = storedNews.slice(-limit).reverse().map(n => ({
             title: n.title,
@@ -964,7 +913,7 @@ ${serverContext}`;
     // ----------------------------------------------------------
     router.get(`/${aiName}/reports`, requirePermission('ctx', 'read'), (req, res) => {
         const reportStores = req.app.locals.reportStores || {};
-        const limit = parseInt(req.query.limit) || 30;
+        const limit = parseInt(req.query.limit) || 200;
         // 모든 소스의 리포트를 모아서 날짜순 정렬
         const allReports = [];
         Object.values(reportStores).forEach(items => allReports.push(...items));
@@ -1036,7 +985,7 @@ ${serverContext}`;
     router.get(`/${aiName}/overseas`, requirePermission('ctx', 'read'), (req, res) => {
         const overseas = loadJSON('overseas.json', { latest: null, history: [] });
         console.log(`[AI:${aiName}] OVERSEAS 읽기`);
-        res.json({ ok: true, ai: aiName, overseas: overseas.latest, history: (overseas.history || []).slice(0, 5) });
+        res.json({ ok: true, ai: aiName, overseas: overseas.latest, history: (overseas.history || []).slice(0, 20) });
     });
 
     // ----------------------------------------------------------
