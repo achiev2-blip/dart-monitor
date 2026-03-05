@@ -37,9 +37,6 @@ start "Reports Chain" /min cmd /c "node report-chain.js"
 :: Process 2: Viewer (Express)
 set RESTART_COUNT=0
 
-:: 브라우저 자동 실행 (최초 1회만)
-start http://localhost:3200
-
 :RESTART_LOOP
 set /a RESTART_COUNT+=1
 
@@ -51,6 +48,8 @@ echo   URL  : http://localhost:3200
 echo ============================================================
 echo.
 
+:: 브라우저 자동 실행
+start http://localhost:3200
 
 node report-server-viewer.js
 

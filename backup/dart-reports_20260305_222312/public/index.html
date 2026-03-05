@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>증권사 리포트 뷰어</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+        }
+
+        /* 헤더 */
+        .header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            color: #58a6ff;
+            font-weight: 600;
+        }
+
+        .header .status {
+            font-size: 13px;
+            color: #8b949e;
+        }
+
+        .header .status .count {
+            color: #58a6ff;
+            font-weight: 600;
+        }
+
+        /* 탭 */
+        .tabs {
+            background: #161b22;
+            padding: 8px 24px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #8b949e;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: #c9d1d9;
+            background: #21262d;
+        }
+
+        .tab.active {
+            color: #f0f6fc;
+            background: #21262d;
+            border-color: #30363d;
+        }
+
+        .tab .badge {
+            display: inline-block;
+            min-width: 18px;
+            padding: 0 6px;
+            border-radius: 10px;
+            font-size: 11px;
+            text-align: center;
+            margin-left: 6px;
+            font-weight: 600;
+        }
+
+        /* 소스별 뱃지 색상 */
+        .src-WiseReport {
+            background: #8b5cf6;
+            color: #fff;
+        }
+
+        .src-미래에셋 {
+            background: #3b82f6;
+            color: #fff;
+        }
+
+        .src-하나증권 {
+            background: #10b981;
+            color: #fff;
+        }
+
+        .src-네이버 {
+            background: #06b6d4;
+            color: #fff;
+        }
+
+        /* 분류별 뱃지 색상 */
+        .cls-매수 {
+            background: #238636;
+            color: #fff;
+        }
+
+        .cls-중립 {
+            background: #d29922;
+            color: #fff;
+        }
+
+        .cls-매도 {
+            background: #da3633;
+            color: #fff;
+        }
+
+        .cls-산업분석 {
+            background: #1f6feb;
+            color: #fff;
+        }
+
+        .cls-확인필요 {
+            background: #484f58;
+            color: #c9d1d9;
+        }
+
+        /* 테이블 */
+        .table-wrap {
+            padding: 16px 24px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 12px;
+            color: #8b949e;
+            border-bottom: 1px solid #21262d;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #21262d;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        tr:hover {
+            background: #161b22;
+        }
+
+        .corp-name {
+            color: #f0f6fc;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .report-title {
+            color: #c9d1d9;
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .broker-name {
+            color: #8b949e;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .opinion-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .cls-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .target-price {
+            color: #58a6ff;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .time {
+            color: #8b949e;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .pdf-link {
+            color: #58a6ff;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .pdf-link:hover {
+            text-decoration: underline;
+        }
+
+        /* 더보기 */
+        .load-more {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #58a6ff;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 16px;
+            transition: background 0.2s;
+        }
+
+        .load-more:hover {
+            background: #30363d;
+        }
+
+        .load-more:disabled {
+            color: #484f58;
+            cursor: default;
+        }
+
+        /* 빈 상태 */
+        .empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #484f58;
+            font-size: 15px;
+        }
+
+        /* 자동갱신 표시 */
+        .refresh-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #21262d;
+            z-index: 10;
+        }
+
+        .refresh-bar .progress {
+            height: 100%;
+            background: #238636;
+            transition: width 1s linear;
+        }
+
+        /* 사이드 패널 */
+        .panel-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+
+        .panel-overlay.open {
+            display: block;
+        }
+
+        .side-panel {
+            position: fixed;
+            top: 0;
+            right: -480px;
+            bottom: 0;
+            width: 480px;
+            background: #161b22;
+            border-left: 1px solid #30363d;
+            z-index: 101;
+            transition: right 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .side-panel.open {
+            right: 0;
+        }
+
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header h2 {
+            font-size: 15px;
+            color: #f0f6fc;
+            font-weight: 600;
+        }
+
+        .panel-close {
+            background: none;
+            border: none;
+            color: #8b949e;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .panel-close:hover {
+            background: #21262d;
+            color: #f0f6fc;
+        }
+
+        .panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+
+        .panel-info {
+            margin-bottom: 16px;
+        }
+
+        .panel-info .label {
+            font-size: 11px;
+            color: #8b949e;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .panel-info .value {
+            font-size: 14px;
+            color: #c9d1d9;
+        }
+
+        .panel-summary {
+            margin-top: 16px;
+            padding: 12px;
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #c9d1d9;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>📊 증권사 리포트 뷰어</h1>
+        <div class="status">
+            캐시: <span class="count" id="totalCount">-</span>건
+            | 갱신: <span id="updatedAt">-</span>
+        </div>
+    </div>
+
+    <div class="tabs" id="tabs">
+        <div class="tab active" data-filter="전체">전체 <span class="badge" id="cnt-all">0</span></div>
+        <div class="tab" data-filter="매수">매수 <span class="badge cls-매수" id="cnt-매수">0</span></div>
+        <div class="tab" data-filter="중립">중립 <span class="badge cls-중립" id="cnt-중립">0</span></div>
+        <div class="tab" data-filter="매도">매도 <span class="badge cls-매도" id="cnt-매도">0</span></div>
+        <div class="tab" data-filter="기타">기타 <span class="badge cls-확인필요" id="cnt-기타">0</span></div>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>날짜</th>
+                    <th>종목</th>
+                    <th>리포트 제목</th>
+                    <th>의견</th>
+                    <th>원문</th>
+                </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+        </table>
+        <div class="empty" id="empty" style="display:none">리포트 데이터가 없습니다</div>
+        <button class="load-more" id="loadMore" style="display:none">더보기 +50건</button>
+    </div>
+
+    <div class="refresh-bar">
+        <div class="progress" id="refreshProgress"></div>
+    </div>
+
+    <!-- 사이드 패널 -->
+    <div class="panel-overlay" id="panelOverlay"></div>
+    <div class="side-panel" id="sidePanel">
+        <div class="panel-header">
+            <h2 id="panelTitle">리포트 상세</h2>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <a id="panelPdfLink" href="#" target="_blank"
+                    style="background:#238636;color:#fff;font-size:11px;padding:4px 12px;border-radius:4px;text-decoration:none;">PDF
+                    열기</a>
+                <button class="panel-close" id="panelClose">✕</button>
+            </div>
+        </div>
+        <div class="panel-body">
+            <div class="panel-info">
+                <div class="label">종목</div>
+                <div class="value" id="panelCorp">-</div>
+            </div>
+            <div class="panel-info">
+                <div class="label">리포트 제목</div>
+                <div class="value" id="panelReportTitle">-</div>
+            </div>
+            <div class="panel-info" style="display:flex;gap:24px;">
+                <div>
+                    <div class="label">증권사</div>
+                    <div class="value" id="panelBroker">-</div>
+                </div>
+                <div>
+                    <div class="label">투자의견</div>
+                    <div class="value" id="panelOpinion">-</div>
+                </div>
+                <div>
+                    <div class="label">목표주가</div>
+                    <div class="value" id="panelTarget">-</div>
+                </div>
+                <div>
+                    <div class="label">날짜</div>
+                    <div class="value" id="panelDate">-</div>
+                </div>
+            </div>
+            <div class="panel-info">
+                <div class="label">분류</div>
+                <div class="value" id="panelCls">-</div>
+            </div>
+            <div class="panel-info">
+                <div class="label">애널리스트</div>
+                <div class="value" id="panelAnalyst">-</div>
+            </div>
+            <div id="panelSummaryWrap" style="display:none;">
+                <div class="label" style="font-size:11px;color:#8b949e;margin-bottom:4px;">본문 요약</div>
+                <div class="panel-summary" id="panelSummary"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const PAGE_SIZE = 50;
+        const REFRESH_MS = 120000; // 2분
+
+        let allItems = [];
+        let filtered = [];
+        let shown = 0;
+        let activeFilter = '전체';
+        let refreshTimer = null;
+        let progressTimer = null;
+
+        // ── 데이터 로드 ──
+        async function loadData() {
+            try {
+                const res = await fetch('/api/report/feed');
+                const data = await res.json();
+                if (!data.ok) return;
+
+                allItems = data.items || [];
+
+                // 상태 업데이트
+                document.getElementById('totalCount').textContent = data.total;
+                document.getElementById('updatedAt').textContent =
+                    data.updatedAt ? new Date(data.updatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-';
+
+                // 의견별 카운트 — 매수/중립/매도/기타
+                const opCounts = { '매수': 0, '중립': 0, '매도': 0, '기타': 0 };
+                allItems.forEach(i => {
+                    const grp = getOpinionGroup(i.opinion || i._cls);
+                    opCounts[grp]++;
+                });
+                document.getElementById('cnt-all').textContent = allItems.length;
+                Object.keys(opCounts).forEach(k => {
+                    const el = document.getElementById('cnt-' + k);
+                    if (el) el.textContent = opCounts[k];
+                });
+
+                applyFilter();
+                startRefreshTimer();
+            } catch (e) {
+                console.error('데이터 로드 실패:', e);
+            }
+        }
+
+        // ── 의견 그룹 판별 ──
+        function getOpinionGroup(opinion) {
+            if (!opinion) return '기타';
+            if (/매수|buy|outperform|비중확대|trading buy/i.test(opinion)) return '매수';
+            if (/매도|sell|underperform|비중축소/i.test(opinion)) return '매도';
+            if (/중립|hold|neutral|시장수익률|not rated/i.test(opinion)) return '중립';
+            return '기타';
+        }
+
+        // ── 필터 ──
+        function applyFilter() {
+            filtered = activeFilter === '전체'
+                ? allItems
+                : allItems.filter(i => getOpinionGroup(i.opinion || i._cls) === activeFilter);
+            shown = 0;
+            document.getElementById('tbody').innerHTML = '';
+            showMore();
+        }
+
+        // ── 더보기 ──
+        function showMore() {
+            const tbody = document.getElementById('tbody');
+            const end = Math.min(shown + PAGE_SIZE, filtered.length);
+
+            for (let i = shown; i < end; i++) {
+                const item = filtered[i];
+                const tr = document.createElement('tr');
+                tr.style.cursor = 'pointer';
+                tr.onclick = () => openPanel(i);
+
+                // 의견 배지 — opinion 우선, 없으면 _cls 폴백 (기존 데이터 호환)
+                const opText = item.opinion || item._cls || '';
+                let opBadge = '';
+                if (opText) {
+                    let opClass = '';
+                    if (/매수/i.test(opText)) opClass = 'cls-매수';
+                    else if (/매도/i.test(opText)) opClass = 'cls-매도';
+                    else if (/중립/i.test(opText)) opClass = 'cls-중립';
+                    else if (/산업분석/i.test(opText)) opClass = 'cls-산업분석';
+                    opBadge = `<span class="opinion-badge ${opClass}">${opText}</span>`;
+                } else {
+                    opBadge = '<span style="color:#484f58">-</span>';
+                }
+
+                // 증권사 이름 정리
+                const brokerShort = (item.broker || '').replace(/\(WR\)|\(네이버\)|\(직접\)/g, '').trim();
+
+                // 원문 링크 — pdfLink 없으면 네이버 검색으로 fallback
+                const corpClean = (item.corp || '').replace(/[\(（]\d{6}[^)）]*[\)）]/g, '').trim();
+                const searchQuery = encodeURIComponent(`${corpClean} ${item.title || ''} 증권 리포트`);
+                const linkUrl = item.pdfLink || `https://search.naver.com/search.naver?query=${searchQuery}`;
+                const docLink = `<a class="pdf-link" href="${linkUrl}" target="_blank" onclick="event.stopPropagation();">원문</a>`;
+
+                tr.innerHTML = `
+                    <td class="time">${item.date || '-'}</td>
+                    <td class="corp-name">${item.corp || '-'}</td>
+                    <td class="report-title" title="${item.title || ''}">${item.title || '-'}<br><span style="color:#484f58;font-size:11px">${brokerShort}${item.targetPrice ? ' · 목표 ' + item.targetPrice.toLocaleString() + '원' : ''}</span></td>
+                    <td>${opBadge}</td>
+                    <td>${docLink}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            shown = end;
+
+            const btn = document.getElementById('loadMore');
+            const empty = document.getElementById('empty');
+
+            if (filtered.length === 0) {
+                empty.style.display = 'block';
+                btn.style.display = 'none';
+            } else {
+                empty.style.display = 'none';
+                btn.style.display = shown < filtered.length ? 'block' : 'none';
+                if (shown < filtered.length) {
+                    btn.textContent = `더보기 +${Math.min(PAGE_SIZE, filtered.length - shown)}건`;
+                }
+            }
+        }
+
+        // ── 탭 클릭 ──
+        document.getElementById('tabs').addEventListener('click', e => {
+            const tab = e.target.closest('.tab');
+            if (!tab) return;
+
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeFilter = tab.dataset.filter;
+            applyFilter();
+        });
+
+        // ── 더보기 클릭 ──
+        document.getElementById('loadMore').addEventListener('click', showMore);
+
+        // ── 자동 갱신 타이머 ──
+        function startRefreshTimer() {
+            if (progressTimer) clearInterval(progressTimer);
+            const bar = document.getElementById('refreshProgress');
+            const start = Date.now();
+            bar.style.width = '0%';
+
+            progressTimer = setInterval(() => {
+                const elapsed = Date.now() - start;
+                const pct = Math.min((elapsed / REFRESH_MS) * 100, 100);
+                bar.style.width = pct + '%';
+
+                if (elapsed >= REFRESH_MS) {
+                    clearInterval(progressTimer);
+                    loadData();
+                }
+            }, 1000);
+        }
+
+        // ── 사이드 패널 ──
+        function openPanel(idx) {
+            const item = filtered[idx];
+            if (!item) return;
+
+            document.getElementById('panelTitle').textContent = item.corp || '리포트 상세';
+            document.getElementById('panelCorp').textContent = item.corp || '-';
+            document.getElementById('panelReportTitle').textContent = item.title || '-';
+            document.getElementById('panelBroker').textContent = item.broker || '-';
+            document.getElementById('panelOpinion').textContent = item.opinion || item._cls || '-';
+            document.getElementById('panelTarget').textContent = item.targetPrice ? item.targetPrice.toLocaleString() + '원' : '-';
+            document.getElementById('panelDate').textContent = item.date || '-';
+            document.getElementById('panelAnalyst').textContent = item.analyst || '-';
+
+            // 분류
+            const clsEl = document.getElementById('panelCls');
+            clsEl.innerHTML = item._cls
+                ? `<span class="cls-badge cls-${item._cls}">${item._cls}</span>`
+                : '-';
+
+            // PDF 링크
+            const pdfBtn = document.getElementById('panelPdfLink');
+            if (item.pdfLink) {
+                pdfBtn.href = item.pdfLink;
+                pdfBtn.style.display = 'inline-block';
+            } else {
+                pdfBtn.style.display = 'none';
+            }
+
+            // 본문 요약
+            const summaryWrap = document.getElementById('panelSummaryWrap');
+            const summaryEl = document.getElementById('panelSummary');
+            if (item.summary) {
+                summaryEl.textContent = item.summary;
+                summaryWrap.style.display = 'block';
+            } else {
+                summaryWrap.style.display = 'none';
+            }
+
+            document.getElementById('panelOverlay').classList.add('open');
+            document.getElementById('sidePanel').classList.add('open');
+        }
+
+        function closePanel() {
+            document.getElementById('panelOverlay').classList.remove('open');
+            document.getElementById('sidePanel').classList.remove('open');
+        }
+
+        document.getElementById('panelClose').addEventListener('click', closePanel);
+        document.getElementById('panelOverlay').addEventListener('click', closePanel);
+
+        // ── 시작 ──
+        loadData();
+    </script>
+</body>
+
+</html>
