@@ -7,6 +7,10 @@
  *   3. "확인필요" 건 → 1시간 후 Search AI (뉴스 검색 포함, 30초/건)
  *   4. 그래도 "확인필요" → 그대로 DC에 넘김
  * 
+ * 저장 구조:
+ *   - 읽기: data/pending/ (수집 원본)
+ *   - 쓰기: data/output/ (분류 완료 항목만)
+ * 
  * 장애 대응:
  *   - 연속 3회 실패 → AI 중단, 미분류 유지 (다음 사이클 재시도)
  *   - 파일 저장: 분류 후 즉시 저장
@@ -30,7 +34,8 @@ const QUICK_DELAY_MS = 5000;   // Quick AI 호출 간 대기 (5초)
 const SEARCH_DELAY_MS = 5000;  // Search AI 호출 간 대기
 const MAX_CONSECUTIVE_FAILS = 3; // 연속 실패 허용 횟수
 const RETRY_WAIT_MS = 3600000;   // 확인필요 재시도 대기 (1시간)
-const DATA_DIR = path.join(__dirname, 'data');
+const PENDING_DIR = path.join(__dirname, 'data', 'pending');
+const OUTPUT_DIR = path.join(__dirname, 'data', 'output');
 
 // ── 상태 ──
 let isRunning = false;
@@ -387,7 +392,75 @@ module.exports = {
     retryPending,
     getItemsForDC,
     getStatus,
+    moveToOutput,
 };
+
+// ════════════════════════════════════════════════
+// output 폴더 저장 — 분류 완료 항목만 output 파일에 병합
+// ════════════════════════════════════════════════
+
+/**
+ * 분류 완료 항목을 output 파일에 병합 저장
+ * - 일반, 미분류, Quick AI의 확인필요(Search 대기 중) 제외
+ * - 기존 output 파일이 있으면 병합 (중복 제거: rcept_no 기준)
+ * @param {string} dateStr - YYYYMMDD
+ * @param {Array} items - 전체 항목 배열
+ */
+function moveToOutput(dateStr, items) {
+    if (!fs.existsSync(OUTPUT_DIR)) {
+        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+    }
+
+    // output 대상: 분류 완료 항목만 (DC 필터 동일 로직)
+    const classified = items.filter(item => {
+        if (!item._cls) return false;                // 미분류 제외
+        if (item._cls === '일반') return false;       // 일반 제외
+        // Quick AI의 "확인필요"는 Search AI 대기 중이므로 제외
+        if (item._cls === '확인필요' && item._clsBy === 'ai_quick') return false;
+        return true;
+    });
+
+    if (classified.length === 0) return;
+
+    const outputPath = path.join(OUTPUT_DIR, `dart_${dateStr}.json`);
+
+    // 기존 output 파일이 있으면 병합
+    let existing = [];
+    if (fs.existsSync(outputPath)) {
+        try {
+            const data = JSON.parse(fs.readFileSync(outputPath, 'utf-8'));
+            existing = data.items || [];
+        } catch (e) {
+            console.error(`[output] 기존 파일 읽기 실패: ${e.message}`);
+        }
+    }
+
+    // 중복 제거 — rcept_no 기준
+    const existingIds = new Set(existing.map(i => i.rcept_no));
+    const newItems = classified.filter(i => !existingIds.has(i.rcept_no));
+
+    // 기존 항목 중 재분류된 것 업데이트 (rcept_no 일치 시 최신 분류 반영)
+    const classifiedMap = new Map(classified.map(i => [i.rcept_no, i]));
+    const updated = existing.map(item => {
+        if (classifiedMap.has(item.rcept_no)) {
+            return classifiedMap.get(item.rcept_no);
+        }
+        return item;
+    });
+
+    // 새 항목 추가
+    updated.push(...newItems);
+
+    const outputData = {
+        date: dateStr,
+        total: updated.length,
+        _classifiedAt: new Date().toISOString(),
+        items: updated,
+    };
+
+    fs.writeFileSync(outputPath, JSON.stringify(outputData, null, 2), 'utf-8');
+    console.log(`[output] dart_${dateStr}.json 저장: ${updated.length}건 (새 +${newItems.length}건)`);
+}
 
 // ════════════════════════════════════════════════
 // 독립 실행 모드 — node classifier.js [--search]
@@ -399,16 +472,16 @@ if (require.main === module) {
         const mode = isSearch ? 'Search AI 재분류' : 'Quick AI 분류';
         console.log(`[분류] 독립 실행 시작 — ${mode}`);
 
-        // 오늘 날짜 파일 찾기
+        // 오늘 날짜 pending 파일 찾기
         const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10).replace(/-/g, '');
-        const filePath = path.join(DATA_DIR, `dart_${today}.json`);
+        const filePath = path.join(PENDING_DIR, `dart_${today}.json`);
 
         if (!fs.existsSync(filePath)) {
             console.log(`[분류] 파일 없음: ${filePath} — 수집 먼저 실행하세요`);
             process.exit(0);
         }
 
-        // 파일에서 items 로드
+        // pending 파일에서 items 로드
         let data;
         try {
             data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
@@ -423,7 +496,7 @@ if (require.main === module) {
             process.exit(0);
         }
 
-        // 저장 콜백 — 같은 파일에 덮어쓰기
+        // pending 저장 콜백 — 분류 상태를 pending 파일에 반영
         const saveFn = () => {
             data.items = items;
             data._classifiedAt = new Date().toISOString();
@@ -436,6 +509,9 @@ if (require.main === module) {
             } else {
                 await classifyAll(items, saveFn);
             }
+
+            // 분류 완료 항목 → output 저장
+            moveToOutput(today, items);
 
             // 결과 요약
             const clsCounts = {};

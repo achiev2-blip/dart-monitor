@@ -1,7 +1,7 @@
 /**
  * DART 공시 수집기 — 독립 모듈
  * 
- * 역할: DART API에서 오늘 시세영향 공시만 수집 → data/dart_YYYYMMDD.json 저장
+ * 역할: DART API에서 오늘 시세영향 공시만 수집 → data/pending/dart_YYYYMMDD.json 저장
  * 수집 대상: B(주요사항) + C(발행) + D(지분) + I(거래소) 4가지 유형만
  * 특징:
  *   - 정기공시(사업보고서 등) 제외 → 수집량 70% 절감
@@ -17,7 +17,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 // ── 설정 ──
 const DART_API_KEY = process.env.DART_API_KEY || '';
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = path.join(__dirname, 'data', 'pending');
 const DART_API_BASE = 'https://opendart.fss.or.kr/api/list.json';
 const MAX_PAGES = 10;          // 유형당 최대 10페이지 (1000건)
 const COLLECT_INTERVAL = 600000; // 10분

@@ -4,7 +4,7 @@
  * ⚠️ 출력 전용 — 수집/분류는 매크로(collector.js, classifier.js)가 담당
  * 
  * 역할:
- *   1. 서버 시작 시 data/ 파일들에서 최신 300건 캐시 (일반 제외, 역순)
+ *   1. 서버 시작 시 data/output/ 파일들에서 최신 300건 캐시 (일반 제외, 역순)
  *   2. 2분마다 파일 변경 체크 → 캐시 갱신
  *   3. API 요청 → 메모리 캐시에서 즉시 응답
  * 
@@ -23,7 +23,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3100;
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = path.join(__dirname, 'data', 'output');
 
 const CACHE_SIZE = 300;         // 최대 캐시 건수
 const REFRESH_MS = 2 * 60000;  // 2분마다 갱신
@@ -34,12 +34,12 @@ let cacheUpdatedAt = null;
 let lastFileModified = null;    // 파일 변경 감지용
 
 // ════════════════════════════════════════════════
-// 캐시 로드 — data/ 폴더에서 최신 파일들 읽어서 300건 채움
+// 캐시 로드 — data/output/ 폴더에서 최신 파일들 읽어서 300건 채움
 // ════════════════════════════════════════════════
 
 function loadCache() {
     if (!fs.existsSync(DATA_DIR)) {
-        console.log('[캐시] data/ 폴더 없음');
+        console.log('[캐시] data/output/ 폴더 없음');
         return;
     }
 

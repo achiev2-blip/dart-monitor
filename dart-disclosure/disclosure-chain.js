@@ -3,7 +3,12 @@
  * 
  * 역할: Collector와 Classifier를 연결하여 자동 파이프라인 구성
  *   수집 완료 → 즉시 분류 시작
+ *   분류 완료 → output 폴더에 저장
  *   1시간 주기 → 확인필요 건 Search AI 재시도
+ * 
+ * 저장 구조:
+ *   data/pending/ — 수집 원본 + 분류 상태
+ *   data/output/  — 분류 완료 항목만 (뉴어 → 캐시 → API)
  * 
  * 실행: node disclosure-chain.js
  * 독립성: collector, classifier는 각각 독립 실행도 가능
@@ -15,6 +20,7 @@ const collector = require('./disclosure-collector');
 const classifier = require('./disclosure-classifier');
 
 const DATA_DIR = path.join(__dirname, 'data');
+const PENDING_DIR = path.join(__dirname, 'data', 'pending');
 const RETRY_INTERVAL = 3600000; // 1시간
 const CHECK_INTERVAL = 30000;   // 30초마다 수집 완료 체크
 
@@ -22,13 +28,15 @@ console.log('[체인] ═══════════════════�
 console.log('[체인] 공시 파이프라인 시작');
 console.log('[체인]   수집: Collector (10분 간격, 평일 08~19시)');
 console.log('[체인]   분류: Classifier (수집 후 즉시)');
+console.log('[체인]   저장: pending/ → output/ 분리');
 console.log('[체인]   재시도: 1시간 주기');
 console.log('[체인] ═══════════════════════════════════');
 
 // ── 파일 저장 함수 (classifier에 전달) ──
+// pending 파일 저장: 분류 상태(_cls)를 포함한 전체 데이터
 function makeSaveFn() {
     const today = collector.getToday();
-    const filePath = path.join(DATA_DIR, `dart_${today}.json`);
+    const filePath = path.join(PENDING_DIR, `dart_${today}.json`);
 
     return () => {
         const items = collector.getTodayItems();
@@ -41,6 +49,13 @@ function makeSaveFn() {
         };
         fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
     };
+}
+
+// output 파일 갱신: 분류 완료 항목만 output 폴더에 저장
+function saveToOutput() {
+    const today = collector.getToday();
+    const items = collector.getTodayItems();
+    classifier.moveToOutput(today, items);
 }
 
 // ── 수집 후 분류 실행 ──
@@ -57,6 +72,7 @@ setInterval(async () => {
 
         try {
             await classifier.classifyAll(items, makeSaveFn());
+            saveToOutput(); // 분류 완료 → output 갱신
         } catch (e) {
             console.error(`[체인] 분류 오류: ${e.message}`);
         }
@@ -75,6 +91,7 @@ setTimeout(async () => {
         lastItemCount = items.length; // 중복 트리거 방지
         try {
             await classifier.classifyAll(items, makeSaveFn());
+            saveToOutput(); // 분류 완료 → output 갱신
         } catch (e) {
             console.error(`[체인] 초기 분류 오류: ${e.message}`);
         }
@@ -89,6 +106,7 @@ setInterval(async () => {
     console.log('[체인] 확인필요 재시도 시작');
     try {
         await classifier.retryPending(items, makeSaveFn());
+        saveToOutput(); // 재분류 완료 → output 갱신
     } catch (e) {
         console.error(`[체인] 재시도 오류: ${e.message}`);
     }

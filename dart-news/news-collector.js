@@ -1,7 +1,7 @@
 /**
  * 뉴스 수집기 — 독립 매크로
  * 
- * 역할: RSS 소스에서 뉴스 크롤링 → data/news_YYYYMMDD.json 저장
+ * 역할: RSS 소스에서 뉴스 크롤링 → data/pending/news_YYYYMMDD.json 저장
  * 수집 소스: 매경 + 연합뉴스 + 한경 + Google국내 + Bloomberg + Reuters (6개)
  * 특징:
  *   - crawlers/news.js의 크롤링 함수 참조 (독립 소유 원칙 — 크롤러만 참조)
@@ -19,7 +19,7 @@ const crypto = require('crypto');
 // 크롤러 참조 — crawlers/news.js 의 RSS 수집 함수 사용
 const { NEWS_FETCHERS, isStockRelevant } = require('../crawlers/news');
 
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = path.join(__dirname, 'data', 'pending');
 const COLLECT_INTERVAL = 600000; // 10분 기본
 const RETENTION_DAYS = 7;        // 파일 보존 기간
 
@@ -52,7 +52,7 @@ function getKST() {
 function ensureDataDir() {
     if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
-        console.log('[뉴스-수집] data/ 디렉토리 생성');
+        console.log('[뉴스-수집] data/pending/ 디렉토리 생성');
     }
 }
 
@@ -97,6 +97,18 @@ async function collectOnce() {
         todayItems = [];
         todayDate = today;
         console.log(`[뉴스-수집] 날짜 변경 → ${today} (메모리 리셋)`);
+    }
+
+    // 기존 파일이 있으면 로드 (서버 재시작 대응 — 분류 상태 보존)
+    const loadPath = path.join(DATA_DIR, `news_${today}.json`);
+    if (todayItems.length === 0 && fs.existsSync(loadPath)) {
+        try {
+            const data = JSON.parse(fs.readFileSync(loadPath, 'utf-8'));
+            todayItems = data.items || [];
+            console.log(`[뉴스-수집] 기존 파일 로드: ${todayItems.length}건 (분류 보존)`);
+        } catch (e) {
+            console.error(`[뉴스-수집] 파일 로드 실패: ${e.message}`);
+        }
     }
 
     // 기존 ID 집합 (중복 제거용)
