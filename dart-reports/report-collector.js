@@ -61,7 +61,7 @@ let lastCollectedAt = null;    // 마지막 수집 시각
 let totalCollected = 0;        // 누적 수집 건수
 let _timer = null;             // 수집 타이머
 let _onCollected = null;       // 수집 완료 콜백 (chain에서 등록)
-let _collectedKeys = new Set(); // 수집 중복방지용 키 (메모리)
+
 
 // 소스별 저장소 — 소스별 분리 관리 (교차중복 제거용)
 let reportStores = { 'WiseReport': [], '미래에셋': [], '하나증권': [], '네이버': [] };
@@ -615,7 +615,6 @@ async function collectOnce() {
         todayDate = today;
         // reportStores도 리셋 (오늘 것만 유지)
         reportStores = { 'WiseReport': [], '미래에셋': [], '하나증권': [], '네이버': [] };
-        _collectedKeys = new Set();
         console.log(`[수집] 날짜 변경 → 메모리 초기화 (${today})`);
     }
 
@@ -632,9 +631,6 @@ async function collectOnce() {
                 for (const item of items) {
                     const src = item.source || '기타';
                     if (reportStores[src]) reportStores[src].push(item);
-                    // 메모리 중복방지 키 등록
-                    const key = `${item.corp}|${item.title}|${item.date}`;
-                    _collectedKeys.add(key);
                 }
                 console.log(`[수집] pending 로드: ${items.length}건`);
             } catch (e) {

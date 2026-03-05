@@ -5,7 +5,6 @@
  *   1. 규칙 필터 — 키워드로 자동 분류 (즉시, AI 호출 0)
  *   2. Quick AI — 제목+종목명으로 분류 (2초/건)
  *   3. "확인필요" 건 → 1시간 후 "기타"로 확정
- *   4. 그래도 "확인필요" → 그대로 유지
  * 
  * 장애 대응:
  *   - 연속 3회 실패 → AI 중단, 미분류 유지 (다음 사이클 재시도)
@@ -270,10 +269,6 @@ async function classifyAll(items, saveFn) {
 // 유틸: 파일 경로
 function ensurePendingDir() {
     if (!fs.existsSync(PENDING_DIR)) fs.mkdirSync(PENDING_DIR, { recursive: true });
-}
-function getPendingPath(dateStr) {
-    ensurePendingDir();
-    return path.join(PENDING_DIR, `pending_${dateStr}.json`);
 }
 function getReportsPath(dateStr) {
     return path.join(OUTPUT_DIR, `report_${dateStr}.json`);
