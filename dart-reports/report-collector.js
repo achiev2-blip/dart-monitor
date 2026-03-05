@@ -186,7 +186,7 @@ async function fetchReportPage(urlObj) {
                 if (cells.length < 5) return;
 
                 const corp = cells.eq(0).text().trim();
-                const title = cells.eq(1).text().trim();
+                let title = cells.eq(1).text().trim();
 
                 // 헤더/푸터 키워드 포함 시 스킵
                 const combined = corp + ' ' + title;
@@ -195,11 +195,15 @@ async function fetchReportPage(urlObj) {
                 const broker = cells.eq(2).text().trim();
                 const dateText = cells.eq(4).text().trim();
 
-                // 목표가 추출 (의견은 AI가 판단 — 크롤러는 수집만)
+                // 목표가 + 의견 추출
                 let targetPrice = 0;
                 const opinionText = cells.eq(3).text().trim();
                 const tpMatch = opinionText.match(/([0-9,]+)\s*원?/);
                 if (tpMatch) targetPrice = parseInt(tpMatch[1].replace(/,/g, '')) || 0;
+
+                // 의견 텍스트(Buy, 매수, ▲상향 등)를 제목 뒤에 붙이기
+                const opinionPart = opinionText.replace(/[0-9,]+\s*원?/g, '').trim();
+                if (opinionPart) title = title + ` (${opinionPart})`;
 
                 // PDF 링크
                 let pdfLink = '';
@@ -287,28 +291,13 @@ async function fetchReportPage(urlObj) {
                 const isCompanyReport = /기업분석/.test(infoText);
                 const summary = contLi.text().trim().substring(0, 1000);
 
-                // 제목 파싱: "종목명(코드.KS/의견): 리포트 제목"
-                let corp = '', stockCode = '', rawOpinion = '', title = titleFull;
-                const m1 = titleFull.match(/^(.+?)\s*[\(（](\d{6})[.\s]*(?:KS|KQ|KOSPI|KOSDAQ)?[/\s]*(매수|매도|중립|Buy|Hold|Sell|BUY|HOLD|SELL|Outperform|비중확대|비중축소|Trading Buy|Not Rated)?[\)）]\s*[:\s]?\s*(.*)$/i);
-                if (m1) {
-                    corp = m1[1].trim();
-                    stockCode = m1[2];
-                    rawOpinion = m1[3] || '';
-                    title = m1[4].trim() || titleFull;
-                } else {
-                    const m2 = titleFull.match(/^(.+?)\s*[\(（](\d{6})[^)）]*[\)）]\s*[:\s]?\s*(.*)$/);
-                    if (m2) {
-                        corp = m2[1].trim();
-                        stockCode = m2[2];
-                        title = m2[3].trim() || titleFull;
-                    } else {
-                        const m3 = titleFull.match(/^(.+?)\s*[\(（](Overweight|Underweight|Neutral|비중확대|비중축소|중립)[\)）]\s*[:\s]?\s*(.*)$/i);
-                        if (m3) {
-                            corp = m3[1].trim();
-                            rawOpinion = m3[2];
-                            title = m3[3].trim() || titleFull;
-                        }
-                    }
+                // 제목 파싱: "종목명(코드): 리포트 제목"
+                let corp = '', stockCode = '', title = titleFull;
+                const m = titleFull.match(/^(.+?)\s*[\(（](\d{6})[^)）]*[\)）]\s*[:\s]?\s*(.*)$/);
+                if (m) {
+                    corp = m[1].trim();
+                    stockCode = m[2];
+                    title = m[3].trim() || titleFull;
                 }
 
                 // 목표가 추출 — 제목/요약에서

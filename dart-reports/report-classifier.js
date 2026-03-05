@@ -147,8 +147,7 @@ async function classifyWithSearch(item) {
 ${item.opinion ? `투자의견: ${item.opinion}` : ''}
 ${item.targetPrice ? `목표주가: ${item.targetPrice.toLocaleString()}원` : ''}
 
-오늘 관련 뉴스를 검색해서 참고하세요.
-뉴스가 없으면 리포트 제목만으로 판단하되,
+리포트 제목과 종목 정보를 바탕으로 판단하세요.
 방향을 알 수 없으면 "확인필요"로 답하세요.
 
 아래 5가지 중 하나만 답하세요 (다른 말 없이 딱 한 단어):
@@ -163,7 +162,6 @@ ${item.targetPrice ? `목표주가: ${item.targetPrice.toLocaleString()}원` : '
             `${GEMINI_URL}?key=${GEMINI_KEY}`,
             {
                 contents: [{ parts: [{ text: prompt }] }],
-                tools: [{ google_search: {} }],
                 generationConfig: { temperature: 0.1, maxOutputTokens: 256 },
             },
             { timeout: 30000, headers: { 'Content-Type': 'application/json' } }
