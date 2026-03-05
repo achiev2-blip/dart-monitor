@@ -1,7 +1,7 @@
 /**
  * 증권사 리포트 수집기 — 독립 모듈
  * 
- * 역할: 4개 소스에서 리포트 크롤링 → data/reports_YYYYMMDD.json 저장
+ * 역할: 4개 소스에서 리포트 크롤링 → pending/pending_YYYYMMDD.json 저장
  * 수집 소스: WiseReport + 미래에셋 + 하나증권 + 네이버 금융
  * 특징:
  *   - 소스별 독립 수집 (cheerio 파싱)
@@ -19,7 +19,7 @@ const cheerio = require('cheerio');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 // ── 설정 ──
-const OUTPUT_DIR = path.join(__dirname, 'output');  // 분류 완료 데이터 (중복방지용 읽기)
+// output/ 폴더는 classifier의 영역 — collector는 pending/만 사용
 const PENDING_DIR = path.join(__dirname, 'pending');
 const COLLECT_INTERVAL = 600000; // 10분 기본 (getSmartInterval로 동적 조절)
 const RETENTION_DAYS = 7;        // 파일 보존 기간
@@ -61,7 +61,7 @@ let lastCollectedAt = null;    // 마지막 수집 시각
 let totalCollected = 0;        // 누적 수집 건수
 let _timer = null;             // 수집 타이머
 let _onCollected = null;       // 수집 완료 콜백 (chain에서 등록)
-let _reportsKeys = new Set();  // reports 파일 중복방지용 키
+let _collectedKeys = new Set(); // 수집 중복방지용 키 (메모리)
 
 // 소스별 저장소 — 소스별 분리 관리 (교차중복 제거용)
 let reportStores = { 'WiseReport': [], '미래에셋': [], '하나증권': [], '네이버': [] };
@@ -85,10 +85,10 @@ function getKST() {
     };
 }
 
-// 데이터 디렉토리 확인
-function ensureDataDir() {
-    if (!fs.existsSync(OUTPUT_DIR)) {
-        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+// pending 디렉토리 확인
+function ensurePendingDir() {
+    if (!fs.existsSync(PENDING_DIR)) {
+        fs.mkdirSync(PENDING_DIR, { recursive: true });
     }
 }
 
@@ -607,7 +607,7 @@ async function collectOnce() {
     // 24시간 수집 모드 (영업시간 제한 없음)
 
     const today = getToday();
-    ensureDataDir();
+    ensurePendingDir();
 
     // 날짜 바뀌면 메모리 초기화
     if (todayDate !== today) {
@@ -615,16 +615,15 @@ async function collectOnce() {
         todayDate = today;
         // reportStores도 리셋 (오늘 것만 유지)
         reportStores = { 'WiseReport': [], '미래에셋': [], '하나증권': [], '네이버': [] };
+        _collectedKeys = new Set();
         console.log(`[수집] 날짜 변경 → 메모리 초기화 (${today})`);
     }
 
-    // 기존 파일 로드 (서버 재시작 대응) — pending + reports 모두 로드
-    if (!fs.existsSync(PENDING_DIR)) fs.mkdirSync(PENDING_DIR, { recursive: true });
+    // 기존 pending 파일 로드 (서버 재시작 대응)
     const pendingPath = path.join(PENDING_DIR, `pending_${today}.json`);
-    const reportsPath = path.join(OUTPUT_DIR, `report_${today}.json`);
 
     if (todayItems.length === 0) {
-        // 1) pending 파일 로드 (미분류 항목 — 계속 수집 대상)
+        // pending 파일 로드 (미분류 항목 — 계속 수집 대상)
         if (fs.existsSync(pendingPath)) {
             try {
                 const data = JSON.parse(fs.readFileSync(pendingPath, 'utf-8'));
@@ -633,29 +632,13 @@ async function collectOnce() {
                 for (const item of items) {
                     const src = item.source || '기타';
                     if (reportStores[src]) reportStores[src].push(item);
+                    // 메모리 중복방지 키 등록
+                    const key = `${item.corp}|${item.title}|${item.date}`;
+                    _collectedKeys.add(key);
                 }
                 console.log(`[수집] pending 로드: ${items.length}건`);
             } catch (e) {
                 console.error(`[수집] pending 로드 실패: ${e.message}`);
-            }
-        }
-
-        // 2) reports 파일 로드 (분류 완료 — 중복방지용, 저장 대상 아님)
-        _reportsKeys = new Set();
-        if (fs.existsSync(reportsPath)) {
-            try {
-                const data = JSON.parse(fs.readFileSync(reportsPath, 'utf-8'));
-                const items = data.items || [];
-                for (const item of items) {
-                    const key = `${item.corp}|${item.title}|${item.date}`;
-                    _reportsKeys.add(key);
-                    // reportStores에도 추가 (교차중복 제거용)
-                    const src = item.source || '기타';
-                    if (reportStores[src]) reportStores[src].push(item);
-                }
-                console.log(`[수집] reports 로드 (중복방지): ${items.length}건`);
-            } catch (e) {
-                console.error(`[수집] reports 로드 실패: ${e.message}`);
             }
         }
     }
@@ -694,10 +677,8 @@ async function collectOnce() {
         totalCollected += totalAdded;
         lastCollectedAt = new Date().toISOString();
 
-        // pending 파일 저장 (reports에 있는 항목 제외 + 쓰레기 필터)
+        // pending 파일 저장 (쓰레기 필터)
         const pendingItems = todayItems.filter(item => {
-            const key = `${item.corp}|${item.title}|${item.date}`;
-            if (_reportsKeys.has(key)) return false;
             // 1차 폐기 필터 — 잘못 파싱된 데이터 제거
             const check = (item.corp || '') + ' ' + (item.title || '') + ' ' + (item.opinion || '');
             if (GARBAGE_KEYWORDS.some(kw => check.includes(kw))) return false;
@@ -734,28 +715,14 @@ async function collectOnce() {
 // ════════════════════════════════════════════════
 
 function cleanOldFiles() {
-    ensureDataDir();
+    ensurePendingDir();
     const cutoff = new Date(Date.now() + 9 * 3600000);
     cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
     const cutoffStr = cutoff.toISOString().slice(0, 10).replace(/-/g, '');
 
     let removed = 0;
 
-    // output/ 폴더 — report 파일 정리
-    if (fs.existsSync(OUTPUT_DIR)) {
-        const outputFiles = fs.readdirSync(OUTPUT_DIR).filter(f =>
-            f.startsWith('report_') && f.endsWith('.json')
-        );
-        for (const f of outputFiles) {
-            const dateStr = f.replace('report_', '').replace('.json', '');
-            if (dateStr < cutoffStr) {
-                fs.unlinkSync(path.join(OUTPUT_DIR, f));
-                removed++;
-            }
-        }
-    }
-
-    // pending/ 폴더 — pending 파일 정리
+    // pending/ 폴더 — pending 파일 정리 (output 정리는 classifier 담당)
     if (fs.existsSync(PENDING_DIR)) {
         const pendingFiles = fs.readdirSync(PENDING_DIR).filter(f =>
             f.startsWith('pending_') && f.endsWith('.json')
@@ -770,7 +737,7 @@ function cleanOldFiles() {
     }
 
     if (removed > 0) {
-        console.log(`[보존] ${removed}개 파일 삭제 (${RETENTION_DAYS}일 경과)`);
+        console.log(`[보존] ${removed}개 pending 파일 삭제 (${RETENTION_DAYS}일 경과)`);
     }
 }
 

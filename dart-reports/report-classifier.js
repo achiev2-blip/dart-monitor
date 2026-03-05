@@ -608,6 +608,36 @@ async function retryAndFinalize() {
 }
 
 // ════════════════════════════════════════════════
+// 보존규칙 — 7일 경과 output 파일 삭제
+// ════════════════════════════════════════════════
+
+const RETENTION_DAYS = 7;
+
+function cleanOldOutputFiles() {
+    if (!fs.existsSync(OUTPUT_DIR)) return;
+
+    const cutoff = new Date(Date.now() + 9 * 3600000);
+    cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
+    const cutoffStr = cutoff.toISOString().slice(0, 10).replace(/-/g, '');
+
+    let removed = 0;
+    const outputFiles = fs.readdirSync(OUTPUT_DIR).filter(f =>
+        f.startsWith('report_') && f.endsWith('.json')
+    );
+    for (const f of outputFiles) {
+        const dateStr = f.replace('report_', '').replace('.json', '');
+        if (dateStr < cutoffStr) {
+            fs.unlinkSync(path.join(OUTPUT_DIR, f));
+            removed++;
+        }
+    }
+
+    if (removed > 0) {
+        console.log(`[보존] ${removed}개 output 파일 삭제 (${RETENTION_DAYS}일 경과)`);
+    }
+}
+
+// ════════════════════════════════════════════════
 // 뷰어용 — 미분류 제외한 데이터만 반환
 // ════════════════════════════════════════════════
 
@@ -647,6 +677,7 @@ module.exports = {
     classifyPending,
     retryAndFinalize,
     moveToReports,
+    cleanOldOutputFiles,
     getItemsForViewer,
     getStatus,
 };
