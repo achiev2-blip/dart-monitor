@@ -197,8 +197,8 @@ function parseClsResponse(text) {
 
 /**
  * 수집된 리포트 배열 분류 (규칙 → Quick AI)
- * 수집 사이클마다 호출됨
- * @param {Array} items - collector.getTodayItems()
+ * classifyPending()에서 pending 파일의 items를 넘겨서 호출
+ * @param {Array} items - pending 파일에서 읽은 리포트 배열
  * @param {Function} saveFn - 파일 저장 함수 (분류 후 호출)
  */
 async function classifyAll(items, saveFn) {
@@ -319,7 +319,7 @@ async function classifyAll(items, saveFn) {
 
 /**
  * "확인필요" + 1시간 경과한 건만 Search AI로 재분류
- * @param {Array} items - collector.getTodayItems()
+ * @param {Array} items - pending 파일에서 읽은 리포트 배열
  * @param {Function} saveFn - 파일 저장 함수
  */
 async function retryPending(items, saveFn) {
@@ -638,20 +638,6 @@ function cleanOldOutputFiles() {
 }
 
 // ════════════════════════════════════════════════
-// 뷰어용 — 미분류 제외한 데이터만 반환
-// ════════════════════════════════════════════════
-
-// 뷰어용 데이터 필터 — 미분류, Quick의 "확인필요"(Search AI 대기 중) 제외
-function getItemsForViewer(items) {
-    return items.filter(item => {
-        if (!item._cls) return false;                // 미분류 제외
-        // Quick AI의 "확인필요"는 Search AI 대기 중이므로 제외
-        if (item._cls === '확인필요' && item._clsBy === 'ai_quick') return false;
-        return true;
-    });
-}
-
-// ════════════════════════════════════════════════
 // 외부 인터페이스
 // ════════════════════════════════════════════════
 
@@ -678,7 +664,6 @@ module.exports = {
     retryAndFinalize,
     moveToReports,
     cleanOldOutputFiles,
-    getItemsForViewer,
     getStatus,
 };
 
