@@ -4,7 +4,7 @@
  * ⚠️ 출력 전용 — 수집/분류는 매크로(collector.js, classifier.js)가 담당
  * 
  * 역할:
- *   1. 서버 시작 시 data/ 파일들에서 최신 300건 캐시 (역순)
+ *   1. 서버 시작 시 output/ 파일들에서 최신 300건 캐시 (역순)
  *   2. 2분마다 파일 변경 체크 → 캐시 갱신
  *   3. API 요청 → 메모리 캐시에서 즉시 응답
  * 
@@ -23,7 +23,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3200;
-const DATA_DIR = path.join(__dirname, 'output');  // 분류 완료 데이터 폴더
+const OUTPUT_DIR = path.join(__dirname, 'output');  // 분류 완료 데이터 폴더
 
 const CACHE_SIZE = 300;         // 최대 캐시 건수
 const REFRESH_MS = 2 * 60000;  // 2분마다 갱신
@@ -38,13 +38,13 @@ let lastFileModified = null;    // 파일 변경 감지용
 // ════════════════════════════════════════════════
 
 function loadCache() {
-    if (!fs.existsSync(DATA_DIR)) {
+    if (!fs.existsSync(OUTPUT_DIR)) {
         console.log('[캐시] output/ 폴더 없음');
         return;
     }
 
     // reports_YYYYMMDD.json 파일들을 날짜 역순으로 정렬
-    const files = fs.readdirSync(DATA_DIR)
+    const files = fs.readdirSync(OUTPUT_DIR)
         .filter(f => f.startsWith('report_') && f.endsWith('.json'))
         .sort().reverse();
 
@@ -56,7 +56,7 @@ function loadCache() {
     // 파일 변경 체크 (최신 파일의 mtime)
     let latestMtime = '';
     for (const f of files) {
-        const stat = fs.statSync(path.join(DATA_DIR, f));
+        const stat = fs.statSync(path.join(OUTPUT_DIR, f));
         const mt = stat.mtime.toISOString();
         if (mt > latestMtime) latestMtime = mt;
     }
@@ -70,7 +70,7 @@ function loadCache() {
     const seenKeys = new Set();
     for (const file of files) {
         try {
-            const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf-8'));
+            const data = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, file), 'utf-8'));
             const items = data.items || [];
             for (const item of items) {
                 const key = `${item.corp}|${item.title}|${item.date}`;
@@ -181,7 +181,7 @@ app.get('/api/claude/reports', (req, res) => {
     if (today) {
         // 오늘 파일에서 전체 가져오기
         const dateStr = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10).replace(/-/g, '');
-        const todayFile = path.join(DATA_DIR, `report_${dateStr}.json`);
+        const todayFile = path.join(OUTPUT_DIR, `report_${dateStr}.json`);
         try {
             const data = JSON.parse(fs.readFileSync(todayFile, 'utf-8'));
             items = data.items || [];
