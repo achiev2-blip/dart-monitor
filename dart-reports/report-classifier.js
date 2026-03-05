@@ -27,7 +27,7 @@ const QUICK_DELAY_MS = 5000;   // Quick AI 호출 간 대기 (thinking 모델 �
 const SEARCH_DELAY_MS = 5000;  // Search AI 호출 간 대기
 const MAX_CONSECUTIVE_FAILS = 3; // 연속 실패 허용 횟수
 const RETRY_WAIT_MS = 3600000;   // 확인필요 재시도 대기 (1시간)
-const DATA_DIR = path.join(__dirname, 'data');
+const OUTPUT_DIR = path.join(__dirname, 'output');  // 분류 완료 → 이 폴더가 최종 데이터 저장소 (나중에 모든 소스 통합)
 const PENDING_DIR = path.join(__dirname, 'pending');
 
 // ── 상태 ──
@@ -375,7 +375,7 @@ function getPendingPath(dateStr) {
     return path.join(PENDING_DIR, `pending_${dateStr}.json`);
 }
 function getReportsPath(dateStr) {
-    return path.join(DATA_DIR, `reports_${dateStr}.json`);
+    return path.join(OUTPUT_DIR, `report_${dateStr}.json`);
 }
 function getToday() {
     return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10).replace(/-/g, '');
@@ -388,6 +388,7 @@ function getToday() {
 function moveToReports(dateStr, classifiedItems) {
     if (!classifiedItems || classifiedItems.length === 0) return;
 
+    if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     const reportsPath = getReportsPath(dateStr);
     let existing = [];
 

@@ -19,7 +19,7 @@ const cheerio = require('cheerio');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 // ── 설정 ──
-const DATA_DIR = path.join(__dirname, 'data');
+const OUTPUT_DIR = path.join(__dirname, 'output');  // 분류 완료 데이터 (중복방지용 읽기)
 const PENDING_DIR = path.join(__dirname, 'pending');
 const COLLECT_INTERVAL = 600000; // 10분 기본 (getSmartInterval로 동적 조절)
 const RETENTION_DAYS = 7;        // 파일 보존 기간
@@ -87,8 +87,8 @@ function getKST() {
 
 // 데이터 디렉토리 확인
 function ensureDataDir() {
-    if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs.existsSync(OUTPUT_DIR)) {
+        fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     }
 }
 
@@ -621,7 +621,7 @@ async function collectOnce() {
     // 기존 파일 로드 (서버 재시작 대응) — pending + reports 모두 로드
     if (!fs.existsSync(PENDING_DIR)) fs.mkdirSync(PENDING_DIR, { recursive: true });
     const pendingPath = path.join(PENDING_DIR, `pending_${today}.json`);
-    const reportsPath = path.join(DATA_DIR, `reports_${today}.json`);
+    const reportsPath = path.join(OUTPUT_DIR, `report_${today}.json`);
 
     if (todayItems.length === 0) {
         // 1) pending 파일 로드 (미분류 항목 — 계속 수집 대상)
@@ -741,15 +741,17 @@ function cleanOldFiles() {
 
     let removed = 0;
 
-    // data/ 폴더 — reports 파일 정리
-    const dataFiles = fs.readdirSync(DATA_DIR).filter(f =>
-        f.startsWith('reports_') && f.endsWith('.json')
-    );
-    for (const f of dataFiles) {
-        const dateStr = f.replace('reports_', '').replace('.json', '');
-        if (dateStr < cutoffStr) {
-            fs.unlinkSync(path.join(DATA_DIR, f));
-            removed++;
+    // output/ 폴더 — report 파일 정리
+    if (fs.existsSync(OUTPUT_DIR)) {
+        const outputFiles = fs.readdirSync(OUTPUT_DIR).filter(f =>
+            f.startsWith('report_') && f.endsWith('.json')
+        );
+        for (const f of outputFiles) {
+            const dateStr = f.replace('report_', '').replace('.json', '');
+            if (dateStr < cutoffStr) {
+                fs.unlinkSync(path.join(OUTPUT_DIR, f));
+                removed++;
+            }
         }
     }
 

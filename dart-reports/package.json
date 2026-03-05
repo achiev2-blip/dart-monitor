@@ -1,0 +1,16 @@
+{
+    "name": "dart-reports",
+    "version": "1.0.0",
+    "description": "증권사 리포트 독립 모듈 — 수집 + 분류 + 뷰어",
+    "main": "report-server-viewer.js",
+    "scripts": {
+        "start": "node report-server-viewer.js",
+        "collect": "node -e \"require('./report-collector').collectOnce()\""
+    },
+    "dependencies": {
+        "axios": "^1.7.0",
+        "cheerio": "1.0.0-rc.12",
+        "dotenv": "^17.3.1",
+        "express": "^4.21.0"
+    }
+}

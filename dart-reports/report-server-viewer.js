@@ -23,7 +23,7 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3200;
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = path.join(__dirname, 'output');  // 분류 완료 데이터 폴더
 
 const CACHE_SIZE = 300;         // 최대 캐시 건수
 const REFRESH_MS = 2 * 60000;  // 2분마다 갱신
@@ -34,18 +34,18 @@ let cacheUpdatedAt = null;
 let lastFileModified = null;    // 파일 변경 감지용
 
 // ════════════════════════════════════════════════
-// 캐시 로드 — data/ 폴더에서 최신 파일들 읽어서 300건 채움
+// 캐시 로드 — output/ 폴더에서 최신 파일들 읽어서 300건 채움
 // ════════════════════════════════════════════════
 
 function loadCache() {
     if (!fs.existsSync(DATA_DIR)) {
-        console.log('[캐시] data/ 폴더 없음');
+        console.log('[캐시] output/ 폴더 없음');
         return;
     }
 
     // reports_YYYYMMDD.json 파일들을 날짜 역순으로 정렬
     const files = fs.readdirSync(DATA_DIR)
-        .filter(f => f.startsWith('reports_') && f.endsWith('.json'))
+        .filter(f => f.startsWith('report_') && f.endsWith('.json'))
         .sort().reverse();
 
     if (files.length === 0) {
@@ -181,7 +181,7 @@ app.get('/api/claude/reports', (req, res) => {
     if (today) {
         // 오늘 파일에서 전체 가져오기
         const dateStr = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10).replace(/-/g, '');
-        const todayFile = path.join(DATA_DIR, `reports_${dateStr}.json`);
+        const todayFile = path.join(DATA_DIR, `report_${dateStr}.json`);
         try {
             const data = JSON.parse(fs.readFileSync(todayFile, 'utf-8'));
             items = data.items || [];
