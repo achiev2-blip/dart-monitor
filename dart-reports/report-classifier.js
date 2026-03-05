@@ -4,7 +4,7 @@
  * 분류 흐름:
  *   1. 규칙 필터 — 키워드로 자동 분류 (즉시, AI 호출 0)
  *   2. Quick AI — 제목+종목명으로 분류 (2초/건)
- *   3. "확인필요" 건 → 1시간 후 Search AI (뉴스 검색 포함, 30초/건)
+ *   3. "확인필요" 건 → 1시간 후 "기타"로 확정
  *   4. 그래도 "확인필요" → 그대로 유지
  * 
  * 장애 대응:
@@ -33,7 +33,7 @@ const PENDING_DIR = path.join(__dirname, 'pending');
 // ── 상태 ──
 let isRunning = false;
 let lastRunAt = null;
-let stats = { rule: 0, quickAI: 0, searchAI: 0, total: 0 };
+let stats = { rule: 0, quickAI: 0, total: 0 };
 let _aiPausedUntil = 0; // AI 쿨다운 타임스탬프
 const MAX_RETRY_COUNT = 3; // 아이템별 최대 재시도 횟수
 const AI_COOLDOWN_MS = 1800000; // AI 연속실패 시 30분 쿨다운
@@ -131,51 +131,6 @@ ${item.targetPrice ? `목표주가: ${item.targetPrice.toLocaleString()}원` : '
         return null;
     }
 }
-
-// ════════════════════════════════════════════════
-// Search AI — 뉴스 검색 포함 정밀 분류 (확인필요 재시도용)
-// ════════════════════════════════════════════════
-
-async function classifyWithSearch(item) {
-    if (!GEMINI_KEY) return '확인필요';
-
-    const prompt = `다음 증권사 리포트의 투자 성격을 판단해주세요.
-
-종목: ${item.corp}
-제목: ${item.title}
-증권사: ${item.broker}
-${item.opinion ? `투자의견: ${item.opinion}` : ''}
-${item.targetPrice ? `목표주가: ${item.targetPrice.toLocaleString()}원` : ''}
-
-리포트 제목과 종목 정보를 바탕으로 판단하세요.
-방향을 알 수 없으면 "확인필요"로 답하세요.
-
-아래 5가지 중 하나만 답하세요 (다른 말 없이 딱 한 단어):
-매수 — 긍정적
-중립 — 관망
-매도 — 부정적
-산업분석 — 산업/섹터 분석
-확인필요 — 판단 불가`;
-
-    try {
-        const resp = await axios.post(
-            `${GEMINI_URL}?key=${GEMINI_KEY}`,
-            {
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.1, maxOutputTokens: 256 },
-            },
-            { timeout: 30000, headers: { 'Content-Type': 'application/json' } }
-        );
-
-        const text = (resp.data?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
-        return parseClsResponse(text) || '확인필요';
-
-    } catch (e) {
-        console.error(`[Search AI] 실패: ${e.message}`);
-        return '확인필요';
-    }
-}
-
 // ════════════════════════════════════════════════
 // 응답 파싱 — 공통 키워드 추출
 // ════════════════════════════════════════════════
@@ -308,59 +263,6 @@ async function classifyAll(items, saveFn) {
 
     } catch (e) {
         console.error(`[분류] 오류: ${e.message}`);
-    } finally {
-        isRunning = false;
-    }
-}
-
-// ════════════════════════════════════════════════
-// Search AI 재시도 — 1시간 경과한 "확인필요" 건 처리
-// ════════════════════════════════════════════════
-
-/**
- * "확인필요" + 1시간 경과한 건만 Search AI로 재분류
- * @param {Array} items - pending 파일에서 읽은 리포트 배열
- * @param {Function} saveFn - 파일 저장 함수
- */
-async function retryPending(items, saveFn) {
-    if (isRunning) return;
-
-    const now = Date.now();
-    const pending = items.filter(item =>
-        item._cls === '확인필요' &&
-        item._clsBy === 'ai_quick' &&
-        item._clsAt &&
-        (now - item._clsAt) >= RETRY_WAIT_MS
-    );
-
-    if (pending.length === 0) return;
-
-    isRunning = true;
-    let retried = 0;
-
-    try {
-        console.log(`[Search AI] ${pending.length}건 재분류 시작 (1시간 경과)`);
-
-        for (let i = 0; i < pending.length; i++) {
-            const item = pending[i];
-            const cls = await classifyWithSearch(item);
-
-            item._cls = cls;
-            item._clsBy = 'ai_search';
-            item.opinion = cls;  // 뷰어 표시용
-            delete item._clsAt;
-            retried++;
-
-            if (i < pending.length - 1) await sleep(SEARCH_DELAY_MS);
-        }
-
-        stats.searchAI += retried;
-        console.log(`[Search AI] ${retried}건 재분류 완료`);
-
-        if (saveFn && retried > 0) saveFn();
-
-    } catch (e) {
-        console.error(`[Search AI] 오류: ${e.message}`);
     } finally {
         isRunning = false;
     }
@@ -552,38 +454,27 @@ async function retryAndFinalize() {
             continue;
         }
 
-        // 1) Search AI 재시도 (1시간 경과한 확인필요 건)
-        const saveFn = () => {
-            data.items = items;
-            data._retryAt = new Date().toISOString();
-            fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-        };
-        await retryPending(items, saveFn);
-
-        // 2) 재시도 후에도 남은 항목 처리
+        // 1) 확인필요 건 처리 (1시간 경과 → 기타로 확정)
         const classified = [];
         const stillPending = [];
 
         for (const item of items) {
             if (item._cls && item._cls !== '확인필요') {
                 classified.push(item);
-            } else if (item._cls === '확인필요' && item._clsBy === 'ai_search') {
-                item._cls = '기타';
-                item._clsBy = 'fallback';
-                item.opinion = '기타';
-                classified.push(item);
-                console.log(`[재시도] ${item.corp} "${item.title}" → 기타`);
-            } else if (item._cls === '확인필요' && item._clsBy === 'ai_quick' && item._clsAt) {
+            } else if (item._cls === '확인필요' && item._clsAt) {
                 const age = Date.now() - item._clsAt;
-                if (age < RETRY_WAIT_MS) {
-                    stillPending.push(item);
-                } else {
+                if (age >= RETRY_WAIT_MS) {
+                    // 1시간 경과 → 기타로 확정
                     item._cls = '기타';
                     item._clsBy = 'fallback';
                     item.opinion = '기타';
                     classified.push(item);
-                    console.log(`[재시도] ${item.corp} "${item.title}" → 기타 (재시도 실패)`);
+                    console.log(`[재시도] ${item.corp} "${item.title}" → 기타 (1시간 경과)`);
+                } else {
+                    stillPending.push(item);
                 }
+            } else if (!item._cls) {
+                stillPending.push(item);
             } else {
                 stillPending.push(item);
             }
@@ -657,9 +548,7 @@ function sleep(ms) {
 module.exports = {
     classifyByRule,
     classifyQuick,
-    classifyWithSearch,
     classifyAll,
-    retryPending,
     classifyPending,
     retryAndFinalize,
     moveToReports,
