@@ -307,12 +307,11 @@ async function retryPending(items, saveFn) {
 // 뷰어용 — 일반과 미분류 제외한 데이터만 반환
 // ════════════════════════════════════════════════
 
-// 뷰어용 데이터 필터 — "일반", 미분류, Quick의 "확인필요"(Search AI 대기 중) 제외
+// 뷰어용 데이터 필터 — "일반", 미분류 제외
 function getNewsItemsForViewer(items) {
     return items.filter(i => {
         if (!i._cls) return false;
         if (i._cls === '일반') return false;
-        if (i._cls === '확인필요' && i._clsBy === 'ai_quick') return false;
         return true;
     });
 }
@@ -365,8 +364,6 @@ function moveToOutput(dateStr, items) {
     const classified = items.filter(item => {
         if (!item._cls) return false;                // 미분류 제외
         if (item._cls === '일반') return false;       // 일반 제외
-        // Quick AI의 "확인필요"는 Search AI 대기 중이므로 제외
-        if (item._cls === '확인필요' && item._clsBy === 'ai_quick') return false;
         return true;
     });
 

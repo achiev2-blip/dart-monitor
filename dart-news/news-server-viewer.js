@@ -72,11 +72,10 @@ function loadCache() {
             const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf-8'));
             const items = data.items || [];
 
-            // 일반, 미분류 제외 / Quick의 확인필요(Search 대기 중)도 제외
+            // 일반, 미분류 제외
             const filtered = items.filter(item => {
                 if (!item._cls) return false;
                 if (item._cls === '일반') return false;
-                if (item._cls === '확인필요' && item._clsBy === 'ai_quick') return false;
                 return true;
             });
 
