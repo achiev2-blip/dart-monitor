@@ -200,14 +200,15 @@ async function classifyAll(items, saveFn) {
     let ruleCount = 0, aiCount = 0, skipCount = 0;
 
     try {
-        // 미분류 건만 필터
-        const unclassified = items.filter(i => !i._cls);
+        // 미분류 건만 필터 → 최신순 정렬 (최신 뉴스 먼저 분류)
+        const unclassified = items.filter(i => !i._cls)
+            .sort((a, b) => new Date(b.pubDate || 0) - new Date(a.pubDate || 0));
         if (unclassified.length === 0) {
             console.log('[뉴스-분류] 미분류 건 없음');
             return;
         }
 
-        console.log(`[뉴스-분류] 시작 — 미분류 ${unclassified.length}건`);
+        console.log(`[뉴스-분류] 시작 — 미분류 ${unclassified.length}건 (최신순)`);
 
         for (const item of unclassified) {
             // 1단계: 규칙 필터

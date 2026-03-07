@@ -60,16 +60,14 @@ function saveToOutput() {
 }
 
 // ── 수집 후 분류 실행 ──
-let lastItemCount = 0;
-
+// 날짜 변경과 무관하게, 미분류 건이 있으면 항상 분류 실행
 setInterval(async () => {
     const items = collector.getTodayItems();
-    const currentCount = items.length;
+    if (items.length === 0) return;
 
-    // 새 데이터가 있으면 분류 실행
-    if (currentCount > lastItemCount) {
-        console.log(`[체인] 새 뉴스 감지 (+${currentCount - lastItemCount}건) → 분류 시작`);
-        lastItemCount = currentCount;
+    const unclassified = items.filter(i => !i._cls).length;
+    if (unclassified > 0) {
+        console.log(`[체인] 미분류 ${unclassified}건 감지 → 분류 시작`);
 
         try {
             await classifier.classifyAll(items, makeSaveFn());
@@ -89,7 +87,6 @@ setTimeout(async () => {
     const unclassified = items.filter(i => !i._cls).length;
     if (unclassified > 0) {
         console.log(`[체인] 기존 미분류 ${unclassified}건 자동 분류 시작`);
-        lastItemCount = items.length; // 중복 트리거 방지
         try {
             await classifier.classifyAll(items, makeSaveFn());
             saveToOutput(); // 분류 완료 → output 갱신

@@ -104,8 +104,13 @@ async function collectOnce() {
     if (todayItems.length === 0 && fs.existsSync(loadPath)) {
         try {
             const data = JSON.parse(fs.readFileSync(loadPath, 'utf-8'));
-            todayItems = data.items || [];
-            console.log(`[뉴스-수집] 기존 파일 로드: ${todayItems.length}건 (분류 보존)`);
+            const cutoff = Date.now() - 24 * 3600000;
+            todayItems = (data.items || []).filter(i => {
+                if (!i.pubDate) return true;
+                const t = new Date(i.pubDate).getTime();
+                return isNaN(t) || t > cutoff;
+            });
+            console.log(`[뉴스-수집] 기존 파일 로드: ${todayItems.length}건 (24h 필터, 원본 ${(data.items || []).length}건)`);
         } catch (e) {
             console.error(`[뉴스-수집] 파일 로드 실패: ${e.message}`);
         }
@@ -123,6 +128,12 @@ async function collectOnce() {
             for (const item of rawItems) {
                 // 주식/경제 관련 뉴스만 수집
                 if (!isStockRelevant(item.title)) continue;
+
+                // 24시간 이내 뉴스만 수집 (과거 뉴스 필터)
+                if (item.pubDate) {
+                    const pubTime = new Date(item.pubDate).getTime();
+                    if (!isNaN(pubTime) && Date.now() - pubTime > 24 * 3600000) continue;
+                }
 
                 const newsId = makeNewsId(item.title, item.link);
                 if (existingIds.has(newsId)) continue;

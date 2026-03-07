@@ -520,12 +520,18 @@
             return '';
         }
 
-        // ── 시간 포맷 ──
+        // ── 시간 포맷 (날짜 포함) ──
         function formatTime(pubDate) {
             if (!pubDate) return '-';
             try {
                 const d = new Date(pubDate);
-                return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                const now = new Date();
+                const isToday = d.toDateString() === now.toDateString();
+                if (isToday) {
+                    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                }
+                return d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) + ' ' +
+                    d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
             } catch {
                 return pubDate.slice(11, 16) || '-';
             }
