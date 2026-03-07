@@ -74,13 +74,11 @@ const RULE_NORMAL = [
 ];
 
 // 규칙 기반 분류 — 뉴스 제목 키워드 매칭 (대소문자 무시)
+// 우선순위: 강력호재 → 악재 → 호재 → 일반 (시세 영향 큰 순서)
 function classifyByRule(title) {
     if (!title) return null;
     const t = title.toLowerCase();
 
-    for (const kw of RULE_NORMAL) {
-        if (t.includes(kw.toLowerCase())) return '일반';
-    }
     for (const kw of RULE_STRONG_POSITIVE) {
         if (t.includes(kw.toLowerCase())) return '강력호재';
     }
@@ -89,6 +87,9 @@ function classifyByRule(title) {
     }
     for (const kw of RULE_POSITIVE) {
         if (t.includes(kw.toLowerCase())) return '호재';
+    }
+    for (const kw of RULE_NORMAL) {
+        if (t.includes(kw.toLowerCase())) return '일반';
     }
 
     return null; // 규칙으로 분류 불가 → AI로 넘김
@@ -333,12 +334,210 @@ function sleep(ms) {
     return new Promise(r => setTimeout(r, ms));
 }
 
+// KST 오늘 날짜 (YYYYMMDD)
+function getToday() {
+    return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10).replace(/-/g, '');
+}
+
+// ════════════════════════════════════════════════
+// 파일 기반 분류 — pending/ → 분류 → output/
+// chain에서 호출 (메모리 공유 없이 파일로만 통신)
+// ════════════════════════════════════════════════
+
+async function classifyPending() {
+    if (isRunning) {
+        console.log('[뉴스-분류] 이미 실행 중 — 스킵');
+        return;
+    }
+
+    if (!fs.existsSync(PENDING_DIR)) {
+        console.log('[뉴스-분류] pending/ 폴더 없음 — 스킵');
+        return;
+    }
+
+    const allFiles = fs.readdirSync(PENDING_DIR)
+        .filter(f => f.startsWith('news_') && f.endsWith('.json'))
+        .sort();
+
+    if (allFiles.length === 0) {
+        console.log('[뉴스-분류] pending 파일 없음 — 스킵');
+        return;
+    }
+
+    // 오늘 파일 먼저
+    const today = getToday();
+    const todayFile = `news_${today}.json`;
+    const sortedFiles = [];
+    if (allFiles.includes(todayFile)) sortedFiles.push(todayFile);
+    for (const f of allFiles) {
+        if (f !== todayFile) sortedFiles.push(f);
+    }
+
+    console.log(`[뉴스-분류] pending 파일 ${sortedFiles.length}개 처리 시작`);
+
+    for (const fileName of sortedFiles) {
+        const fileDateStr = fileName.replace('news_', '').replace('.json', '');
+        const filePath = path.join(PENDING_DIR, fileName);
+
+        let data;
+        try {
+            data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        } catch (e) {
+            console.error(`[뉴스-분류] ${fileName} 읽기 실패: ${e.message}`);
+            continue;
+        }
+
+        const items = data.items || [];
+        if (items.length === 0) continue;
+
+        const unclassified = items.filter(i => !i._cls);
+        if (unclassified.length === 0) {
+            // 이미 전부 분류됨 — output 갱신만
+            moveToOutput(fileDateStr, items);
+            continue;
+        }
+
+        console.log(`[뉴스-분류] ${fileName}: ${unclassified.length}건 분류 시작`);
+
+        // saveFn: 분류 진행 중 pending 파일에 저장 (10건마다)
+        const saveFn = () => {
+            data.items = items;
+            data.updatedAt = new Date(Date.now() + 9 * 3600000).toISOString();
+            fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+        };
+
+        await classifyAll(items, saveFn);
+
+        // pending 파일 갱신
+        saveFn();
+
+        // 분류 완료 항목 → output (확인필요 제외)
+        moveToOutput(fileDateStr, items);
+
+        console.log(`[뉴스-분류] ${fileName}: 완료`);
+    }
+}
+
+// ════════════════════════════════════════════════
+// 확인필요 재시도 — 1시간 경과 건 Search AI 또는 기타 확정
+// ════════════════════════════════════════════════
+
+async function retryAndFinalize() {
+    if (isRunning) {
+        console.log('[뉴스-재시도] 분류 실행 중 — 스킵');
+        return;
+    }
+
+    if (!fs.existsSync(PENDING_DIR)) return;
+
+    const allFiles = fs.readdirSync(PENDING_DIR)
+        .filter(f => f.startsWith('news_') && f.endsWith('.json'))
+        .sort();
+
+    if (allFiles.length === 0) return;
+
+    console.log(`[뉴스-재시도] pending 파일 ${allFiles.length}개 재시도 시작`);
+
+    for (const fileName of allFiles) {
+        const fileDateStr = fileName.replace('news_', '').replace('.json', '');
+        const filePath = path.join(PENDING_DIR, fileName);
+
+        let data;
+        try {
+            data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        } catch (e) {
+            console.error(`[뉴스-재시도] ${fileName} 읽기 실패: ${e.message}`);
+            continue;
+        }
+
+        const items = data.items || [];
+        if (items.length === 0) continue;
+
+        // 확인필요 + 1시간 경과한 건 찾기
+        const now = Date.now();
+        let changed = 0;
+
+        isRunning = true;
+        try {
+            for (const item of items) {
+                if (item._cls === '확인필요' && item._clsBy === 'ai_quick' && item._clsAt) {
+                    const age = now - new Date(item._clsAt).getTime();
+                    if (age >= RETRY_WAIT_MS) {
+                        // Search AI 시도
+                        const newCls = await classifyWithSearch(item);
+                        if (newCls !== '확인필요') {
+                            item._cls = newCls;
+                            item._clsBy = 'ai_search';
+                            item._clsAt = new Date(Date.now() + 9 * 3600000).toISOString();
+                            changed++;
+                            console.log(`[뉴스-재시도] "${item.title?.slice(0, 30)}..." → ${newCls}`);
+                        } else {
+                            // Search AI도 확인필요 → 사용자 판단용으로 output에 보냄
+                            item._clsBy = 'ai_search';
+                            item._clsAt = new Date(Date.now() + 9 * 3600000).toISOString();
+                            changed++;
+                            console.log(`[뉴스-재시도] "${item.title?.slice(0, 30)}..." → 확인필요 (사용자 판단)`);
+                        }
+                        await sleep(2000);
+                    }
+                }
+            }
+        } finally {
+            isRunning = false;
+        }
+
+        if (changed > 0) {
+            // pending 파일 갱신
+            data.items = items;
+            data.updatedAt = new Date(Date.now() + 9 * 3600000).toISOString();
+            fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+
+            // output 갱신
+            moveToOutput(fileDateStr, items);
+            console.log(`[뉴스-재시도] ${fileName}: ${changed}건 재분류`);
+        }
+    }
+}
+
+// ════════════════════════════════════════════════
+// output/ 보존규칙 — 7일 경과 파일 삭제
+// ════════════════════════════════════════════════
+
+const RETENTION_DAYS = 7;
+
+function cleanOldOutputFiles() {
+    if (!fs.existsSync(OUTPUT_DIR)) return;
+
+    const cutoff = new Date(Date.now() + 9 * 3600000);
+    cutoff.setDate(cutoff.getDate() - RETENTION_DAYS);
+    const cutoffStr = cutoff.toISOString().slice(0, 10).replace(/-/g, '');
+
+    let removed = 0;
+    const outputFiles = fs.readdirSync(OUTPUT_DIR).filter(f =>
+        f.startsWith('news_') && f.endsWith('.json')
+    );
+    for (const f of outputFiles) {
+        const dateStr = f.replace('news_', '').replace('.json', '');
+        if (dateStr < cutoffStr) {
+            fs.unlinkSync(path.join(OUTPUT_DIR, f));
+            removed++;
+        }
+    }
+
+    if (removed > 0) {
+        console.log(`[뉴스-보존] ${removed}개 output 파일 삭제 (${RETENTION_DAYS}일 경과)`);
+    }
+}
+
 module.exports = {
     classifyByRule,
     classifyQuick,
     classifyWithSearch,
     classifyAll,
     retryPending,
+    classifyPending,
+    retryAndFinalize,
+    cleanOldOutputFiles,
     getNewsItemsForViewer,
     getStatus,
     moveToOutput,
@@ -361,9 +560,12 @@ function moveToOutput(dateStr, items) {
     }
 
     // output 대상: 분류 완료 항목만
+    // 1차 Quick AI 확인필요는 제외 (재시도 대기 중)
+    // 2차 Search AI 확인필요는 포함 (사용자 판단용)
     const classified = items.filter(item => {
         if (!item._cls) return false;                // 미분류 제외
         if (item._cls === '일반') return false;       // 일반 제외
+        if (item._cls === '확인필요' && item._clsBy === 'ai_quick') return false; // 1차 대기
         return true;
     });
 
@@ -398,11 +600,25 @@ function moveToOutput(dateStr, items) {
     // 새 항목 추가
     updated.push(...newItems);
 
+    // pubDate 기준 정렬 (최신 먼저) + 48시간 초과 항목 제거
+    const cutoff = Date.now() - 48 * 3600000;
+    const fresh = updated.filter(item => {
+        const t = new Date(item.pubDate || item._crawledAt || 0).getTime();
+        return isNaN(t) || t > cutoff;
+    });
+
+    // 발행시간순 정렬
+    fresh.sort((a, b) => {
+        const da = new Date(a.pubDate || 0).getTime() || 0;
+        const db = new Date(b.pubDate || 0).getTime() || 0;
+        return db - da;
+    });
+
     const outputData = {
         date: dateStr,
-        total: updated.length,
+        total: fresh.length,
         _classifiedAt: new Date().toISOString(),
-        items: updated,
+        items: fresh,
     };
 
     fs.writeFileSync(outputPath, JSON.stringify(outputData, null, 2), 'utf-8');

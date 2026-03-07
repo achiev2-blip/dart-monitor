@@ -29,6 +29,7 @@ let todayDate = '';            // 현재 메모리에 있는 날짜
 let lastCollectedAt = null;    // 마지막 수집 시각
 let totalCollected = 0;        // 누적 수집 건수
 let _timer = null;             // 수집 타이머
+let _onCollected = null;       // 수집 완료 콜백 (chain에서 등록)
 
 // ── 유틸리티 ──
 
@@ -56,9 +57,30 @@ function ensureDataDir() {
     }
 }
 
-// 뉴스 ID 생성 — title + link 해시
+// 뉴스 ID 생성 — 키워드 추출 기반 중복 방지
+// 제목에서 의미있는 단어 추출 → 정렬 → 상위 5개로 해시
 function makeNewsId(title, link) {
-    return crypto.createHash('md5').update(`${title}||${link}`).digest('hex').slice(0, 12);
+    if (!title) return crypto.createHash('md5').update(link || '').digest('hex').slice(0, 12);
+
+    // 출처 접미사 제거 ("- 프라임경제" 등)
+    const cleaned = title.replace(/\s*[-–—|]\s*[^\-–—|]+$/, '');
+
+    // 특수문자, 괄호, 숫자, 기호 제거
+    const stripped = cleaned.replace(/[\[\](){}'"''""\u00B7·…%↑↓△▲▽▼.,!?:;]/g, ' ');
+
+    // 단어 추출 — 한글 2자 이상, 영문 3자 이상
+    const words = stripped.split(/\s+/).filter(w => {
+        if (/^[가-힣]+$/.test(w)) return w.length >= 2;
+        if (/^[a-zA-Z]+$/i.test(w)) return w.length >= 3;
+        if (/[가-힣]/.test(w) && w.length >= 2) return true;
+        return false;
+    }).map(w => w.toLowerCase());
+
+    // 정렬 후 상위 5개
+    words.sort();
+    const key = words.slice(0, 5).join('|');
+
+    return crypto.createHash('md5').update(key).digest('hex').slice(0, 12);
 }
 
 // ════════════════════════════════════════════════
@@ -158,8 +180,12 @@ async function collectOnce() {
         }
     }
 
-    // 시간순 정렬 (최신 먼저)
-    todayItems.sort((a, b) => (b.pubDate || '').localeCompare(a.pubDate || ''));
+    // 발행시간순 정렬 (최신 먼저 — pubDate 파싱)
+    todayItems.sort((a, b) => {
+        const da = new Date(a.pubDate || 0).getTime() || 0;
+        const db = new Date(b.pubDate || 0).getTime() || 0;
+        return db - da;
+    });
 
     // 파일 저장
     const filePath = path.join(DATA_DIR, `news_${today}.json`);
@@ -215,6 +241,11 @@ async function start() {
     // 즉시 1회 수집
     await collectOnce();
     cleanOldFiles();
+    if (_onCollected) {
+        try { await _onCollected(); } catch (e) {
+            console.error(`[뉴스-수집] onCollected 콜백 오류: ${e.message}`);
+        }
+    }
 
     // 동적 간격으로 반복
     function scheduleNext() {
@@ -226,6 +257,11 @@ async function start() {
             try {
                 await collectOnce();
                 cleanOldFiles();
+                if (_onCollected) {
+                    try { await _onCollected(); } catch (e) {
+                        console.error(`[뉴스-수집] onCollected 콜백 오류: ${e.message}`);
+                    }
+                }
             } catch (e) {
                 console.error(`[뉴스-수집] 오류: ${e.message}`);
             }
@@ -247,6 +283,9 @@ function stop() {
 // ════════════════════════════════════════════════
 // 외부 인터페이스
 // ════════════════════════════════════════════════
+
+// 수집 완료 콜백 등록 (chain에서 사용)
+function onCollected(fn) { _onCollected = fn; }
 
 // 오늘 수집된 뉴스 배열 반환 (메모리 읽기만 — 부하 0)
 function getTodayItems() {
@@ -275,6 +314,7 @@ module.exports = {
     getTodayItems,
     getStatus,
     getToday,
+    onCollected,
 };
 
 // ════════════════════════════════════════════════

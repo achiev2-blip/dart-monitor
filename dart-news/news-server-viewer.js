@@ -25,13 +25,12 @@ const app = express();
 const PORT = process.env.PORT || 3300;
 const DATA_DIR = path.join(__dirname, 'data', 'output');
 
-const CACHE_SIZE = 300;         // 최대 캐시 건수
+const CACHE_SIZE = 500;         // 최대 캐시 건수
 const REFRESH_MS = 2 * 60000;  // 2분마다 갱신
 
 // ── 메모리 캐시 ──
 let cache = [];                 // 최신 300건 (일반 제외, 역순)
 let cacheUpdatedAt = null;
-let lastFileModified = null;    // 파일 변경 감지용
 
 // ════════════════════════════════════════════════
 // 캐시 로드 — data/output/ 폴더에서 최신 파일들 읽어서 300건 채움
@@ -52,18 +51,6 @@ function loadCache() {
     if (files.length === 0) {
         console.log('[뉴스-뷰어] 파일 없음');
         return;
-    }
-
-    // 파일 변경 체크 (모든 파일 중 가장 최신 mtime)
-    let latestMtime = '';
-    for (const f of files) {
-        const s = fs.statSync(path.join(DATA_DIR, f));
-        const m = s.mtime.toISOString();
-        if (m > latestMtime) latestMtime = m;
-    }
-
-    if (latestMtime === lastFileModified) {
-        return; // 변경 없음 → 스킵
     }
 
     // 파일들에서 역순으로 읽어서 300건 채움
@@ -96,7 +83,6 @@ function loadCache() {
     });
     cache = collected.slice(0, CACHE_SIZE);
     cacheUpdatedAt = new Date().toISOString();
-    lastFileModified = latestMtime;
 
     console.log(`[뉴스-뷰어] 캐시 갱신: ${cache.length}건 (파일 ${files.length}개)`);
 }

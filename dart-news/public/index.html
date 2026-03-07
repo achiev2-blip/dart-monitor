@@ -261,6 +261,40 @@
             transition: width 1s linear;
         }
 
+        /* 갱신 결과 표시 */
+        .refresh-result {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+            transition: opacity 0.5s;
+        }
+
+        .refresh-result.has-new {
+            background: #238636;
+            color: #fff;
+            animation: flashNew 0.6s ease;
+        }
+
+        .refresh-result.no-change {
+            background: #30363d;
+            color: #8b949e;
+        }
+
+        @keyframes flashNew {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
+        }
+
         /* 사이드 패널 */
         .panel-overlay {
             display: none;
@@ -387,6 +421,7 @@
         <div class="status">
             캐시: <span class="count" id="totalCount">-</span>건
             | 갱신: <span id="updatedAt">-</span>
+            <span class="refresh-result" id="refreshResult" style="display:none;"></span>
         </div>
     </div>
 
@@ -463,11 +498,18 @@
         const REFRESH_MS = 120000; // 2분
 
         let allItems = [];
+        let prevItemIds = new Set();  // 이전 데이터 ID 저장 (변동 감지용)
         let filtered = [];
         let shown = 0;
         let activeFilter = '전체';
         let refreshTimer = null;
         let progressTimer = null;
+
+        // HTML 이스케이프 — XSS 방지
+        function esc(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
 
         // ── 데이터 로드 ──
         async function loadData() {
@@ -477,6 +519,17 @@
                 if (!data.ok) return;
 
                 allItems = data.items || [];
+
+                // ── 변동 감지: 이전 ID와 비교 ──
+                const currentIds = new Set(allItems.map(i => i._newsId));
+                let newCount = 0;
+                if (prevItemIds.size > 0) {
+                    currentIds.forEach(id => {
+                        if (!prevItemIds.has(id)) newCount++;
+                    });
+                    showRefreshResult(newCount);
+                }
+                prevItemIds = currentIds;
 
                 // 상태 업데이트
                 document.getElementById('totalCount').textContent = data.total;
@@ -495,7 +548,24 @@
                 startRefreshTimer();
             } catch (e) {
                 console.error('데이터 로드 실패:', e);
+                startRefreshTimer(); // 에러 시에도 타이머 유지
             }
+        }
+
+        // ── 갱신 결과 표시 ──
+        function showRefreshResult(newCount) {
+            const el = document.getElementById('refreshResult');
+            if (newCount > 0) {
+                el.textContent = `+${newCount}건 새 뉴스`;
+                el.className = 'refresh-result has-new';
+            } else {
+                el.textContent = '변동없음';
+                el.className = 'refresh-result no-change';
+            }
+            el.style.display = 'inline-block';
+            // 10초 후 서서히 사라짐
+            setTimeout(() => { el.style.opacity = '0.3'; }, 10000);
+            setTimeout(() => { el.style.display = 'none'; el.style.opacity = '1'; }, 15000);
         }
 
         // ── 필터 ──
@@ -520,16 +590,11 @@
             return '';
         }
 
-        // ── 시간 포맷 (날짜 포함) ──
+        // ── 시간 포맷 (항상 날짜+시간 표시) ──
         function formatTime(pubDate) {
             if (!pubDate) return '-';
             try {
                 const d = new Date(pubDate);
-                const now = new Date();
-                const isToday = d.toDateString() === now.toDateString();
-                if (isToday) {
-                    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
-                }
                 return d.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' }) + ' ' +
                     d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
             } catch {
@@ -550,7 +615,7 @@
 
                 const time = formatTime(item.pubDate);
                 const srcClass = getSourceClass(item.feedName);
-                const srcBadge = `<span class="news-source ${srcClass}">${item.feedName || item.source || '-'}</span>`;
+                const srcBadge = `<span class="news-source ${srcClass}">${esc(item.feedName || item.source || '-')}</span>`;
                 const clsBadge = item._cls
                     ? `<span class="cls-badge cls-${item._cls}">${item._cls}</span>`
                     : '<span class="cls-badge" style="color:#484f58">-</span>';
@@ -558,7 +623,7 @@
                 tr.innerHTML = `
                     <td class="time">${time}</td>
                     <td>${srcBadge}</td>
-                    <td class="news-title" title="${item.title || ''}">${item.title || '-'}</td>
+                    <td class="news-title" title="${esc(item.title)}">${esc(item.title) || '-'}</td>
                     <td>${clsBadge}</td>
                     <td><a class="news-link" href="#" onclick="openPanel(${i}); return false;">원문</a></td>
                 `;
