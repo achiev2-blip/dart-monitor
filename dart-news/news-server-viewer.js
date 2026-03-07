@@ -54,12 +54,15 @@ function loadCache() {
         return;
     }
 
-    // 파일 변경 체크 (최신 파일의 mtime)
-    const latestFile = path.join(DATA_DIR, files[0]);
-    const stat = fs.statSync(latestFile);
-    const mtime = stat.mtime.toISOString();
+    // 파일 변경 체크 (모든 파일 중 가장 최신 mtime)
+    let latestMtime = '';
+    for (const f of files) {
+        const s = fs.statSync(path.join(DATA_DIR, f));
+        const m = s.mtime.toISOString();
+        if (m > latestMtime) latestMtime = m;
+    }
 
-    if (mtime === lastFileModified) {
+    if (latestMtime === lastFileModified) {
         return; // 변경 없음 → 스킵
     }
 
@@ -93,7 +96,7 @@ function loadCache() {
     });
     cache = collected.slice(0, CACHE_SIZE);
     cacheUpdatedAt = new Date().toISOString();
-    lastFileModified = mtime;
+    lastFileModified = latestMtime;
 
     console.log(`[뉴스-뷰어] 캐시 갱신: ${cache.length}건 (파일 ${files.length}개)`);
 }

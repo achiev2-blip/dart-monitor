@@ -96,18 +96,4 @@ setTimeout(async () => {
     }
 }, 15000);
 
-// ── 1시간 주기: 확인필요 재시도 ──
-setInterval(async () => {
-    const items = collector.getTodayItems();
-    if (items.length === 0) return;
-
-    console.log('[체인] 확인필요 재시도 시작');
-    try {
-        await classifier.retryPending(items, makeSaveFn());
-        saveToOutput(); // 재분류 완료 → output 갱신
-    } catch (e) {
-        console.error(`[체인] 재시도 오류: ${e.message}`);
-    }
-}, RETRY_INTERVAL);
-
 console.log('[체인] 파이프라인 가동 중 — Ctrl+C로 종료');
