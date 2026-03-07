@@ -72,9 +72,13 @@ setInterval(async () => {
 
         try {
             await classifier.classifyAll(items, makeSaveFn());
-            saveToOutput(); // 분류 완료 → output 갱신
         } catch (e) {
             console.error(`[체인] 분류 오류: ${e.message}`);
+        }
+        try {
+            saveToOutput();
+        } catch (e) {
+            console.error(`[체인] output 저장 오류: ${e.message}`);
         }
     }
 }, CHECK_INTERVAL);
@@ -91,9 +95,13 @@ setTimeout(async () => {
         lastItemCount = items.length; // 중복 트리거 방지
         try {
             await classifier.classifyAll(items, makeSaveFn());
-            saveToOutput(); // 분류 완료 → output 갱신
         } catch (e) {
             console.error(`[체인] 초기 분류 오류: ${e.message}`);
+        }
+        try {
+            saveToOutput();
+        } catch (e) {
+            console.error(`[체인] output 저장 오류: ${e.message}`);
         }
     }
 }, 15000);
@@ -106,10 +114,22 @@ setInterval(async () => {
     console.log('[체인] 확인필요 재시도 시작');
     try {
         await classifier.retryPending(items, makeSaveFn());
-        saveToOutput(); // 재분류 완료 → output 갱신
     } catch (e) {
         console.error(`[체인] 재시도 오류: ${e.message}`);
+    }
+    try {
+        saveToOutput();
+    } catch (e) {
+        console.error(`[체인] output 저장 오류: ${e.message}`);
     }
 }, RETRY_INTERVAL);
 
 console.log('[체인] 파이프라인 가동 중 — Ctrl+C로 종료');
+
+// ── 프로세스 보호 — 예상 못한 에러로 죽지 않게 ──
+process.on('uncaughtException', (err) => {
+    console.error(`[체인] ⚠️ uncaughtException: ${err.message}`);
+});
+process.on('unhandledRejection', (reason) => {
+    console.error(`[체인] ⚠️ unhandledRejection: ${reason}`);
+});
