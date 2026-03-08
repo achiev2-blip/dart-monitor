@@ -76,9 +76,9 @@ function makeNewsId(title, link) {
         return false;
     }).map(w => w.toLowerCase());
 
-    // 정렬 후 상위 5개
+    // 정렬 후 상위 4개
     words.sort();
-    const key = words.slice(0, 5).join('|');
+    const key = words.slice(0, 4).join('|');
 
     return crypto.createHash('md5').update(key).digest('hex').slice(0, 12);
 }
