@@ -1,6 +1,6 @@
 {
   "date": "20260305",
-  "total": 103,
+  "total": 100,
   "_classifiedAt": "2026-03-05T23:09:34.039Z",
   "items": [
     {
@@ -1570,49 +1570,6 @@
       "_retryCount": 3,
       "_cls": "기타",
       "_clsBy": "fallback"
-    },
-    {
-      "corp": "중립",
-      "title": " (선택의 갈림길)",
-      "broker": "8,330",
-      "opinion": "중립",
-      "targetPrice": 0,
-      "currentPrice": 0,
-      "date": "▶ 중립의견으로 커버리지 개시. 대출 성장성을 둘러싼 불확실성\n▶ 변수는 디지털자산업을 둘러싼 멀티플 리레이팅",
-      "pdfLink": "",
-      "source": "WiseReport",
-      "_crawledAt": "2026-03-05 21:01:49",
-      "_cls": "중립",
-      "_clsBy": "ai_quick"
-    },
-    {
-      "corp": "매수",
-      "title": "175,000 (택배 점유율 상승은 흔들림 없음)",
-      "broker": "114,200",
-      "opinion": "매수",
-      "targetPrice": 0,
-      "currentPrice": 0,
-      "date": "▶ 1주년 맞은 매일오네 효과는 기대 이상\n▶ 기술역량과 서비스 차별화가 택배 이익 성장을 뒷받침\n▶ 생활밀착형 필수 물류서비스는 전쟁에도 흔들림 없음",
-      "pdfLink": "",
-      "source": "WiseReport",
-      "_crawledAt": "2026-03-05 21:01:49",
-      "_cls": "매수",
-      "_clsBy": "ai_quick"
-    },
-    {
-      "corp": "매수",
-      "title": "150,000 (다시 한번 확인된 안정적 에너지 수급의 중요성)",
-      "broker": "134,700",
-      "opinion": "매수",
-      "targetPrice": 0,
-      "currentPrice": 0,
-      "date": "▶ 2026년 매출 37조원, 영업이익 3.2조원 기록할 것으로 예상\n▶ 중국 정부는 예상대로 정유 업체에 휘발유, 경유 수출 중단 지시\n▶ 15년 만의 셰일 에너지 생산량 감소로 미국 정유 수출도 감소할 전망",
-      "pdfLink": "",
-      "source": "WiseReport",
-      "_crawledAt": "2026-03-05 21:01:49",
-      "_retryCount": 1,
-      "_cls": "매수",
-      "_clsBy": "ai_quick"
     }
   ]
 }

@@ -174,51 +174,68 @@ async function fetchReportPage(urlObj) {
         // WiseReport 파싱 (테이블 구조)
         // ========================================
         if (source === 'WiseReport') {
-            // 헤더/푸터 키워드 블랙리스트 — 데이터가 아닌 행 필터링
+            // WiseReport 테이블 구조:
+            //   <th> 2개: 기업명, 기관명/작성자
+            //   <td> 5개: 투자의견, 목표주가, 전일수정주가, 제목, 요약
             const SKIP_KEYWORDS = [
                 '전일수정주가', '목표주가', '투자의견', '기관명', '기업명',
                 '작성자', '종목명', '제목', '리포트제목', 'FnGuide',
                 'Copyright', '전일대비', '괴리율',
             ];
 
-            $('table tr').each(function () {
-                const cells = $(this).find('td');
-                if (cells.length < 5) return;
+            // WiseReport는 날짜별 페이지 — 오늘 날짜 사용
+            const kstNow = new Date(Date.now() + 9 * 3600000);
+            const wrDate = kstNow.toISOString().slice(0, 10).replace(/-/g, '.');
 
-                const corp = cells.eq(0).text().trim();
-                let title = cells.eq(1).text().trim();
+            $('table tr').each(function () {
+                const ths = $(this).children('th');
+                const tds = $(this).children('td');
+                if (ths.length < 2 || tds.length < 5) return;
+
+                const corpRaw = ths.eq(0).text().trim();
+                const brokerRaw = ths.eq(1).text().trim();
+                const opinionText = tds.eq(0).text().trim();
+                const title = tds.eq(3).text().trim();
 
                 // 헤더/푸터 키워드 포함 시 스킵
-                const combined = corp + ' ' + title;
+                const combined = corpRaw + ' ' + title + ' ' + brokerRaw;
                 if (SKIP_KEYWORDS.some(kw => combined.includes(kw))) return;
 
-                const broker = cells.eq(2).text().trim();
-                const dateText = cells.eq(4).text().trim();
+                // 기업명에서 종목코드 분리: "SK하이닉스(000660)" → "SK하이닉스"
+                const corp = corpRaw.replace(/\([0-9]+\)$/, '').trim();
+                if (!corp || !title) return;
 
-                // 목표가 + 의견 추출
+                // 증권사명 정리: "DB증권 [서승연]" → "DB증권"
+                const broker = brokerRaw.replace(/\s*\[.*\]$/, '').trim() || 'WiseReport';
+
+                // 목표주가
                 let targetPrice = 0;
-                const opinionText = cells.eq(3).text().trim();
-                const tpMatch = opinionText.match(/([0-9,]+)\s*원?/);
+                const tpText = tds.eq(1).text().trim();
+                const tpMatch = tpText.match(/([0-9,]+)/);
                 if (tpMatch) targetPrice = parseInt(tpMatch[1].replace(/,/g, '')) || 0;
 
-                // 의견 텍스트(Buy, 매수, ▲상향 등)를 제목 뒤에 붙이기
-                const opinionPart = opinionText.replace(/[0-9,]+\s*원?/g, '').trim();
-                if (opinionPart) title = title + ` (${opinionPart})`;
+                // 전일수정주가
+                let currentPrice = 0;
+                const cpText = tds.eq(2).text().trim();
+                const cpMatch = cpText.match(/([0-9,]+)/);
+                if (cpMatch) currentPrice = parseInt(cpMatch[1].replace(/,/g, '')) || 0;
 
-                // PDF 링크
+                // 요약
+                const summary = tds.eq(4).text().trim().substring(0, 1000);
+
+                // PDF 링크 (제목 셀에서)
                 let pdfLink = '';
-                const link = cells.eq(1).find('a').attr('href') || '';
+                const link = tds.eq(3).find('a').attr('href') || '';
                 if (link) pdfLink = link.startsWith('http') ? link : 'https://comp.wisereport.co.kr' + link;
 
-                if (corp && title) {
-                    items.push({
-                        corp, title, broker: broker || 'WiseReport',
-                        opinion: '', targetPrice, currentPrice: 0,
-                        date: dateText, pdfLink,
-                        source: 'WiseReport',
-                        _crawledAt: new Date(Date.now() + 9 * 3600000).toISOString().replace('T', ' ').slice(0, 19),
-                    });
-                }
+                items.push({
+                    corp, title, broker,
+                    opinion: opinionText, targetPrice, currentPrice,
+                    date: wrDate, pdfLink,
+                    summary: summary || '',
+                    source: 'WiseReport',
+                    _crawledAt: new Date(Date.now() + 9 * 3600000).toISOString().replace('T', ' ').slice(0, 19),
+                });
             });
         }
 

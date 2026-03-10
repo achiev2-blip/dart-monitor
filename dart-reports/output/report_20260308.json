@@ -1,7 +1,7 @@
 {
   "date": "20260308",
-  "total": 86,
-  "_classifiedAt": "2026-03-07T16:38:17.464Z",
+  "total": 88,
+  "_classifiedAt": "2026-03-08T10:38:17.595Z",
   "items": [
     {
       "corp": "KMW(032500)",
@@ -1337,6 +1337,36 @@
       "_cls": "기타",
       "_clsBy": "fallback",
       "_clsAt": 1772896733454
+    },
+    {
+      "corp": "대한조선",
+      "title": "선대 구축과 재편의 수혜가 오버행을 압도",
+      "broker": "유안타증권(네이버)",
+      "opinion": "매수",
+      "targetPrice": 0,
+      "date": "2026.03.04",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/18/20260304_company_579156000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90791&page=2",
+      "nid": "90791",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_cls": "매수",
+      "_clsBy": "ai_quick"
+    },
+    {
+      "corp": "인텔리안테크",
+      "title": "뚜렷한 턴어라운드 국면 진입",
+      "broker": "한화투자증권(네이버)",
+      "opinion": "매수",
+      "targetPrice": 0,
+      "date": "2026.03.04",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/16/20260304_company_927065000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90812&page=2",
+      "nid": "90812",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_cls": "매수",
+      "_clsBy": "ai_quick"
     }
   ]
 }

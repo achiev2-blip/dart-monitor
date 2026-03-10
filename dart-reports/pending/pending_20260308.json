@@ -1,8 +1,8 @@
 {
   "date": "20260308",
-  "total": 14,
+  "total": 37,
   "sources": "WiseReport+미래에셋+하나증권+네이버",
-  "_collectedAt": "2026-03-07T15:08:45.801Z",
+  "_collectedAt": "2026-03-08T08:48:23.206Z",
   "items": [
     {
       "corp": "RF머트리얼즈(327260)",
@@ -13,6 +13,54 @@
       "targetPrice": 80000,
       "currentPrice": 0,
       "summary": "RF머트리얼즈(327260.KQ/매수): 텐베거 너머를 향하여\n\n□ RF머트리얼즈 투자의견 매수, 12개월 목표주가 80,000원으로 상향\nRF머트리얼즈 투자의견을 매수 유지한다. 추천 사유는 1) 데이터센터향 펌프 레이저 수주 증가하며 신규 시설 투자를 추진 중이고, 2) 미국과 유럽의 중국산 통신 부품 퇴출이 강화되고 있으며, 3) NXP가 통신 부문에서 철수함과 동시에 모회사 RFHIC가 에릭슨과 신규 공급을 논의하고 있어서 통신용 패키지 매출 성장도 전망되는데 비해, 4) PBR은 26년 FWD 기준 4~5배 수준에 그쳐서 글로벌 광모듈 업체들에 비해 현저히 낮은 수준이기 때문이다. 한편 목표주가를 80,000원으로 상향하는데, 최근 루멘텀 등 광모듈 피어그룹 주가가 급등한 점을 감안하여 타겟 PBR을 10배로 높였기 때문이다.\n\n□ AI서버향 광모듈 생산 시설 확충, 없어서 못 팔고 있습니다\nRF머트리얼즈가 올해 2월 약 100억원 규모 토지 매입을 공시했다. 루멘텀향 펌프 레이저 수주가 급증하여 생산 설비를 확충하는 것이다. 상장 당시 RF머트리얼즈의 통신용 패키지 생산시설 가동률이 30%대였다. 그런데 자회사 RF시스템즈를 제외한 RF머트리얼즈의 별도 재무상태표상 유형자산이 98억원(3Q 기준)으로 상장 당시 73억원과 큰 차이가 나지 않는다. 아마도 지금보다 생산량이 최소 2~3배 이상 늘어날 계획이거나, 현재 시설로는 목표 생산량 확보에 차질이 있기 때문인 것으로 예상된다. 업황을 감안하면 펌프 레이저 생산량은 급증할 수 밖에 없다. 아직 CPO가 도입 초기 단계여서 루멘텀향 실적 성장세는 제대로 반영되지도 않았다. 기존에 글로벌 광 모듈 시장을 장악했던 중국 업체들이 미국에서 퇴출 중이어서 RF머트리얼즈에 반사 수혜가 돌아올 점도 감안해야 한다. 당분간은 수요가 공급을 초과하는 상황이 지속되며 연일 어닝 서프라이즈를 기록할 전망이다. 향후 신규 시설을 통한 생산량 증가가 확인되면 실적 추정치를 조정하고 추가적으로 목표주가를 상향할 방침임을 미",
+      "date": "2026.03.03",
+      "pdfLink": "",
+      "source": "하나증권",
+      "category": "기업분석",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_retryCount": 2
+    },
+    {
+      "corp": "우리넷(115440)",
+      "title": "피지컬 AI 덕분에 실적과 주가 모두 향상될 겁니다",
+      "broker": "하나증권(직접)",
+      "analyst": "김홍식",
+      "opinion": "",
+      "targetPrice": 10000,
+      "currentPrice": 0,
+      "summary": "우리넷(115440.KQ/매수): 피지컬 AI 덕분에 실적과 주가 모두 향상될 겁니다\n\n□ 우리넷 투자의견 매수, 목표주가 10,000원 유지\n우리넷 투자의견 매수, 12개월 목표주가 10,000원을 유지한다. 추천 사유는 1) 주파수 재할당 요건으로 5G SA 투자 및 실내 기지국 구축이 연계되어 있어서 관련 전송망 장비 수요가 증가할 것이고, 2) 향후 피지컬 AI 활성화에 따른 트래픽 급증을 감당하기 위해 대규모 전송망 장비가 신규 구축됨과 동시에 교체 수요도 영구적으로 커질 것이며, 3) 현재 주가가 PBR 1배 이하에서 횡보하고 있지만 업황이 개선되는데 언제까지고 주가가 눌려있을 순 없다는 판단이며, 4) 과거 기지국과 인빌딩 종목 주가 상승 후 유선/전송장비 주가도 순차적으로 올랐던 점을 감안했기 때문이다.\n\n□ 트래픽이 급증하면 전송장비 수요도 증가한다\n과기부가 주파수 재할당 요건을 공개했다. 5G SA 전환 및 실내 기지국 구축에 연계하여 재할당 대가를 조정하는 방식으로 우리넷에 호재로 작용할 전망이다. 우선 5G SA로 전환시 코어 교체 수요가 발생하면서 이에 맞춰 전송장비 구축 수요가 발생한다. 또한 2만국에 달하는 실내 기지국도 구축해야 됨에 따라 기지국 프론트홀용 전송장비 수요도 추가된다. 한편, 과기부가 밝혔듯 향후 피지컬 AI가 활성화되면 백본망 트래픽이 수십배 증가할 것으로 예상된다. 급증하는 트래픽에 맞춰 대규모 신규 전송장비가 구축될 것이고, 장기적으로는 과거보다 성장한 교체 수요가 영구적으로 확보 가능하다. 우리넷은 국내 전송장비 점유율 1위인 만큼, 향후 전송 장비 증가 수요는 우리넷에 집중될 것으로 기대한다.\n\n□ 광과 RF 주가가 오르고 나면 전송장비 대표업체 우리넷 주가도 순차적으로 오를 것\n현재 우리넷 PBR은 0.7배 수준이다. 주파수 재할당, 피지컬 AI 같은 성장 동력에 힘입어 우리넷 장기 실적 전망이 밝은 점을 감안하면 언제까지고 우리넷 주가가 눌려있을 순 없단 의견이다. 특히, 과거 주파수 경매가 다가오면 통신",
+      "date": "2026.03.03",
+      "pdfLink": "",
+      "source": "하나증권",
+      "category": "기업분석",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_retryCount": 2
+    },
+    {
+      "corp": "오이솔루션(138080)",
+      "title": "2019년 이상의 주가 상승을 경험할 겁니다",
+      "broker": "하나증권(직접)",
+      "analyst": "김홍식",
+      "opinion": "",
+      "targetPrice": 30000,
+      "currentPrice": 0,
+      "summary": "오이솔루션(138080.KQ/매수): 2019년 이상의 주가 상승을 경험할 겁니다\n\n□ 오이솔루션 투자의견 매수, 12개월 목표주가 30,000원 유지\n오이솔루션 투자의견 매수, 목표주가 30,000원을 유지한다. 매수 추천 사유는 1) 5G SA로 전환하며 5G 주파수에 맞는 기지국을 전국에 대량 설치함에 따라 무선용 광 트랜시버 매출이 크게 증가할 전망이며, 2) 광 트랜시버 핵심 부품인 레이저 다이오드(LD) 내재화에 성공하여 이익률과 원가 경쟁력 개선 중이고, 3) 5G 장비 수요가 급증한 2019년에 LD 칩 숏티지가 발생하여 트랜시버를 없어서 못 팔았는데 이번에는 자체적으로 칩 조달이 가능한 오이솔루션이 장비 수요를 독점할 가능성도 높으며, 4) 현재 PBR 2~3배 수준으로 과거 고점 5배 대비 현저히 낮은 것은 물론이고 LD칩 내재화까지 감안하면 더욱 높은 PBR도 적용 가능하고, 5) 통신장비 주도주 주가 양상을 볼 때 광과 RF에 걸쳐 있는 오이솔루션을 매수하기에 적절한 시점이기 때문이다.\n\n□ 5G SA 신규 주파수 경매 시작하면 역대 최고 매출 경신할 것\n국내에서도 자율주행차, 휴머노이드와 같은 피지컬 AI 구현을 위해 5G SA로 망 전환을 추진 중이다. 그런데 단순히 코어만 교체하는 것이 아니라 전방의 RAN도 대규모로 교체할 필요가 있는데, 현재 기지국은 5G단독용이 아닌 LTE 겸용이며, 5G 주파수 커버리지를 감안하면 LTE보다 훨씬 많은 수가 구축돼야 함에도 불구하고 오히려 LTE 기지국의 절반에도 못 미치는 수준만 설치됐기 때문이다. 따라서 5G SA 기지국을 전국에 대량 설치해야 하고 오이솔루션의 무선향 광트랜시버 매출이 크게 증가할 전망이다. 한편 오이솔루션은 광 트랜시버 핵심 부품인 레이저 다이오드(LD칩) 내재화에 성공했는데, LD칩은 전체 원자재 매입액의 40%를 차지하는 고가 부품이어서 원가 경쟁력에 큰 영향을 미친다. 게다가 5G 장비 수요가 급증한 2019년에는 LD칩이 부족하여 장비 수요가 공급을 초과했었다. ",
+      "date": "2026.03.03",
+      "pdfLink": "",
+      "source": "하나증권",
+      "category": "기업분석",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_retryCount": 2
+    },
+    {
+      "corp": "RFHIC(218410)",
+      "title": "5G SA로의 진화 시 새로운 주가 역사 쓸 것",
+      "broker": "하나증권(직접)",
+      "analyst": "김홍식",
+      "opinion": "",
+      "targetPrice": 0,
+      "currentPrice": 0,
+      "summary": "RFHIC(218410.KQ/매수): 5G SA로의 진화 시 새로운 주가 역사 쓸 것\n\n□ 투자의견 매수/12개월 목표가 8만원 유지, 장/단기 매수 전략 유효\nRFHIC 12개월 목표주가를 80,000원으로 유지한다. 목표주가 8만원은 2026년 실적 기준 PER 47배, PBR 5배에 해당하는데 역사적 Multiple은 물론이고 향후 수요/공급 변화 가능성을 감안하면 보수적인 목표가 산정이라는 판단을 지속한다. RFHIC에 대한 투자의견을 매수로 유지하는데 추천 사유는 다음과 같다. 1) 피지컬 AI 활성화 목적으로 글로벌 주요 국가간 5G SA 도입 경쟁이 심화되는 양상이라 미국을 중심으로 수요 증가가 기대되고, 2) NXP의 통신 사업 부문 철수와 더불어 미국/EU의 중국 장비/부품 규제 강화로 공급 사이드에서 RFHIC에 우호적인 환경 조성이 예상되며, 3) 2026년도에도 에릭슨 신규 매출 가세로 괄목할만한 매출 성장의 기회를 맞이할 것이고, 4) 연결 자회사인 RF머트리얼즈의 가파른 이익 성장이 올해도 지속될 전망이며, 5) 높은 주가 상승에도 불구하고 역사적 Multiple 수준을 감안하면 여전히 저평가되어있기 때문이다. 아직은 주파수 경매, 에릭슨 공급 등 대형 호재가 노출된 상황이 아니므로 장기는 물론 단기 투자매력도 역시 높다는 판단이다.\n\n□ 2026년 이후 주요 국가 기지국 수요 폭증할 전망, 아직 보여줄게 너무 많다\n최근 데이터 센터 증설에 따른 전력 장비 확충에 이어 이젠 광투자 증대 분위기가 확산 중이다. 그런데 이러한 수요는 결국 무선 투자 급증으로 이어질 전망이다. 트래픽 전이 속도로 보면 그렇다. 이젠 단말을 직접 움직이는 유/무선 가입자 장비 투자 붐이 다시 불 가능성이 높다. 각국의 규제 기관은 주파수 재할당 및 신규 공급을 통해 5G 사용 주파수 대역 확장에 나서고 있으며 사업자들은 과거와 달리 5G SA 도입에 적극적이다. 성장 정체를 겪고 있기 때문이다. 2025년 RFHIC는 예상외 호실적을 기록하였다. 방산이 효자",
       "date": "2026.03.03",
       "pdfLink": "",
       "source": "하나증권",
@@ -37,6 +85,36 @@
       "_retryCount": 1
     },
     {
+      "corp": "한샘",
+      "title": "3차 상법 개정 수혜 가능할 듯",
+      "broker": "iM증권(네이버)",
+      "opinion": "",
+      "targetPrice": 67000,
+      "date": "2026.03.03",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/61/20260303_company_287888000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90759&page=3",
+      "nid": "90759",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "summary": "3차 상법 개정으로 원칙적 소각 시대를 맞이하여 동사 자사주 29.5% 상당부분 소각 불가피 ⇒ 주주환원 기반 마련하면서 동사 밸류에이션 상승의 원동력으로 작용할 듯자사주 취득은 기업의 이익을 주주에게 현금으로 돌려준다는 점에서 배당과 더불어 대표적인 주주환원 수단으로 인식되지만 우리나라의 경우 회사가 매입한 자사주가 대주주의 지배력 강화 수단으로 오용되는 등 문제점이 있다.무엇보다 자사주는 의결권이 제한되기 때문에 상장회사의 경우 자사주 매입을 통해 의결권을 가진 주식수를 줄임으로써 지배주주 보유 지분의 의결권을 상대적으로 강화시킬 수 있다. 특히 자사주 보유 비중이 일정수준 이상의 경우 지배주주 보유 지분 의결권의 강화효과가 상대적으로 더 크게 나타날 수 있다이러한 환경하에서 지난해 11월 3차 상법 개정안으로 자사주 원칙적 소각을 명시하고 있는 법안이 발의 되었다. 개정안에 따르면 기업은 자사주를 취득한 날로부터 1년 이내에 의무적으로 소각해야 한다. 또한 기존에 이미 보유하고 있는 자사주에 대해서도 개정법 시행 이후 새로 취득한 자사주와 동일한 소각 의무가 부과된다. 다만 기존 보유 자사주 소각의무 발생 시점과 관련하여 6개월의 추가 유예기간이 부여되며, 개정법 시행일 + 6개월 + 1년이라는 시간표 안에서 이를 소각하거나 또는 그에 대한 보유·처분계획을 작성하여 주주총회의 승인을 받아야 한다.예외적으로 임직원 보상, 우리사주제도 실시, 주식의 포괄적 교환·포괄적 이전·합병에 따른 활용, 정관에서 정한 경영상 목적(재무구조 개선, 신기술 도입 등) 달성을 위한 경우에 한하여 제3자 처분을 주주총회의 승인을 받은 후, 그 승인된 계획 하에 자사주를 처분해야 한다.이러한 자사주 소각 의무 등을 핵심으로 하는 3차 상법 개정안이 지난 2월 25일 국회 본회의를 통과하였다.한편, 2025년 9월말 기준으로 동사의 주주구성을 살펴보면 IMM PE 외 특수관계인 36.0%, TETON CAPITAL PARTNERS, L.P 9.2%, 국민연금 5.4%, 자사주 2",
+      "_retryCount": 1
+    },
+    {
+      "corp": "삼성전기",
+      "title": "새로운 전기를 맞이하다",
+      "broker": "iM증권(네이버)",
+      "opinion": "",
+      "targetPrice": 600000,
+      "date": "2026.03.03",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/61/20260303_company_271800000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90760&page=3",
+      "nid": "90760",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "summary": "① MLCC 판가 인상 시나리오 ② PKG 리레이팅높은 ROE x 이익의 지속성 = 할증의 근거투자의견 Buy를 유지하고, 목표주가를 기존 35만원에서 60만원으로 대폭 상향한다. 12MF BPS에 P/B 배수 4.1배를 목표로 한다[표1] 이는 ‘18년 MLCC 가격 인상 사이클 당시 고점 P/B인 2.7배에 +50%를 할증한 것이다. 목표주가 60만원의 ‘27년 기준 Implied P/E는 26배다(vs. 10년 평균 12MF P/E 17배, 평균으로부터 +1표준편차 23배, +2표준편차 29배)한편, ‘26년, ‘27년 영업이익을 각각 +2%, +29% 상향한 1.38조원, 2.17조원으로 전망한다. 이는 동 기간 영업이익 컨센서스 대비 각각 +5%, +33% 높은 것이다. ‘27년 ROE는 15.4%로 ‘18년, ‘21년 사이클의 고점을 상회할 전망이며, 지속성도 강한 것으로 판단한다. 이는 ① 수요 동인이 과거와 달리 B2B 데이터센터라는 점, ② AI서버용 MLCC에 대한 대응력 보유한 업체가 동사를 포함해 소수라는 점, ③ 산업 내 증설이 절제 되어있다는 점에 근거한다. [03072045]_009150.pdf",
+      "_retryCount": 1
+    },
+    {
       "corp": "삼양컴텍",
       "title": "K2 수출 다변화와 차세대 무기체계 확장 기대",
       "broker": "한국IR협의회(네이버)",
@@ -52,6 +130,21 @@
       "_retryCount": 1
     },
     {
+      "corp": "SK",
+      "title": "강한 자신감",
+      "broker": "유안타증권(네이버)",
+      "opinion": "",
+      "targetPrice": 550000,
+      "date": "2026.03.03",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/18/20260303_company_957063000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90772&page=3",
+      "nid": "90772",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "summary": "투자의견 BUY, 목표주가 55만원 상향동사에 대해 투자의견 BUY를 유지하고, 목표주가는 550,000원으로 상향한다. 목표주가는사업가치 5.1조원, 상장자회사 가치 31.6조원(40% 할인), 비상장 자회사 가치 11.1조원에 순차입금 8.3조원을 차감해 산출했다. 동사의 주가는 연초대비 +56.3% 상승했지만 자회사 지분가치 상승으로 NAV 할인율은 여전히 50%를 상회하고 있다. 그룹 리밸런싱 효과로 재무구조 개선세가 뚜렷하게 나타나고 있으며, 지분매각을 통한 주주환원 재원도 확대되고 있다. 주가 상승 여력이 충분하다고 판단한다. 20260303063810253_0_ko.pdf",
+      "_retryCount": 1
+    },
+    {
       "corp": "덴티움",
       "title": "보였다 반등의 실...!",
       "broker": "키움증권(네이버)",
@@ -61,6 +154,20 @@
       "pdfLink": "https://stock.pstatic.net/stock-research/company/39/20260304_company_270835000.pdf",
       "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90782&page=3",
       "nid": "90782",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_retryCount": 1
+    },
+    {
+      "corp": "이수페타시스",
+      "title": "증설로 보는 성장 스토리",
+      "broker": "신한투자증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.04",
+      "pdfLink": "https://finance.naver.com/research/company_read.naver?nid=90784&page=3",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90784&page=3",
+      "nid": "90784",
       "source": "네이버",
       "_crawledAt": "2026-03-08 00:08:21",
       "_retryCount": 1
@@ -80,20 +187,6 @@
       "_retryCount": 1
     },
     {
-      "corp": "대한조선",
-      "title": "선대 구축과 재편의 수혜가 오버행을 압도",
-      "broker": "유안타증권(네이버)",
-      "opinion": "",
-      "targetPrice": 0,
-      "date": "2026.03.04",
-      "pdfLink": "https://stock.pstatic.net/stock-research/company/18/20260304_company_579156000.pdf",
-      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90791&page=2",
-      "nid": "90791",
-      "source": "네이버",
-      "_crawledAt": "2026-03-08 00:08:21",
-      "_retryCount": 1
-    },
-    {
       "corp": "LS ELECTRIC",
       "title": "밸류에이션 상단을 허물다",
       "broker": "유안타증권(네이버)",
@@ -108,18 +201,129 @@
       "_retryCount": 1
     },
     {
-      "corp": "인텔리안테크",
-      "title": "뚜렷한 턴어라운드 국면 진입",
-      "broker": "한화투자증권(네이버)",
+      "corp": "엠플러스",
+      "title": "군계일학",
+      "broker": "SK증권(네이버)",
       "opinion": "",
       "targetPrice": 0,
-      "date": "2026.03.04",
-      "pdfLink": "https://stock.pstatic.net/stock-research/company/16/20260304_company_927065000.pdf",
-      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90812&page=2",
-      "nid": "90812",
+      "date": "2026.03.05",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/64/20260305_company_539743000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90816&page=2",
+      "nid": "90816",
       "source": "네이버",
       "_crawledAt": "2026-03-08 00:08:21",
       "_retryCount": 1
+    },
+    {
+      "corp": "AJ네트웍스",
+      "title": "기대되는 2026년",
+      "broker": "신한투자증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.05",
+      "pdfLink": "https://finance.naver.com/research/company_read.naver?nid=90820&page=1",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90820&page=1",
+      "nid": "90820",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_retryCount": 1
+    },
+    {
+      "corp": "신한알파리츠",
+      "title": "그레이츠 판교, 임대료 상승도 GREAT!",
+      "broker": "대신증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.05",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/15/20260305_company_825362000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90823&page=1",
+      "nid": "90823",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_retryCount": 1
+    },
+    {
+      "corp": "슈프리마",
+      "title": "[NDR 후기] 2026년 성장 요인",
+      "broker": "유안타증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.05",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/18/20260305_company_668097000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90824&page=1",
+      "nid": "90824",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_retryCount": 1
+    },
+    {
+      "corp": "삼성전기",
+      "title": "기판, 살판 났다",
+      "broker": "미래에셋증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.05",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/56/20260305_company_188440000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90827&page=1",
+      "nid": "90827",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_retryCount": 1
+    },
+    {
+      "corp": "센코",
+      "title": "[AI] 전기화학식 가스 센서 기반 안전 솔루션..",
+      "broker": "한국IR협의회(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/74/20260306_company_631890000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90829&page=1",
+      "nid": "90829",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_retryCount": 1
+    },
+    {
+      "corp": "한국전력",
+      "title": "기대와 우려 사이",
+      "broker": "미래에셋증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/56/20260306_company_5930000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90830&page=1",
+      "nid": "90830",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_retryCount": 1
+    },
+    {
+      "corp": "젝시믹스",
+      "title": "다시 시작되는 성장 국면",
+      "broker": "한국IR협의회(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/74/20260306_company_127086000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90831&page=1",
+      "nid": "90831",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21",
+      "_retryCount": 1
+    },
+    {
+      "corp": "가온그룹",
+      "title": "턴어라운드 및 밸류업의 시작",
+      "broker": "한국IR협의회(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/74/20260306_company_825072000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90832&page=1",
+      "nid": "90832",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21"
     },
     {
       "corp": "한화비전",
@@ -132,8 +336,7 @@
       "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90833&page=1",
       "nid": "90833",
       "source": "네이버",
-      "_crawledAt": "2026-03-08 00:08:21",
-      "_retryCount": 1
+      "_crawledAt": "2026-03-08 00:08:21"
     },
     {
       "corp": "나노",
@@ -146,8 +349,33 @@
       "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90834&page=1",
       "nid": "90834",
       "source": "네이버",
-      "_crawledAt": "2026-03-08 00:08:21",
-      "_retryCount": 1
+      "_crawledAt": "2026-03-08 00:08:21"
+    },
+    {
+      "corp": "티에스이",
+      "title": "소부장 필수 선택지",
+      "broker": "신한투자증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://finance.naver.com/research/company_read.naver?nid=90835&page=1",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90835&page=1",
+      "nid": "90835",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21"
+    },
+    {
+      "corp": "원익QnC",
+      "title": "변함없는 Top Pick",
+      "broker": "신한투자증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://finance.naver.com/research/company_read.naver?nid=90836&page=1",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90836&page=1",
+      "nid": "90836",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21"
     },
     {
       "corp": "넷마블",
@@ -160,8 +388,7 @@
       "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90837&page=1",
       "nid": "90837",
       "source": "네이버",
-      "_crawledAt": "2026-03-08 00:08:21",
-      "_retryCount": 1
+      "_crawledAt": "2026-03-08 00:08:21"
     },
     {
       "corp": "세아홀딩스",
@@ -174,8 +401,33 @@
       "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90838&page=1",
       "nid": "90838",
       "source": "네이버",
-      "_crawledAt": "2026-03-08 00:08:21",
-      "_retryCount": 1
+      "_crawledAt": "2026-03-08 00:08:21"
+    },
+    {
+      "corp": "테크윙",
+      "title": "달라진 분위기",
+      "broker": "신한투자증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://finance.naver.com/research/company_read.naver?nid=90839&page=1",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90839&page=1",
+      "nid": "90839",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21"
+    },
+    {
+      "corp": "성광벤드",
+      "title": "다소 아쉬운 2025년, 2026년을 바라보자",
+      "broker": "신한투자증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://finance.naver.com/research/company_read.naver?nid=90840&page=1",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90840&page=1",
+      "nid": "90840",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21"
     },
     {
       "corp": "에이피알",
@@ -188,8 +440,72 @@
       "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90841&page=1",
       "nid": "90841",
       "source": "네이버",
-      "_crawledAt": "2026-03-08 00:08:21",
-      "_retryCount": 1
+      "_crawledAt": "2026-03-08 00:08:21"
+    },
+    {
+      "corp": "아이티센글로벌",
+      "title": "金의환향: 21세기 골드러시",
+      "broker": "미래에셋증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/56/20260306_company_803761000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90842&page=1",
+      "nid": "90842",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21"
+    },
+    {
+      "corp": "아바코",
+      "title": "[다시봐] 신규성장동력을 주목!",
+      "broker": "유안타증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/18/20260306_company_177766000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90843&page=1",
+      "nid": "90843",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21"
+    },
+    {
+      "corp": "원익QnC",
+      "title": "1Q26 예상 영업이익 247억원",
+      "broker": "유안타증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/18/20260306_company_109571000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90844&page=1",
+      "nid": "90844",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21"
+    },
+    {
+      "corp": "피에스케이",
+      "title": "장비 Top-pick 유지",
+      "broker": "DS투자증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/66/20260306_company_55945000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90845&page=1",
+      "nid": "90845",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21"
+    },
+    {
+      "corp": "현대제철",
+      "title": "테마는 거들 뿐, 본질은 업황 턴어라운드",
+      "broker": "한화투자증권(네이버)",
+      "opinion": "",
+      "targetPrice": 0,
+      "date": "2026.03.06",
+      "pdfLink": "https://stock.pstatic.net/stock-research/company/16/20260306_company_167921000.pdf",
+      "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90846&page=1",
+      "nid": "90846",
+      "source": "네이버",
+      "_crawledAt": "2026-03-08 00:08:21"
     },
     {
       "corp": "더블유게임즈",
@@ -202,9 +518,8 @@
       "detailLink": "https://finance.naver.com/research/company_read.naver?nid=90847&page=1",
       "nid": "90847",
       "source": "네이버",
-      "_crawledAt": "2026-03-08 00:08:21",
-      "_retryCount": 1
+      "_crawledAt": "2026-03-08 00:08:21"
     }
   ],
-  "_classifiedAt": "2026-03-07T15:19:12.968Z"
+  "_classifiedAt": "2026-03-10T04:44:41.630Z"
 }
